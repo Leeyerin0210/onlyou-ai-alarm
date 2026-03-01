@@ -19,6 +19,12 @@ abstract class RepositoryModule {
     abstract fun bindAlarmRepository(
         alarmRepositoryImpl: AlarmRepositoryImpl
     ): AlarmRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScheduleRepository(
+        scheduleRepositoryImpl: com.nemuria.miya.data.repository.ScheduleRepositoryImpl
+    ): com.nemuria.miya.domain.repository.ScheduleRepository
 }
 
 @Module

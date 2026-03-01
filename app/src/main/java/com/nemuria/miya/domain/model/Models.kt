@@ -21,6 +21,16 @@ data class DDayInfo(
     val type: DDayType
 )
 
+data class StreamSchedule(
+    val id: Int = 0,
+    val date: java.time.LocalDate,
+    val startTime: java.time.LocalTime,
+    val title: String,
+    val description: String? = null,
+    val category: String? = null,
+    val isAlarmEnabled: Boolean = false
+)
+
 enum class DDayType {
     MEETING_DAY, BIRTHDAY, DEBUT_ANNIVERSARY, CUSTOM
 }

@@ -12,6 +12,9 @@ interface AlarmRepository {
 }
 
 interface ScheduleRepository {
-    // 실제 방송 스케줄 데이터를 가져오는 인터페이스
-    // 구체적인 데이터 타입은 추후 확정 가능
+    fun getAllSchedules(): Flow<List<com.nemuria.miya.domain.model.StreamSchedule>>
+    suspend fun refreshSchedules()
+    suspend fun insertSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
+    suspend fun updateSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
+    suspend fun deleteSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
 }

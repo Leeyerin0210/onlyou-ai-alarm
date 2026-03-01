@@ -25,6 +25,17 @@ data class DDayEntity(
     val type: String
 )
 
+@Entity(tableName = "stream_schedules")
+data class StreamScheduleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val date: java.time.LocalDate,
+    val startTime: java.time.LocalTime,
+    val title: String,
+    val description: String?,
+    val category: String?,
+    val isAlarmEnabled: Boolean
+)
+
 class MiyaTypeConverters {
     @TypeConverter
     fun fromDayOfWeekSet(days: Set<DayOfWeek>): String = days.joinToString(",") { it.name }
@@ -34,8 +45,20 @@ class MiyaTypeConverters {
         if (data.isEmpty()) emptySet() else data.split(",").map { DayOfWeek.valueOf(it) }.toSet()
 
     @TypeConverter
+    fun fromDayOfWeek(day: DayOfWeek): String = day.name
+
+    @TypeConverter
+    fun toDayOfWeek(data: String): DayOfWeek = DayOfWeek.valueOf(data)
+
+    @TypeConverter
     fun fromLocalDate(date: LocalDate): String = date.toString()
 
     @TypeConverter
     fun toLocalDate(data: String): LocalDate = LocalDate.parse(data)
+
+    @TypeConverter
+    fun fromLocalTime(time: java.time.LocalTime): String = time.toString()
+
+    @TypeConverter
+    fun toLocalTime(data: String): java.time.LocalTime = java.time.LocalTime.parse(data)
 }

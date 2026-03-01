@@ -1,6 +1,7 @@
 package com.nemuria.miya.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,7 +23,8 @@ import com.nemuria.miya.ui.theme.VintageWhite
 
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    onNavigateToSchedule: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -87,6 +89,28 @@ fun HomeScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = GoldDark
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 방송 스케줄 바로가기 버튼 추가
+        GothicCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable { onNavigateToSchedule() }
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(text = "이번 주 방송 스케줄", style = MaterialTheme.typography.labelMedium, color = GoldDark)
+                    Text(text = "편성표 확인하기", style = MaterialTheme.typography.titleMedium, color = GoldMedium)
+                }
+                Text(text = "▶", color = GoldMedium)
             }
         }
 

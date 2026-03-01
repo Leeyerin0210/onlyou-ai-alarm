@@ -21,8 +21,24 @@ interface AlarmDao {
     suspend fun deleteAlarm(alarm: AlarmEntity)
 }
 
-@Database(entities = [AlarmEntity::class, DDayEntity::class], version = 1, exportSchema = false)
+@Dao
+interface StreamScheduleDao {
+    @Query("SELECT * FROM stream_schedules")
+    fun getAllSchedules(): Flow<List<StreamScheduleEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSchedule(schedule: StreamScheduleEntity)
+
+    @Update
+    suspend fun updateSchedule(schedule: StreamScheduleEntity)
+
+    @Delete
+    suspend fun deleteSchedule(schedule: StreamScheduleEntity)
+}
+
+@Database(entities = [AlarmEntity::class, DDayEntity::class, StreamScheduleEntity::class], version = 2, exportSchema = false)
 @TypeConverters(MiyaTypeConverters::class)
 abstract class MiyaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+    abstract fun streamScheduleDao(): StreamScheduleDao
 }
