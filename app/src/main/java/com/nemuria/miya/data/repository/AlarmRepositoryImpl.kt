@@ -1,0 +1,48 @@
+package com.nemuria.miya.data.repository
+
+import com.nemuria.miya.data.local.AlarmDao
+import com.nemuria.miya.data.local.AlarmEntity
+import com.nemuria.miya.domain.model.MiyaAlarm
+import com.nemuria.miya.domain.repository.AlarmRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+class AlarmRepositoryImpl @Inject constructor(
+    private val alarmDao: AlarmDao
+) : AlarmRepository {
+    
+    override fun getAllAlarms(): Flow<List<MiyaAlarm>> {
+        return alarmDao.getAllAlarms().map { entities ->
+            entities.map { it.toDomainModel() }
+        }
+    }
+
+    override suspend fun getAlarmById(id: Int): MiyaAlarm? {
+        return alarmDao.getAlarmById(id)?.toDomainModel()
+    }
+
+    override suspend fun insertAlarm(alarm: MiyaAlarm) {
+        alarmDao.insertAlarm(alarm.toEntity())
+    }
+
+    override suspend fun updateAlarm(alarm: MiyaAlarm) {
+        alarmDao.updateAlarm(alarm.toEntity())
+    }
+
+    override suspend fun deleteAlarm(alarm: MiyaAlarm) {
+        alarmDao.deleteAlarm(alarm.toEntity())
+    }
+
+    private fun AlarmEntity.toDomainModel() = MiyaAlarm(
+        id = id, hour = hour, minute = minute, isEnabled = isEnabled,
+        repeatDays = repeatDays, voiceId = voiceId, illustrationId = illustrationId,
+        label = label, isOneTime = isOneTime
+    )
+
+    private fun MiyaAlarm.toEntity() = AlarmEntity(
+        id = id, hour = hour, minute = minute, isEnabled = isEnabled,
+        repeatDays = repeatDays, voiceId = voiceId, illustrationId = illustrationId,
+        label = label, isOneTime = isOneTime
+    )
+}
