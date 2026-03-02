@@ -3,102 +3,133 @@ package com.nemuria.miya.ui.schedule
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nemuria.miya.domain.model.StreamSchedule
 import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicBlack
 import com.nemuria.miya.ui.theme.VintageWhite
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.*
+import java.util.Locale
 
 @Composable
-fun ScheduleScreen(
-    viewModel: ScheduleViewModel = hiltViewModel()
-) {
+fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
     val schedules by viewModel.schedules.collectAsState()
+
+    ScheduleContent(
+        schedules = schedules,
+        onAlarmToggle = { schedule ->
+            viewModel.toggleAlarm(schedule)
+        },
+    )
+}
+
+@Composable
+fun ScheduleContent(
+    schedules: List<StreamSchedule>,
+    onAlarmToggle: (StreamSchedule) -> Unit,
+) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    
+
     // 오늘부터 14일간의 날짜 생성
-    val dateList = remember {
-        (0..13).map { LocalDate.now().plusDays(it.toLong()) }
-    }
+    val dateList =
+        remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(GothicBlack)
-            .padding(16.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(White)
+                .padding(16.dp),
     ) {
         Text(
             text = "방송 스케줄",
             style = MaterialTheme.typography.headlineLarge,
             color = GoldMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 16.dp),
         )
 
         // Date Selector (Horizontal Scroll)
         LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(dateList) { date ->
                 val isSelected = date == selectedDate
                 val isToday = date == LocalDate.now()
-                
+
                 Column(
-                    modifier = Modifier
-                        .width(55.dp)
-                        .height(70.dp)
-                        .border(
-                            width = 1.dp,
-                            color = if (isSelected) GoldMedium else Color.Gray.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .background(
-                            if (isSelected) GoldMedium.copy(alpha = 0.15f) else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable { selectedDate = date },
+                    modifier =
+                        Modifier
+                            .width(55.dp)
+                            .height(70.dp)
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) GoldMedium else Color.Gray.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(8.dp),
+                            ).background(
+                                color = if (isSelected) GoldMedium.copy(alpha = 0.15f) else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp),
+                            ).clickable { selectedDate = date },
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
                         color = if (isSelected) GoldMedium else Color.Gray,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
                     )
                     Text(
                         text = date.dayOfMonth.toString(),
                         color = if (isSelected) GoldMedium else VintageWhite,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                     if (isToday) {
                         Text(
                             text = "오늘",
                             color = GoldMedium,
                             fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -109,35 +140,38 @@ fun ScheduleScreen(
             text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
             style = MaterialTheme.typography.titleMedium,
             color = GoldMedium.copy(alpha = 0.8f),
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = 12.dp),
         )
 
         // Schedule List for Selected Date
-        val filteredSchedules = schedules.filter { it.date == selectedDate }
-            .sortedBy { it.startTime }
+        val filteredSchedules =
+            schedules
+                .filter { it.date == selectedDate }
+                .sortedBy { it.startTime }
 
         if (filteredSchedules.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "이날은 방송 예정이 없습니다.",
                     color = Color.Gray,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(filteredSchedules) { schedule ->
                     ScheduleItem(
                         schedule = schedule,
-                        onAlarmToggle = { viewModel.toggleAlarm(schedule) }
+                        onAlarmToggle = { onAlarmToggle(schedule) },
                     )
                 }
             }
@@ -145,17 +179,19 @@ fun ScheduleScreen(
     }
 }
 
+// 개별 스케줄 아이템
 @Composable
 fun ScheduleItem(
     schedule: StreamSchedule,
-    onAlarmToggle: () -> Unit
+    onAlarmToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     GothicCard(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,14 +199,14 @@ fun ScheduleItem(
                         text = schedule.startTime.toString(),
                         style = MaterialTheme.typography.titleMedium,
                         color = GoldMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     schedule.category?.let {
                         Text(
                             text = "[$it]",
                             style = MaterialTheme.typography.bodySmall,
-                            color = VintageWhite.copy(alpha = 0.7f)
+                            color = VintageWhite.copy(alpha = 0.7f),
                         )
                     }
                 }
@@ -178,14 +214,14 @@ fun ScheduleItem(
                 Text(
                     text = schedule.title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = VintageWhite
+                    color = VintageWhite,
                 )
                 schedule.description?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = VintageWhite.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
@@ -194,9 +230,41 @@ fun ScheduleItem(
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "알림 설정",
-                    tint = if (schedule.isAlarmEnabled) GoldMedium else Color.Gray.copy(alpha = 0.5f)
+                    tint = if (schedule.isAlarmEnabled) GoldMedium else Color.Gray.copy(alpha = 0.5f),
                 )
             }
         }
+    }
+}
+
+// 3. 뷰모델 독립적인 프리뷰 작성
+@Preview(showBackground = true)
+@Composable
+private fun ScheduleContentPreview() {
+    val mockSchedules =
+        listOf(
+            StreamSchedule(
+                date = LocalDate.now(),
+                startTime = LocalTime.of(19, 0),
+                category = "게임",
+                title = "미야의 종합 게임 방송",
+                description = "오늘은 새로운 공포 게임을 해볼 거예요!",
+                isAlarmEnabled = true,
+            ),
+            StreamSchedule(
+                date = LocalDate.now(),
+                startTime = LocalTime.of(22, 0),
+                category = "저챗",
+                title = "잔잔한 라디오",
+                description = "자기 전 소통 방송",
+                isAlarmEnabled = false,
+            ),
+        )
+
+    MaterialTheme {
+        ScheduleContent(
+            schedules = mockSchedules,
+            onAlarmToggle = {},
+        )
     }
 }

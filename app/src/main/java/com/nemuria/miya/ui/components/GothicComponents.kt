@@ -16,19 +16,20 @@ import com.nemuria.miya.ui.theme.GothicGrey
 @Composable
 fun GothicCard(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = GothicGrey
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = GothicGrey,
+            ),
         border = BorderStroke(1.dp, GoldMedium),
-        elevation = CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(4.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(16.dp),
         ) {
             content()
         }

@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MiyaTheme {
                 var currentScreen by remember { mutableStateOf("home") }
-                
+
                 when (currentScreen) {
                     "home" -> HomeScreen(onNavigateToSchedule = { currentScreen = "schedule" })
                     "schedule" -> ScheduleScreen()

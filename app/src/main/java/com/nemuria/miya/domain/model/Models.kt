@@ -11,14 +11,14 @@ data class MiyaAlarm(
     val voiceId: String = "default_voice",
     val illustrationId: String = "default_illu",
     val label: String? = null,
-    val isOneTime: Boolean = false
+    val isOneTime: Boolean = false,
 )
 
 data class DDayInfo(
     val id: Int = 0,
     val title: String,
     val startDate: java.time.LocalDate,
-    val type: DDayType
+    val type: DDayType,
 )
 
 data class StreamSchedule(
@@ -28,9 +28,12 @@ data class StreamSchedule(
     val title: String,
     val description: String? = null,
     val category: String? = null,
-    val isAlarmEnabled: Boolean = false
+    val isAlarmEnabled: Boolean = false,
 )
 
 enum class DDayType {
-    MEETING_DAY, BIRTHDAY, DEBUT_ANNIVERSARY, CUSTOM
+    MEETING_DAY,
+    BIRTHDAY,
+    DEBUT_ANNIVERSARY,
+    CUSTOM,
 }
