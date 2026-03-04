@@ -81,3 +81,9 @@ com.nemuria.miya
 - **Target SDK**: 36 (Android 15)
 - **Compile SDK**: 36
 - **JDK Version**: 11 (or later)
+
+---
+
+## External Library
+
+- **반투명한 유리 효과** : https://chrisbanes.github.io/haze/latest/

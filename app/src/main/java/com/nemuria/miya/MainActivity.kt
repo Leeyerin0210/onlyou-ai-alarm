@@ -6,18 +6,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.nemuria.miya.ui.components.TopBar
 import com.nemuria.miya.ui.home.HomeScreen
 import com.nemuria.miya.ui.schedule.ScheduleScreen
-import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicBlack
 import com.nemuria.miya.ui.theme.MiyaTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -33,31 +31,13 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     topBar = {
-                        CenterAlignedTopAppBar(
-                            title = {
-                                Text(
-                                    text = if (currentScreen == "home") "MIYA" else "SCHEDULE",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = GoldMedium
-                                )
-                            },
-                            navigationIcon = {
-                                if (currentScreen == "schedule") {
-                                    IconButton(onClick = { currentScreen = "home" }) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
-                                            tint = GoldMedium
-                                        )
-                                    }
-                                }
-                            },
-                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = GothicBlack,
-                                titleContentColor = GoldMedium
-                            )
+                        TopBar(
+                            currentScreen = currentScreen,
+                            title = "개쩌는미야미야",
+                            onBack = { currentScreen = "home" },
+                            onSetting = {},
                         )
-                    }
+                    },
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
                         when (currentScreen) {
