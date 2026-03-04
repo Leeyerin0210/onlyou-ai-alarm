@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.nemuria.miya.domain.model.StreamSchedule
 import com.nemuria.miya.domain.repository.ScheduleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,7 +21,8 @@ class ScheduleViewModel @Inject constructor(
     private val repository: ScheduleRepository
 ) : ViewModel() {
 
-    // TODO : 로딩 시에 로딩 인디케이터 뜨게 해야 함!!
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
 
     val schedules: StateFlow<List<StreamSchedule>> = repository.getAllSchedules()
         .stateIn(
@@ -30,11 +33,15 @@ class ScheduleViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            repository.refreshSchedules()
-            repository.getAllSchedules().take(1).collect { 
-                if (it.isEmpty()) {
-                    generateSampleSchedules()
+            try {
+                repository.refreshSchedules()
+                repository.getAllSchedules().take(1).collect { 
+                    if (it.isEmpty()) {
+                        generateSampleSchedules()
+                    }
                 }
+            } finally {
+                _isLoading.value = false
             }
         }
     }

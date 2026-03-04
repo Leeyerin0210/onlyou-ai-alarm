@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,11 +59,88 @@ private val DateRangeFormatter = DateTimeFormatter.ofPattern("MMM dd", Locale.EN
 @Composable
 fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
     val schedules by viewModel.schedules.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-    ScheduleContent(
-        schedules = schedules,
-        onAlarmToggle = viewModel::toggleAlarm,
-    )
+    if (isLoading) {
+        ScheduleSkeleton()
+    } else {
+        ScheduleContent(
+            schedules = schedules,
+            onAlarmToggle = viewModel::toggleAlarm,
+        )
+    }
+}
+
+@Composable
+private fun ScheduleSkeleton() {
+    val colors = MiyaTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .padding(16.dp),
+    ) {
+        // Header Skeleton
+        Box(
+            modifier = Modifier
+                .width(180.dp)
+                .height(28.dp)
+                .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+        )
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .width(120.dp)
+                .height(20.dp)
+                .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+        )
+
+        Spacer(Modifier.height(16.dp))
+        GradientDivider(
+            gradientColors = listOf(Color.Transparent, colors.offline.copy(alpha = 0.3f), Color.Transparent),
+            thickness = 2.dp,
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // List Skeleton
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            userScrollEnabled = false // 로딩 중에는 스크롤 막기
+        ) {
+            items(7) { // 7일 분량 표시
+                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                    // Day Indicator Skeleton
+                    Column(
+                        modifier = Modifier.width(44.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // 요일 (EEE)
+                        Box(
+                            modifier = Modifier
+                                .width(32.dp)
+                                .height(16.dp)
+                                .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        // 날짜 (dd)
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    // Card Skeleton
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(110.dp)
+                            .background(colors.offline.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
