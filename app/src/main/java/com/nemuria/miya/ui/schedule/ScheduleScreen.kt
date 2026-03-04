@@ -1,24 +1,26 @@
 package com.nemuria.miya.ui.schedule
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,9 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,13 +39,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nemuria.miya.domain.model.StreamSchedule
+import com.nemuria.miya.ui.components.GhanaText
 import com.nemuria.miya.ui.components.GothicCard
+import com.nemuria.miya.ui.components.GradientDivider
+import com.nemuria.miya.ui.theme.EmptyGrey
+import com.nemuria.miya.ui.theme.GhanaChocolate
 import com.nemuria.miya.ui.theme.GoldMedium
+import com.nemuria.miya.ui.theme.GothicRed
+import com.nemuria.miya.ui.theme.PretendardTypography
 import com.nemuria.miya.ui.theme.VintageWhite
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
@@ -65,11 +70,9 @@ fun ScheduleContent(
     schedules: List<StreamSchedule>,
     onAlarmToggle: (StreamSchedule) -> Unit,
 ) {
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-
     // 오늘부터 14일간의 날짜 생성
     val dateList =
-        remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
+        remember { (0..6).map { LocalDate.now().plusDays(it.toLong()) } }
 
     Column(
         modifier =
@@ -78,108 +81,101 @@ fun ScheduleContent(
                 .background(White)
                 .padding(16.dp),
     ) {
-        Text(
-            text = "방송 스케줄",
-            style = MaterialTheme.typography.headlineLarge,
+        GhanaText(
+            text = "Weekly Schedule",
+            fontSize = 24.sp,
             color = GoldMedium,
-            modifier = Modifier.padding(bottom = 16.dp),
         )
 
-        // Date Selector (Horizontal Scroll)
-        LazyRow(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(dateList) { date ->
-                val isSelected = date == selectedDate
-                val isToday = date == LocalDate.now()
-
-                Column(
-                    modifier =
-                        Modifier
-                            .width(55.dp)
-                            .height(70.dp)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) GoldMedium else Color.Gray.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(8.dp),
-                            ).background(
-                                color = if (isSelected) GoldMedium.copy(alpha = 0.15f) else Color.Transparent,
-                                shape = RoundedCornerShape(8.dp),
-                            ).clickable { selectedDate = date },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN),
-                        color = if (isSelected) GoldMedium else Color.Gray,
-                        fontSize = 11.sp,
-                    )
-                    Text(
-                        text = date.dayOfMonth.toString(),
-                        color = if (isSelected) GoldMedium else VintageWhite,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    if (isToday) {
-                        Text(
-                            text = "오늘",
-                            color = GoldMedium,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-            }
-        }
+        val titleDate = dateList[0].format(
+            DateTimeFormatter.ofPattern(
+                "MMM",
+                Locale.ENGLISH,
+            ),
+        ) + " " + dateList[0].format(
+            DateTimeFormatter.ofPattern(
+                "dd",
+                Locale.ENGLISH,
+            ),
+        ) + " ~ " + dateList[6].format(DateTimeFormatter.ofPattern("dd", Locale.ENGLISH))
 
         Text(
-            text = selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
+            text = titleDate,
             style = MaterialTheme.typography.titleMedium,
             color = GoldMedium.copy(alpha = 0.8f),
-            modifier = Modifier.padding(bottom = 12.dp),
+            fontWeight = FontWeight.Bold,
         )
 
-        // Schedule List for Selected Date
-        val filteredSchedules =
-            schedules
-                .filter { it.date == selectedDate }
-                .sortedBy { it.startTime }
+        Spacer(Modifier.height(16.dp))
+        GradientDivider(
+            gradientColors = listOf(Color.Transparent, GoldMedium, Color.Transparent),
+            thickness = 2.dp,
+            isVertical = false,
+        )
+        Spacer(Modifier.height(16.dp))
 
-        if (filteredSchedules.isEmpty()) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "이날은 방송 예정이 없습니다.",
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(filteredSchedules) { schedule ->
-                    ScheduleItem(
-                        schedule = schedule,
-                        onAlarmToggle = { onAlarmToggle(schedule) },
-                    )
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            items(dateList) { selectedDate ->
+
+                val filteredSchedules =
+                    schedules
+                        .filter { it.date == selectedDate }
+                        .sortedBy { it.startTime }
+
+                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                    Column(
+                        modifier = Modifier.width(40.dp).fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = selectedDate.format(
+                                DateTimeFormatter.ofPattern(
+                                    "EEE",
+                                    Locale.ENGLISH,
+                                ),
+                            ),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = GoldMedium.copy(alpha = 0.8f),
+                        )
+                        Text(
+                            text = selectedDate.format(DateTimeFormatter.ofPattern("dd")),
+                            fontFamily = GhanaChocolate,
+                            fontSize = 20.sp,
+                            color = GoldMedium.copy(alpha = 0.8f),
+                        )
+                        if (filteredSchedules.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            GradientDivider(
+                                gradientColors = listOf(GothicRed, Color.Transparent),
+                                thickness = 2.dp,
+                                isVertical = true,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    if (filteredSchedules.isEmpty()) {
+                        RestDayItem()
+                        return@Row
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        filteredSchedules.forEach { schedule ->
+                            ScheduleItem(
+                                schedule = schedule,
+                                onAlarmToggle = { onAlarmToggle(schedule) },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// 개별 스케줄 아이템
 @Composable
 fun ScheduleItem(
     schedule: StreamSchedule,
@@ -203,17 +199,14 @@ fun ScheduleItem(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     schedule.category?.let {
-                        Text(
-                            text = "[$it]",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VintageWhite.copy(alpha = 0.7f),
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CategoryCard(it)
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
+                GhanaText(
                     text = schedule.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 24.sp,
                     color = VintageWhite,
                 )
                 schedule.description?.let {
@@ -224,6 +217,7 @@ fun ScheduleItem(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+
             }
 
             IconButton(onClick = onAlarmToggle) {
@@ -237,7 +231,70 @@ fun ScheduleItem(
     }
 }
 
-// 3. 뷰모델 독립적인 프리뷰 작성
+@Composable
+fun RestDayItem(modifier: Modifier = Modifier) {
+    RestDayCard(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            GhanaText(
+                text = "OFFLINE",
+                fontSize = 24.sp,
+                color = White,
+            )
+        }
+    }
+}
+
+@Composable
+fun RestDayCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = EmptyGrey,
+            ),
+        elevation = CardDefaults.cardElevation(4.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun CategoryCard(
+    category: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = White.copy(alpha = 0.3F),
+            ),
+        border = BorderStroke(1.dp, EmptyGrey),
+    ) {
+        Text(
+            text = category,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            color = White,
+            style = PretendardTypography.labelMedium,
+        )
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun ScheduleContentPreview() {
@@ -253,6 +310,14 @@ private fun ScheduleContentPreview() {
             ),
             StreamSchedule(
                 date = LocalDate.now(),
+                startTime = LocalTime.of(22, 0),
+                category = "저챗",
+                title = "잔잔한 라디오",
+                description = "자기 전 소통 방송",
+                isAlarmEnabled = false,
+            ),
+            StreamSchedule(
+                date = LocalDate.now().plusDays(3),
                 startTime = LocalTime.of(22, 0),
                 category = "저챗",
                 title = "잔잔한 라디오",

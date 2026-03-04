@@ -1,6 +1,8 @@
 package com.nemuria.miya.data.local
 
-import androidx.room.*
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.TypeConverter
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -14,7 +16,7 @@ data class AlarmEntity(
     val voiceId: String,
     val illustrationId: String,
     val label: String?,
-    val isOneTime: Boolean
+    val isOneTime: Boolean,
 )
 
 @Entity(tableName = "ddays")
@@ -22,7 +24,7 @@ data class DDayEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val startDate: LocalDate,
-    val type: String
+    val type: String,
 )
 
 @Entity(tableName = "stream_schedules")
@@ -33,7 +35,7 @@ data class StreamScheduleEntity(
     val title: String,
     val description: String?,
     val category: String?,
-    val isAlarmEnabled: Boolean
+    val isAlarmEnabled: Boolean,
 )
 
 class MiyaTypeConverters {
@@ -41,7 +43,7 @@ class MiyaTypeConverters {
     fun fromDayOfWeekSet(days: Set<DayOfWeek>): String = days.joinToString(",") { it.name }
 
     @TypeConverter
-    fun toDayOfWeekSet(data: String): Set<DayOfWeek> = 
+    fun toDayOfWeekSet(data: String): Set<DayOfWeek> =
         if (data.isEmpty()) emptySet() else data.split(",").map { DayOfWeek.valueOf(it) }.toSet()
 
     @TypeConverter

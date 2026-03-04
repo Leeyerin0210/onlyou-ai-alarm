@@ -19,6 +19,8 @@ class ScheduleViewModel @Inject constructor(
     private val repository: ScheduleRepository
 ) : ViewModel() {
 
+    // TODO : 로딩 시에 로딩 인디케이터 뜨게 해야 함!!
+
     val schedules: StateFlow<List<StreamSchedule>> = repository.getAllSchedules()
         .stateIn(
             scope = viewModelScope,

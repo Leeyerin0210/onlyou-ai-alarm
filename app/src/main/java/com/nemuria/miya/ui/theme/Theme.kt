@@ -19,11 +19,15 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun MiyaTheme(
+    useGothic: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val typography = if (useGothic) GhanaTypography else PretendardTypography
+
     MaterialTheme(
         colorScheme = DarkColorScheme,
-        typography = MiyaTypography,
+        typography = typography,
         content = content
     )
 }
+
