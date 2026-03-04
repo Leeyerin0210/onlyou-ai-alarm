@@ -213,9 +213,10 @@ fun ScheduleContent(
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp), // 바텀 바 높이 고려하여 하단 여백 추가
             ) {
                 items(dateList) { date ->
+
                     val daySchedules = remember(schedules, date) {
                         schedules.filter { it.date == date }.sortedBy { it.startTime }
                     }
@@ -236,15 +237,9 @@ private fun ScheduleHeader(dateRange: String) {
     val colors = MiyaTheme.colors
     Column {
         GhanaText(
-            text = "Weekly Schedule",
-            fontSize = 24.sp,
-            color = colors.primary,
-        )
-        Text(
             text = dateRange,
-            style = MaterialTheme.typography.titleMedium,
-            color = colors.primary.copy(alpha = 0.8f),
-            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            color = colors.primary,
         )
     }
 }

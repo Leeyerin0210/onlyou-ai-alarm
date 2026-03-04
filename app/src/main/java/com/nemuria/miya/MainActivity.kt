@@ -4,20 +4,29 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.nemuria.miya.ui.components.MiyaBottomNavigationBar
 import com.nemuria.miya.ui.components.TopBar
 import com.nemuria.miya.ui.home.HomeScreen
 import com.nemuria.miya.ui.schedule.ScheduleScreen
@@ -28,6 +37,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
     @Inject
     lateinit var themeManager: ThemeManager
 
@@ -36,10 +46,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // ThemeManager로부터 현재 테마 색상을 수집합니다.
             val currentColors by themeManager.currentColors.collectAsState()
+            val colors = MiyaTheme.colors
 
-            // 앱 실행 시 한 번 서버에서 테마를 불러옵니다.
             LaunchedEffect(Unit) {
                 themeManager.fetchStreamerTheme()
             }
@@ -52,30 +61,56 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         TopBar(
                             currentScreen = currentScreen,
-                            title = "개쩌는미야미야",
                             onBack = { currentScreen = "home" },
-                            onSetting = {},
+                            onSetting = { /* 설정창 열기 */ },
                         )
-                    },
+                    }
+                    // bottomBar 슬롯은 비워둡니다 (수동 배치 예정)
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(currentColors.background)
-                        // .padding(innerPadding) 을 제거하여 탑바 뒤까지 컨텐츠가 채워지게 함
                     ) {
-                        when (currentScreen) {
-                            "home" -> Box(modifier = Modifier.padding(innerPadding)) { 
-                                HomeScreen(onNavigateToSchedule = { currentScreen = "schedule" }) 
-                            }
-                            "schedule" -> {
-                                // 스케줄 화면은 내부에서 padding을 처리하도록 변경할 예정
-                                ScheduleScreen() 
+                        // 1. 메인 콘텐츠 레이어
+                        AnimatedContent(
+                            targetState = currentScreen,
+                            transitionSpec = {
+                                (fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.95f))
+                                    .togetherWith(fadeOut(animationSpec = tween(400)))
+                            },
+                            label = "screen_transition"
+                        ) { screen ->
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                when (screen) {
+                                    "home" -> Box(modifier = Modifier.padding(innerPadding)) {
+                                        HomeScreen(onNavigateToSchedule = { currentScreen = "schedule" })
+                                    }
+                                    "schedule" -> {
+                                        ScheduleScreen()
+                                    }
+                                    "community" -> {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text(text = "Community Screen (Coming Soon)", color = colors.secondary)
+                                        }
+                                    }
+                                    "profile" -> {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Text(text = "Profile Screen (Coming Soon)", color = colors.secondary)
+                                        }
+                                    }
+                                }
                             }
                         }
+
+                        // 2. 공중에 떠 있는 플로팅 바텀 바
+                        MiyaBottomNavigationBar(
+                            currentScreen = currentScreen,
+                            onNavigate = { currentScreen = it },
+                            modifier = Modifier.align(Alignment.BottomCenter) // 하단 중앙에 배치
+                        )
                     }
                 }
-
             }
         }
     }
