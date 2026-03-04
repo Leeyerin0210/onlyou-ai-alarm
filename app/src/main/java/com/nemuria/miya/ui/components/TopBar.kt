@@ -10,8 +10,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicBlack
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
+import com.nemuria.miya.ui.theme.MiyaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,12 +22,14 @@ fun TopBar(
     onBack: () -> Unit = {},
     onSetting: () -> Unit = {},
 ) {
+    val colors = MiyaTheme.colors
+
     CenterAlignedTopAppBar(
         title = {
             Text(
                 text = if (currentScreen == "home") "MIYA" else "SCHEDULE",
                 style = MaterialTheme.typography.titleLarge,
-                color = GoldMedium,
+                color = colors.secondary,
             )
         },
         navigationIcon = {
@@ -35,14 +38,25 @@ fun TopBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = GoldMedium,
+                        tint = colors.secondary,
                     )
                 }
             }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = GothicBlack,
-            titleContentColor = GoldMedium,
+            containerColor = Color.Transparent,
+            titleContentColor = colors.secondary,
         ),
+    )
+}
+
+@Preview
+@Composable
+fun TopBarPreview() {
+    TopBar(
+        currentScreen = "schedule",
+        title = "미야",
+        onBack = {},
+        onSetting = {},
     )
 }

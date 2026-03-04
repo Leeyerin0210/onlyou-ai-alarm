@@ -16,10 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nemuria.miya.ui.components.GothicCard
-import com.nemuria.miya.ui.theme.GoldDark
-import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicBlack
-import com.nemuria.miya.ui.theme.VintageWhite
+import com.nemuria.miya.ui.theme.MiyaTheme
 
 @Composable
 fun HomeScreen(
@@ -27,11 +24,12 @@ fun HomeScreen(
     onNavigateToSchedule: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val colors = MiyaTheme.colors
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(GothicBlack)
+            .background(colors.background)
             .verticalScroll(rememberScrollState())
     ) {
         // 1. 버튜버 비주얼 영역 (Placeholder)
@@ -41,7 +39,7 @@ fun HomeScreen(
                 .height(300.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, GothicBlack),
+                        colors = listOf(Color.Transparent, colors.background),
                         startY = 0f,
                         endY = 1000f
                     )
@@ -53,12 +51,12 @@ fun HomeScreen(
                 Text(
                     text = uiState.vtuberName,
                     style = MaterialTheme.typography.displayLarge,
-                    color = GoldMedium
+                    color = colors.primary
                 )
                 Text(
                     text = if (uiState.isStreamOnline) "● LIVE NOW" else "OFFLINE",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (uiState.isStreamOnline) Color.Red else Color.Gray
+                    color = if (uiState.isStreamOnline) Color.Red else colors.offline
                 )
             }
         }
@@ -75,19 +73,19 @@ fun HomeScreen(
                 Text(
                     text = "우리가 처음 만난 날로부터",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = VintageWhite
+                    color = colors.onSurface
                 )
                 Text(
                     text = "${uiState.daysSinceMeeting}일",
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
-                    color = GoldMedium,
+                    color = colors.primary,
                     style = MaterialTheme.typography.displayLarge
                 )
                 Text(
                     text = "함께한 모든 순간이 보석 같아요.",
                     style = MaterialTheme.typography.labelMedium,
-                    color = GoldDark
+                    color = colors.primary.copy(alpha = 0.7f)
                 )
             }
         }
@@ -107,10 +105,10 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(text = "이번 주 방송 스케줄", style = MaterialTheme.typography.labelMedium, color = GoldDark)
-                    Text(text = "편성표 확인하기", style = MaterialTheme.typography.titleMedium, color = GoldMedium)
+                    Text(text = "이번 주 방송 스케줄", style = MaterialTheme.typography.labelMedium, color = colors.primary.copy(alpha = 0.7f))
+                    Text(text = "편성표 확인하기", style = MaterialTheme.typography.titleMedium, color = colors.primary)
                 }
-                Text(text = "▶", color = GoldMedium)
+                Text(text = "▶", color = colors.primary)
             }
         }
 
@@ -124,24 +122,24 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             GothicCard(modifier = Modifier.weight(1f)) {
-                Text(text = "다음 ${uiState.upcomingAnniversary}", style = MaterialTheme.typography.labelMedium)
+                Text(text = "다음 ${uiState.upcomingAnniversary}", style = MaterialTheme.typography.labelMedium, color = colors.onSurface.copy(alpha = 0.6f))
                 Text(
                     text = "D-${uiState.daysToAnniversary}",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = GoldMedium
+                    color = colors.primary
                 )
             }
             
             // 4. 방송 알림 퀵 토글
             GothicCard(modifier = Modifier.weight(1f)) {
                 var isEnabled by remember { mutableStateOf(true) }
-                Text(text = "실시간 알림", style = MaterialTheme.typography.labelMedium)
+                Text(text = "실시간 알림", style = MaterialTheme.typography.labelMedium, color = colors.onSurface.copy(alpha = 0.6f))
                 Switch(
                     checked = isEnabled,
                     onCheckedChange = { isEnabled = it },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = GoldMedium,
-                        checkedTrackColor = GoldDark
+                        checkedThumbColor = colors.primary,
+                        checkedTrackColor = colors.secondary
                     )
                 )
             }
