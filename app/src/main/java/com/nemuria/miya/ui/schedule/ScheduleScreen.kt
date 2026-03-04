@@ -3,9 +3,10 @@ package com.nemuria.miya.ui.schedule
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -24,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,16 +43,17 @@ import com.nemuria.miya.domain.model.StreamSchedule
 import com.nemuria.miya.ui.components.GhanaText
 import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.components.GradientDivider
-import com.nemuria.miya.ui.theme.EmptyGrey
 import com.nemuria.miya.ui.theme.GhanaChocolate
-import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicRed
+import com.nemuria.miya.ui.theme.MiyaTheme
 import com.nemuria.miya.ui.theme.PretendardTypography
-import com.nemuria.miya.ui.theme.VintageWhite
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val DayNameFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+private val DayNumberFormatter = DateTimeFormatter.ofPattern("dd")
+private val DateRangeFormatter = DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)
 
 @Composable
 fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
@@ -59,9 +61,7 @@ fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
 
     ScheduleContent(
         schedules = schedules,
-        onAlarmToggle = { schedule ->
-            viewModel.toggleAlarm(schedule)
-        },
+        onAlarmToggle = viewModel::toggleAlarm,
     )
 }
 
@@ -70,106 +70,93 @@ fun ScheduleContent(
     schedules: List<StreamSchedule>,
     onAlarmToggle: (StreamSchedule) -> Unit,
 ) {
-    // 오늘부터 14일간의 날짜 생성
-    val dateList =
-        remember { (0..6).map { LocalDate.now().plusDays(it.toLong()) } }
+    val colors = MiyaTheme.colors
+    val dateList = remember { (0..6).map { LocalDate.now().plusDays(it.toLong()) } }
+    val dateRangeText = remember(dateList) {
+        val start = dateList[0].format(DateRangeFormatter)
+        val end = dateList[6].format(DateTimeFormatter.ofPattern("dd", Locale.ENGLISH))
+        "$start ~ $end"
+    }
 
     Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(White)
-                .padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .padding(16.dp),
     ) {
-        GhanaText(
-            text = "Weekly Schedule",
-            fontSize = 24.sp,
-            color = GoldMedium,
-        )
-
-        val titleDate = dateList[0].format(
-            DateTimeFormatter.ofPattern(
-                "MMM",
-                Locale.ENGLISH,
-            ),
-        ) + " " + dateList[0].format(
-            DateTimeFormatter.ofPattern(
-                "dd",
-                Locale.ENGLISH,
-            ),
-        ) + " ~ " + dateList[6].format(DateTimeFormatter.ofPattern("dd", Locale.ENGLISH))
-
-        Text(
-            text = titleDate,
-            style = MaterialTheme.typography.titleMedium,
-            color = GoldMedium.copy(alpha = 0.8f),
-            fontWeight = FontWeight.Bold,
-        )
+        ScheduleHeader(dateRange = dateRangeText)
 
         Spacer(Modifier.height(16.dp))
         GradientDivider(
-            gradientColors = listOf(Color.Transparent, GoldMedium, Color.Transparent),
+            gradientColors = listOf(Color.Transparent, colors.primary, Color.Transparent),
             thickness = 2.dp,
-            isVertical = false,
         )
         Spacer(Modifier.height(16.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            items(dateList) { selectedDate ->
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+        ) {
+            items(dateList) { date ->
+                val daySchedules = remember(schedules, date) {
+                    schedules.filter { it.date == date }.sortedBy { it.startTime }
+                }
 
-                val filteredSchedules =
-                    schedules
-                        .filter { it.date == selectedDate }
-                        .sortedBy { it.startTime }
+                DayScheduleRow(
+                    date = date,
+                    schedules = daySchedules,
+                    onAlarmToggle = onAlarmToggle,
+                )
+            }
+        }
+    }
+}
 
-                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                    Column(
-                        modifier = Modifier.width(40.dp).fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = selectedDate.format(
-                                DateTimeFormatter.ofPattern(
-                                    "EEE",
-                                    Locale.ENGLISH,
-                                ),
-                            ),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = GoldMedium.copy(alpha = 0.8f),
-                        )
-                        Text(
-                            text = selectedDate.format(DateTimeFormatter.ofPattern("dd")),
-                            fontFamily = GhanaChocolate,
-                            fontSize = 20.sp,
-                            color = GoldMedium.copy(alpha = 0.8f),
-                        )
-                        if (filteredSchedules.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
-                            GradientDivider(
-                                gradientColors = listOf(GothicRed, Color.Transparent),
-                                thickness = 2.dp,
-                                isVertical = true,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    if (filteredSchedules.isEmpty()) {
-                        RestDayItem()
-                        return@Row
-                    }
+@Composable
+private fun ScheduleHeader(dateRange: String) {
+    val colors = MiyaTheme.colors
+    Column {
+        GhanaText(
+            text = "Weekly Schedule",
+            fontSize = 24.sp,
+            color = colors.primary,
+        )
+        Text(
+            text = dateRange,
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.primary.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
 
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        filteredSchedules.forEach { schedule ->
-                            ScheduleItem(
-                                schedule = schedule,
-                                onAlarmToggle = { onAlarmToggle(schedule) },
-                            )
-                        }
-                    }
+@Composable
+private fun DayScheduleRow(
+    date: LocalDate,
+    schedules: List<StreamSchedule>,
+    onAlarmToggle: (StreamSchedule) -> Unit,
+) {
+    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+        DayIndicator(
+            date = date,
+            hasSchedules = schedules.isNotEmpty(),
+            modifier = Modifier.width(44.dp),
+        )
+
+        Spacer(Modifier.width(16.dp))
+
+        if (schedules.isEmpty()) {
+            OfflineCard(modifier = Modifier.weight(1f))
+        } else {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                schedules.forEach { schedule ->
+                    ScheduleItem(
+                        schedule = schedule,
+                        onAlarmToggle = { onAlarmToggle(schedule) },
+                    )
                 }
             }
         }
@@ -177,14 +164,47 @@ fun ScheduleContent(
 }
 
 @Composable
-fun ScheduleItem(
+private fun DayIndicator(
+    date: LocalDate,
+    hasSchedules: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MiyaTheme.colors
+    Column(
+        modifier = modifier.fillMaxHeight(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = date.format(DayNameFormatter),
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.primary.copy(alpha = 0.8f),
+        )
+        Text(
+            text = date.format(DayNumberFormatter),
+            fontFamily = GhanaChocolate,
+            fontSize = 20.sp,
+            color = colors.primary.copy(alpha = 0.8f),
+        )
+        if (hasSchedules) {
+            Spacer(Modifier.height(8.dp))
+            GradientDivider(
+                gradientColors = listOf(colors.secondary, Color.Transparent),
+                thickness = 2.dp,
+                isVertical = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScheduleItem(
     schedule: StreamSchedule,
     onAlarmToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GothicCard(
-        modifier = modifier.fillMaxWidth(),
-    ) {
+    val colors = MiyaTheme.colors
+    GothicCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -194,37 +214,37 @@ fun ScheduleItem(
                     Text(
                         text = schedule.startTime.toString(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = GoldMedium,
+                        color = colors.primary,
                         fontWeight = FontWeight.Bold,
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     schedule.category?.let {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        CategoryCard(it)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        CategoryTag(it)
                     }
                 }
+
                 Spacer(modifier = Modifier.height(4.dp))
                 GhanaText(
                     text = schedule.title,
-                    fontSize = 24.sp,
-                    color = VintageWhite,
+                    fontSize = 22.sp,
+                    color = colors.onSurface,
                 )
+
                 schedule.description?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = VintageWhite.copy(alpha = 0.6f),
+                        color = colors.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-
             }
 
             IconButton(onClick = onAlarmToggle) {
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "알림 설정",
-                    tint = if (schedule.isAlarmEnabled) GoldMedium else Color.Gray.copy(alpha = 0.5f),
+                    tint = if (schedule.isAlarmEnabled) colors.primary else Color.Gray.copy(alpha = 0.5f),
                 )
             }
         }
@@ -232,64 +252,41 @@ fun ScheduleItem(
 }
 
 @Composable
-fun RestDayItem(modifier: Modifier = Modifier) {
-    RestDayCard(
+private fun OfflineCard(modifier: Modifier = Modifier) {
+    val colors = MiyaTheme.colors
+    Card(
         modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.offline),
+        elevation = CardDefaults.cardElevation(2.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center,
         ) {
             GhanaText(
                 text = "OFFLINE",
-                fontSize = 24.sp,
-                color = White,
+                fontSize = 20.sp,
+                color = Color.White,
             )
         }
     }
 }
 
 @Composable
-fun RestDayCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = EmptyGrey,
-            ),
-        elevation = CardDefaults.cardElevation(4.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-        ) {
-            content()
-        }
-    }
-}
-
-@Composable
-fun CategoryCard(
-    category: String,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = White.copy(alpha = 0.3F),
-            ),
-        border = BorderStroke(1.dp, EmptyGrey),
+private fun CategoryTag(category: String) {
+    val colors = MiyaTheme.colors
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = Color.White.copy(alpha = 0.15f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
     ) {
         Text(
             text = category,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            color = White,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            color = colors.onSurface,
             style = PretendardTypography.labelMedium,
         )
     }
@@ -298,35 +295,26 @@ fun CategoryCard(
 @Preview(showBackground = true)
 @Composable
 private fun ScheduleContentPreview() {
-    val mockSchedules =
-        listOf(
-            StreamSchedule(
-                date = LocalDate.now(),
-                startTime = LocalTime.of(19, 0),
-                category = "게임",
-                title = "미야의 종합 게임 방송",
-                description = "오늘은 새로운 공포 게임을 해볼 거예요!",
-                isAlarmEnabled = true,
-            ),
-            StreamSchedule(
-                date = LocalDate.now(),
-                startTime = LocalTime.of(22, 0),
-                category = "저챗",
-                title = "잔잔한 라디오",
-                description = "자기 전 소통 방송",
-                isAlarmEnabled = false,
-            ),
-            StreamSchedule(
-                date = LocalDate.now().plusDays(3),
-                startTime = LocalTime.of(22, 0),
-                category = "저챗",
-                title = "잔잔한 라디오",
-                description = "자기 전 소통 방송",
-                isAlarmEnabled = false,
-            ),
-        )
+    val mockSchedules = listOf(
+        StreamSchedule(
+            date = LocalDate.now(),
+            startTime = LocalTime.of(19, 0),
+            category = "Game",
+            title = "Miya's Variety Games",
+            description = "Playing some horror games today!",
+            isAlarmEnabled = true,
+        ),
+        StreamSchedule(
+            date = LocalDate.now(),
+            startTime = LocalTime.of(22, 0),
+            category = "Chatting",
+            title = "Relaxing Radio",
+            description = "Chatting before sleep",
+            isAlarmEnabled = false,
+        ),
+    )
 
-    MaterialTheme {
+    MiyaTheme {
         ScheduleContent(
             schedules = mockSchedules,
             onAlarmToggle = {},

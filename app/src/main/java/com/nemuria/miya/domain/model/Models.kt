@@ -37,3 +37,12 @@ enum class DDayType {
     DEBUT_ANNIVERSARY,
     CUSTOM,
 }
+
+data class StreamerTheme(
+    val primaryHex: String,
+    val secondaryHex: String,
+    val backgroundHex: String,
+    val surfaceHex: String,
+    val onSurfaceHex: String,
+    val offlineHex: String
+)

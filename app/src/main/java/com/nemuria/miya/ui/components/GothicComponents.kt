@@ -16,9 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.nemuria.miya.ui.theme.GhanaTypography
-import com.nemuria.miya.ui.theme.GoldMedium
-import com.nemuria.miya.ui.theme.GothicGrey
 import com.nemuria.miya.ui.theme.HeirTypography
+import com.nemuria.miya.ui.theme.MiyaTheme
 
 @Composable
 fun GhanaText(
@@ -63,14 +62,14 @@ fun GothicCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val colors = MiyaTheme.colors
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(8.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = GothicGrey,
-            ),
-        border = BorderStroke(1.dp, GoldMedium),
+        colors = CardDefaults.cardColors(
+            containerColor = colors.surface,
+        ),
+        border = BorderStroke(1.dp, colors.primary),
         elevation = CardDefaults.cardElevation(4.dp),
     ) {
         Column(

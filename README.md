@@ -31,6 +31,30 @@ com.nemuria.miya
 
 ---
 
+## 🎨 Dynamic Theming & Color System
+
+본 프로젝트는 여러 스트리머의 고유 색상에 맞춰 앱 전체의 분위기를 실시간으로 변경할 수 있는 **데이터 기반 동적 테마(Dynamic Theming)** 시스템을 갖추고 있습니다.
+
+### 1. 핵심 컬러 슬롯 (6-Core Slots)
+
+| 슬롯명 | 역할 (UI Role) | 현재 예시 (Miya) |
+| :--- | :--- | :--- |
+| **Primary** | 메인 브랜드 컬러 (헤더, 테두리, 시간 텍스트, 활성 아이콘) | `#C5A059` (Gold) |
+| **Secondary** | 포인트 컬러 (스케줄 강조선, 구분선 등) | `#800101` (Gothic Red) |
+| **Background** | 전체 화면의 배경색 | `#FFFFFF` (White) |
+| **Surface** | 카드 및 컴포넌트의 내부 배경색 | `#1A1A1A` (Gothic Grey) |
+| **OnSurface** | Surface(카드) 위에 올라가는 텍스트 및 아이콘 색상 | `#F5F5DC` (Vintage White) |
+| **Offline** | 비활성화 상태나 방송 없는 날(Offline) 카드의 배경색 | `#9A9A9A` (Empty Grey) |
+
+### 2. 테마 데이터 흐름 (Data Flow)
+
+1.  **Firebase/DB**: 스트리머별 `theme` 맵 데이터에 6가지 Hex String을 저장합니다.
+2.  **Domain (`StreamerTheme`)**: 서버에서 받아온 문자열 데이터를 모델화합니다.
+3.  **UI (`MiyaColors`)**: `toMiyaColors()` 확장 함수를 통해 Hex String을 `Color` 객체로 변환하여 Compose 테마에 주입합니다.
+4.  **Components**: 모든 UI 컴포넌트(`GothicCard`, `GhanaText` 등)는 `MiyaTheme.colors`를 참조하여 자신의 색상을 자동으로 결정합니다.
+
+---
+
 ## 🛠️ Tech Stack
 
 - **UI**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (Declarative UI)

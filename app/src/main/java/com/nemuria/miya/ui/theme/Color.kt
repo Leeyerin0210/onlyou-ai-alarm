@@ -16,3 +16,15 @@ val EmptyGrey = Color(0xFF9A9A9A)
 val VintageWhite = Color(0xFFF5F5DC)
 
 val AccentRed = Color(0xFF8B0000) // 고딕풍의 딥 레드
+
+/**
+ * Converts a hex color string (e.g., "#FFD700" or "#AAFFD700") to a Compose [Color].
+ * Defaults to [Color.Gray] if the string is invalid.
+ */
+fun String.toColor(): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(this))
+    } catch (e: Exception) {
+        Color.Gray
+    }
+}
