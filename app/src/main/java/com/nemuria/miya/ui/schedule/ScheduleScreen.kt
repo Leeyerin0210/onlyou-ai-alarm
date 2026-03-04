@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -74,69 +76,89 @@ fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
 @Composable
 private fun ScheduleSkeleton() {
     val colors = MiyaTheme.colors
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
-            .padding(16.dp),
+            .background(colors.background),
     ) {
-        // Header Skeleton
+        // 상단 1/3 지점까지 내려오는 연한 레드 그라데이션
         Box(
             modifier = Modifier
-                .width(180.dp)
-                .height(28.dp)
-                .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                .fillMaxWidth()
+                .fillMaxHeight(0.33f)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(colors.secondary.copy(alpha = 0.15f), Color.Transparent),
+                    ),
+                ),
         )
-        Spacer(Modifier.height(8.dp))
-        Box(
+
+        Column(
             modifier = Modifier
-                .width(120.dp)
-                .height(20.dp)
-                .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-        )
-
-        Spacer(Modifier.height(16.dp))
-        GradientDivider(
-            gradientColors = listOf(Color.Transparent, colors.offline.copy(alpha = 0.3f), Color.Transparent),
-            thickness = 2.dp,
-        )
-        Spacer(Modifier.height(16.dp))
-
-        // List Skeleton
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            userScrollEnabled = false // 로딩 중에는 스크롤 막기
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(top = 90.dp) // 110dp 탑바 높이 고려
+                .padding(horizontal = 16.dp),
         ) {
-            items(7) { // 7일 분량 표시
-                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                    // Day Indicator Skeleton
-                    Column(
-                        modifier = Modifier.width(44.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        // 요일 (EEE)
+            // Header Skeleton
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(28.dp)
+                    .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(20.dp)
+                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
+            )
+
+            Spacer(Modifier.height(16.dp))
+            GradientDivider(
+                gradientColors = listOf(Color.Transparent, colors.offline.copy(alpha = 0.3f), Color.Transparent),
+                thickness = 2.dp,
+            )
+            Spacer(Modifier.height(16.dp))
+
+            // List Skeleton
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                userScrollEnabled = false, // 로딩 중에는 스크롤 막기
+            ) {
+                items(7) {
+                    // 7일 분량 표시
+                    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+                        // Day Indicator Skeleton
+                        Column(
+                            modifier = Modifier.width(44.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // 요일 (EEE)
+                            Box(
+                                modifier = Modifier
+                                    .width(32.dp)
+                                    .height(16.dp)
+                                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            // 날짜 (dd)
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        // Card Skeleton
                         Box(
                             modifier = Modifier
-                                .width(32.dp)
-                                .height(16.dp)
-                                .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        // 날짜 (dd)
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                .weight(1f)
+                                .height(110.dp)
+                                .background(colors.offline.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
                         )
                     }
-                    Spacer(Modifier.width(16.dp))
-                    // Card Skeleton
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(110.dp)
-                            .background(colors.offline.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                    )
                 }
             }
         }
@@ -156,35 +178,54 @@ fun ScheduleContent(
         "$start ~ $end"
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
-            .padding(16.dp),
+            .background(colors.background),
     ) {
-        ScheduleHeader(dateRange = dateRangeText)
-
-        Spacer(Modifier.height(16.dp))
-        GradientDivider(
-            gradientColors = listOf(Color.Transparent, colors.primary, Color.Transparent),
-            thickness = 2.dp,
+        // 상단 1/3 지점까지 내려오는 연한 레드 그라데이션
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.33f)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(colors.secondary.copy(alpha = 0.15f), Color.Transparent),
+                    ),
+                ),
         )
-        Spacer(Modifier.height(16.dp))
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(bottom = 16.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(top = 90.dp) // 110dp 탑바 높이 고려
+                .padding(horizontal = 16.dp),
         ) {
-            items(dateList) { date ->
-                val daySchedules = remember(schedules, date) {
-                    schedules.filter { it.date == date }.sortedBy { it.startTime }
-                }
+            ScheduleHeader(dateRange = dateRangeText)
 
-                DayScheduleRow(
-                    date = date,
-                    schedules = daySchedules,
-                    onAlarmToggle = onAlarmToggle,
-                )
+            Spacer(Modifier.height(16.dp))
+            GradientDivider(
+                gradientColors = listOf(Color.Transparent, colors.primary, Color.Transparent),
+                thickness = 2.dp,
+            )
+            Spacer(Modifier.height(16.dp))
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+            ) {
+                items(dateList) { date ->
+                    val daySchedules = remember(schedules, date) {
+                        schedules.filter { it.date == date }.sortedBy { it.startTime }
+                    }
+
+                    DayScheduleRow(
+                        date = date,
+                        schedules = daySchedules,
+                        onAlarmToggle = onAlarmToggle,
+                    )
+                }
             }
         }
     }
