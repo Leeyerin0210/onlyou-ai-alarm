@@ -9,6 +9,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.nemuria.miya.domain.model.MiyaFontType
+
 /**
  * 앱 전체의 테마 색상을 관리하는 싱글톤 매니저입니다.
  * 앱 실행 시 한 번 불러오고, 스트리머 변경 시에만 업데이트하여
@@ -23,6 +25,9 @@ class ThemeManager @Inject constructor(
     private val _currentColors = MutableStateFlow(MiyaDefaultColors)
     val currentColors: StateFlow<MiyaColors> = _currentColors.asStateFlow()
 
+    private val _currentFontType = MutableStateFlow(MiyaFontType.GOTHIC)
+    val currentFontType: StateFlow<MiyaFontType> = _currentFontType.asStateFlow()
+
     /**
      * 특정 스트리머의 테마 정보를 서버(Firestore)에서 가져와 업데이트합니다.
      */
@@ -36,13 +41,13 @@ class ThemeManager @Inject constructor(
                     backgroundHex = doc.getString("background") ?: "#FFFFFF",
                     surfaceHex = doc.getString("surface") ?: "#1A1A1A",
                     onSurfaceHex = doc.getString("onSurface") ?: "#F5F5DC",
-                    offlineHex = doc.getString("offline") ?: "#9A9A9A"
+                    offlineHex = doc.getString("offline") ?: "#9A9A9A",
+                    fontType = doc.getString("fontType").toMiyaFontType()
                 )
                 updateTheme(theme)
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // 에러 발생 시 기본값 유지 또는 로컬 DB에서 마지막 테마 로드 가능
         }
     }
 
@@ -51,6 +56,18 @@ class ThemeManager @Inject constructor(
      */
     fun updateTheme(theme: StreamerTheme) {
         _currentColors.value = theme.toMiyaColors()
+        _currentFontType.value = theme.fontType
+    }
+
+    /**
+     * String 값을 안전하게 Enum으로 변환합니다.
+     */
+    private fun String?.toMiyaFontType(): MiyaFontType {
+        return try {
+            MiyaFontType.valueOf(this?.uppercase() ?: "GOTHIC")
+        } catch (e: Exception) {
+            MiyaFontType.GOTHIC
+        }
     }
 
     /**

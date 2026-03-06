@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +47,7 @@ import com.nemuria.miya.domain.model.StreamSchedule
 import com.nemuria.miya.ui.components.GhanaText
 import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.components.GradientDivider
+import com.nemuria.miya.ui.components.HeirText
 import com.nemuria.miya.ui.theme.GhanaChocolate
 import com.nemuria.miya.ui.theme.MiyaTheme
 import com.nemuria.miya.ui.theme.PretendardTypography
@@ -81,7 +83,6 @@ private fun ScheduleSkeleton() {
             .fillMaxSize()
             .background(colors.background),
     ) {
-        // 상단 1/3 지점까지 내려오는 연한 레드 그라데이션
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -97,10 +98,9 @@ private fun ScheduleSkeleton() {
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 90.dp) // 110dp 탑바 높이 고려
+                .padding(top = 130.dp)
                 .padding(horizontal = 16.dp),
         ) {
-            // Header Skeleton
             Box(
                 modifier = Modifier
                     .width(180.dp)
@@ -122,20 +122,17 @@ private fun ScheduleSkeleton() {
             )
             Spacer(Modifier.height(16.dp))
 
-            // List Skeleton
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
-                userScrollEnabled = false, // 로딩 중에는 스크롤 막기
+                userScrollEnabled = false,
+                contentPadding = PaddingValues(bottom = 140.dp),
             ) {
                 items(7) {
-                    // 7일 분량 표시
                     Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                        // Day Indicator Skeleton
                         Column(
                             modifier = Modifier.width(44.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            // 요일 (EEE)
                             Box(
                                 modifier = Modifier
                                     .width(32.dp)
@@ -143,7 +140,6 @@ private fun ScheduleSkeleton() {
                                     .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
                             )
                             Spacer(Modifier.height(4.dp))
-                            // 날짜 (dd)
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
@@ -151,13 +147,21 @@ private fun ScheduleSkeleton() {
                             )
                         }
                         Spacer(Modifier.width(16.dp))
-                        // Card Skeleton
+
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(110.dp)
-                                .background(colors.offline.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
-                        )
+                                .height(56.dp)
+                                .background(colors.offline.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.4f)
+                                    .height(12.dp)
+                                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
+                            )
+                        }
                     }
                 }
             }
@@ -174,7 +178,7 @@ fun ScheduleContent(
     val dateList = remember { (0..6).map { LocalDate.now().plusDays(it.toLong()) } }
     val dateRangeText = remember(dateList) {
         val start = dateList[0].format(DateRangeFormatter)
-        val end = dateList[6].format(DateTimeFormatter.ofPattern("dd", Locale.ENGLISH))
+        val end = dateList[6].format(DateTimeFormatter.ofPattern("dd"))
         "$start ~ $end"
     }
 
@@ -183,7 +187,6 @@ fun ScheduleContent(
             .fillMaxSize()
             .background(colors.background),
     ) {
-        // 상단 1/3 지점까지 내려오는 연한 레드 그라데이션
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -199,7 +202,7 @@ fun ScheduleContent(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 90.dp) // 110dp 탑바 높이 고려
+                .padding(top = 100.dp)
                 .padding(horizontal = 16.dp),
         ) {
             ScheduleHeader(dateRange = dateRangeText)
@@ -213,10 +216,9 @@ fun ScheduleContent(
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp), // 바텀 바 높이 고려하여 하단 여백 추가
+                contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp),
             ) {
                 items(dateList) { date ->
-
                     val daySchedules = remember(schedules, date) {
                         schedules.filter { it.date == date }.sortedBy { it.startTime }
                     }
@@ -237,9 +239,14 @@ private fun ScheduleHeader(dateRange: String) {
     val colors = MiyaTheme.colors
     Column {
         GhanaText(
-            text = dateRange,
-            fontSize = 28.sp,
+            text = "Weekly Schedule",
+            fontSize = 24.sp,
             color = colors.primary,
+        )
+        HeirText(
+            text = dateRange,
+            color = colors.primary.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Bold,
         )
     }
 }
@@ -288,10 +295,10 @@ private fun DayIndicator(
         modifier = modifier.fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
+        HeirText(
             text = date.format(DayNameFormatter),
-            style = MaterialTheme.typography.titleMedium,
             color = colors.primary.copy(alpha = 0.8f),
+            fontWeight = Bold
         )
         Text(
             text = date.format(DayNumberFormatter),
@@ -413,17 +420,17 @@ private fun ScheduleContentPreview() {
         StreamSchedule(
             date = LocalDate.now(),
             startTime = LocalTime.of(19, 0),
-            category = "Game",
-            title = "Miya's Variety Games",
-            description = "Playing some horror games today!",
+            category = "게임",
+            title = "미야의 종합 게임 방송",
+            description = "오늘은 공포 게임을 해볼 거에요!",
             isAlarmEnabled = true,
         ),
         StreamSchedule(
             date = LocalDate.now(),
             startTime = LocalTime.of(22, 0),
-            category = "Chatting",
-            title = "Relaxing Radio",
-            description = "Chatting before sleep",
+            category = "잡담",
+            title = "편안한 라디오 시간",
+            description = "자기 전에 같이 수다 떨어요",
             isAlarmEnabled = false,
         ),
     )

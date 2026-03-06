@@ -55,6 +55,35 @@ com.nemuria.miya
 
 ---
 
+## 🔥 Firestore Data Structure Guide
+
+데이터베이스에 새로운 스트리머나 테마를 추가할 때 아래 구조를 참고하세요.
+
+### 1. `streamers` Collection
+앱 전체의 테마 색상과 폰트 스타일을 결정합니다.
+
+- **Document ID**: 스트리머 식별자 (예: `miya`)
+- **Fields**:
+  - `primary` (String): 메인 브랜드 컬러 (Hex 코드, 예: `#C5A059`)
+  - `secondary` (String): 포인트 컬러 (예: `#800101`)
+  - `background` (String): 전체 배경색 (예: `#FFFFFF`)
+  - `surface` (String): 카드 배경색 (예: `#1A1A1A`)
+  - `onSurface` (String): 카드 위 텍스트 색상 (예: `#F5F5DC`)
+  - `offline` (String): 비활성 상태 색상 (예: `#9A9A9A`)
+  - `fontType` (String): 폰트 프리셋 (`GOTHIC` 또는 `DEFAULT`)
+
+### 2. `schedules` Collection
+주간 편성표에 표시될 방송 일정 데이터입니다.
+
+- **Document ID**: 자동 생성 (Auto-ID)
+- **Fields**:
+  - `title` (String): 방송 제목 (예: `미야의 잡담 시간`)
+  - `description` (String): 상세 설명 (예: `오늘은 같이 수다 떨어요!`)
+  - `category` (String): 방송 카테고리 (예: `게임`, `잡담`, `ASMR`)
+  - `startTime` (Timestamp): 방송 시작 일시 (서버 시간 기준)
+
+---
+
 ## 🛠️ Tech Stack
 
 - **UI**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (Declarative UI)

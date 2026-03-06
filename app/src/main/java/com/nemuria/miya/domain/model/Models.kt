@@ -38,11 +38,17 @@ enum class DDayType {
     CUSTOM,
 }
 
+enum class MiyaFontType {
+    GOTHIC,
+    DEFAULT
+}
+
 data class StreamerTheme(
     val primaryHex: String,
     val secondaryHex: String,
     val backgroundHex: String,
     val surfaceHex: String,
     val onSurfaceHex: String,
-    val offlineHex: String
+    val offlineHex: String,
+    val fontType: MiyaFontType = MiyaFontType.GOTHIC
 )

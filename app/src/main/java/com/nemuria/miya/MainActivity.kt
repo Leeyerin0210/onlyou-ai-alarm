@@ -47,13 +47,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val currentColors by themeManager.currentColors.collectAsState()
+            val currentFontType by themeManager.currentFontType.collectAsState()
             val colors = MiyaTheme.colors
 
             LaunchedEffect(Unit) {
                 themeManager.fetchStreamerTheme()
             }
 
-            MiyaTheme(colors = currentColors) {
+            MiyaTheme(colors = currentColors, fontType = currentFontType) {
                 var currentScreen by remember { mutableStateOf("home") }
 
                 Scaffold(

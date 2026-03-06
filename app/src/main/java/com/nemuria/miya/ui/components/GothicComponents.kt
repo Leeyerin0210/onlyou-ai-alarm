@@ -15,7 +15,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import com.nemuria.miya.ui.theme.GhanaChocolate
 import com.nemuria.miya.ui.theme.GhanaTypography
+import com.nemuria.miya.ui.theme.HeirOfLight
 import com.nemuria.miya.ui.theme.HeirTypography
 import com.nemuria.miya.ui.theme.MiyaTheme
 
@@ -31,7 +33,7 @@ fun GhanaText(
     Text(
         text = text,
         modifier = modifier,
-        style = style,
+        style = style.copy(fontFamily = GhanaChocolate), // 폰트 패밀리 강제 적용
         color = color,
         fontSize = fontSize,
         fontWeight = fontWeight,
@@ -50,7 +52,7 @@ fun HeirText(
     Text(
         text = text,
         modifier = modifier,
-        style = style,
+        style = style.copy(fontFamily = HeirOfLight), // 폰트 패밀리 강제 적용
         color = color,
         fontSize = fontSize,
         fontWeight = fontWeight,
