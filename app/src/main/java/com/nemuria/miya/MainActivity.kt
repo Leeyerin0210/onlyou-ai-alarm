@@ -84,8 +84,11 @@ class MainActivity : ComponentActivity() {
                         ) { screen ->
                             Box(modifier = Modifier.fillMaxSize()) {
                                 when (screen) {
-                                    "home" -> Box(modifier = Modifier.padding(innerPadding)) {
-                                        HomeScreen(onNavigateToSchedule = { currentScreen = "schedule" })
+                                    "home" -> {
+                                        HomeScreen(
+                                            onNavigateToSchedule = { currentScreen = "schedule" },
+                                            themeManager = themeManager
+                                        )
                                     }
                                     "schedule" -> {
                                         ScheduleScreen()

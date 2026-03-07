@@ -62,15 +62,17 @@ com.nemuria.miya
 ### 1. `streamers` Collection
 앱 전체의 테마 색상과 폰트 스타일을 결정합니다.
 
-- **Document ID**: 스트리머 식별자 (예: `miya`)
+- **Document ID**: 스트리머 식별자 (예: `nemuria_miya`)
 - **Fields**:
-  - `primary` (String): 메인 브랜드 컬러 (Hex 코드, 예: `#C5A059`)
-  - `secondary` (String): 포인트 컬러 (예: `#800101`)
-  - `background` (String): 전체 배경색 (예: `#FFFFFF`)
-  - `surface` (String): 카드 배경색 (예: `#1A1A1A`)
-  - `onSurface` (String): 카드 위 텍스트 색상 (예: `#F5F5DC`)
-  - `offline` (String): 비활성 상태 색상 (예: `#9A9A9A`)
+  - `name` (String): 스트리머 이름 (예: `네무리아 미야`)
   - `fontType` (String): 폰트 프리셋 (`GOTHIC` 또는 `DEFAULT`)
+  - `theme` (Map):
+    - `primaryHex` (String): 메인 브랜드 컬러 (예: `#C5A059`)
+    - `secondaryHex` (String): 포인트 컬러 (예: `#800101`)
+    - `backgroundHex` (String): 전체 배경색 (예: `#FFFFFF`)
+    - `surfaceHex` (String): 카드 배경색 (예: `#1A1A1A`)
+    - `onSurfaceHex` (String): 카드 위 텍스트 색상 (예: `#F5F5DC`)
+    - `offlineHex` (String): 비활성 상태 색상 (예: `#9A9A9A`)
 
 ### 2. `schedules` Collection
 주간 편성표에 표시될 방송 일정 데이터입니다.

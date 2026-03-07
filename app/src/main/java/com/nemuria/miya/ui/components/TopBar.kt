@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.nemuria.miya.ui.theme.GhanaTypography
 import com.nemuria.miya.ui.theme.MiyaTheme
 
 @Composable
@@ -56,10 +56,10 @@ fun TopBar(
             }
         }
 
-        // 2. 중앙 제목
+        // 2. 중앙 제목 (MaterialTheme.typography를 사용하여 동적 폰트 지원)
         Text(
             text = if (currentScreen == "home") "MIYA" else "SCHEDULE",
-            style = GhanaTypography.headlineMedium,
+            style = MaterialTheme.typography.headlineMedium,
             color = colors.secondary,
         )
 
@@ -87,7 +87,7 @@ fun GothicIconButton(
 ) {
     Box(
         modifier = modifier
-            .size(60.dp) // 원하는 크기 80dp 적용
+            .size(60.dp)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.5f))
             .border(1.dp, Color.White.copy(alpha = 1f), CircleShape)
@@ -98,7 +98,7 @@ fun GothicIconButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(32.dp), // 아이콘 크기도 시원하게 키움
+            modifier = Modifier.size(32.dp),
         )
     }
 }

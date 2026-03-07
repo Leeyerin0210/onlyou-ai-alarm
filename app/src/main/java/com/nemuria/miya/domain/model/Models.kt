@@ -50,5 +50,6 @@ data class StreamerTheme(
     val surfaceHex: String,
     val onSurfaceHex: String,
     val offlineHex: String,
-    val fontType: MiyaFontType = MiyaFontType.GOTHIC
+    val fontType: MiyaFontType = MiyaFontType.GOTHIC,
+    val mainImageUrl: String? = null
 )

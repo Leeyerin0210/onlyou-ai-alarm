@@ -15,16 +15,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.theme.MiyaTheme
+import com.nemuria.miya.ui.theme.ThemeManager
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
+    themeManager: ThemeManager,
     onNavigateToSchedule: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
+    val mainImageUrl by themeManager.currentMainImageUrl.collectAsState()
 
     Column(
         modifier = Modifier
@@ -32,22 +36,46 @@ fun HomeScreen(
             .background(colors.background)
             .verticalScroll(rememberScrollState())
     ) {
-        // 1. 버튜버 비주얼 영역 (Placeholder)
+        // 1. 버튜버 비주얼 영역 (화면 맨 위부터 시작하여 탑바와 겹침)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, colors.background),
-                        startY = 0f,
-                        endY = 1000f
-                    )
-                ),
-            contentAlignment = Alignment.BottomStart
+                .height(500.dp) // 높이를 조금 더 키워서 시원하게 배치
         ) {
-            // 추후 Coil을 이용해 실제 고화질 일러스트 배치
-            Column(modifier = Modifier.padding(16.dp)) {
+            if (mainImageUrl != null) {
+                AsyncImage(
+                    model = mainImageUrl,
+                    contentDescription = "Streamer Main Image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize().background(colors.surface))
+            }
+
+            // 하단 그라데이션 오버레이 (이미지가 자연스럽게 배경에 녹아들게 함)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent, 
+                                colors.background.copy(alpha = 0.3f),
+                                colors.background
+                            ),
+                            startY = 400f
+                        )
+                    )
+            )
+
+            // 스트리머 이름 및 상태 표시 (탑바 아래쪽에 위치하도록 조정)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+                    .padding(bottom = 20.dp) // 하단 카드와 너무 붙지 않게 여백
+            ) {
                 Text(
                     text = uiState.vtuberName,
                     style = MaterialTheme.typography.displayLarge,
@@ -61,7 +89,7 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // 2. 디데이(D-Day) 카운터
         GothicCard(
@@ -92,7 +120,7 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 방송 스케줄 바로가기 버튼 추가
+        // 방송 스케줄 바로가기 버튼
         GothicCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,6 +173,6 @@ fun HomeScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(120.dp)) // 하단 바텀바 여유 공간
     }
 }
