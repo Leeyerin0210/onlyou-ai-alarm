@@ -1,5 +1,11 @@
 package com.nemuria.miya.ui.alarm
 
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -133,6 +140,21 @@ fun AlarmScreen(
 ) {
     val alarms by viewModel.alarms.collectAsState()
     val editingAlarm by viewModel.editingAlarm.collectAsState()
+    val context = LocalContext.current
+
+    // Android 14+: USE_FULL_SCREEN_INTENT 권한 미허용 시 설정 화면으로 안내
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (!nm.canUseFullScreenIntent()) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                    Uri.parse("package:${context.packageName}"),
+                )
+                context.startActivity(intent)
+            }
+        }
+    }
 
     LaunchedEffect(editingAlarm) {
         onEditingStateChange(editingAlarm != null)
@@ -200,6 +222,7 @@ fun AlarmContent(
             AlarmEditPage(
                 alarm = editingAlarm,
                 onSave = onSaveAlarm,
+                onDelete = { onDeleteAlarm(editingAlarm) },
             )
         }
     }

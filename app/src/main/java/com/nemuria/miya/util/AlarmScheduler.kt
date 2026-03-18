@@ -30,6 +30,7 @@ class AlarmScheduler
                 putExtra("ALARM_ID", alarm.id)
                 putExtra("ALARM_TIME", alarm.time)
                 putExtra("ALARM_VOICE", alarm.voiceId)
+                putExtra("ALARM_TITLE", alarm.title ?: "")
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

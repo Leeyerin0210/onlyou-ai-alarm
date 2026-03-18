@@ -13,14 +13,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -72,13 +77,15 @@ import java.util.Locale
 @Composable
 fun MiyaCalendarDialog(
     initialDate: LocalDate?,
-    onDateSelected: (LocalDate) -> Unit,
+    onConfirm: (LocalDate) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     val currentMonth = remember { YearMonth.now() }
     val startMonth = remember { currentMonth.minusMonths(1) }
     val endMonth = remember { currentMonth.plusMonths(12) }
     val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
+
+    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
 
     val state = rememberCalendarState(
         startMonth = startMonth,
@@ -115,9 +122,9 @@ fun MiyaCalendarDialog(
                 HorizontalCalendar(
                     state = state,
                     dayContent = { day ->
-                        val isSelected = initialDate == day.date
+                        val isSelected = selectedDate == day.date
                         Day(day, isSelected) {
-                            onDateSelected(it.date)
+                            selectedDate = it.date
                         }
                     },
                     monthHeader = { month ->
@@ -126,17 +133,28 @@ fun MiyaCalendarDialog(
                     },
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
-                    onClick = onDismissRequest,
-                    modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MiyaTheme.colors.primary,
-                        contentColor = MiyaTheme.colors.background,
-                    ),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    Text("Close")
+                    Text(
+                        "취소",
+                        modifier = Modifier
+                            .clickable { onDismissRequest() }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MiyaTheme.colors.onSurface.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "확인",
+                        modifier = Modifier
+                            .clickable { onConfirm(selectedDate) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MiyaTheme.colors.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
@@ -324,26 +342,25 @@ fun MiyaTimePicker(
 }
 
 // =================================================================
-// 3. 실제 페이지 (이제 외부 라이브러리 제거됨)
+// 3. 실제 페이지
 // =================================================================
 @Composable
 fun AlarmEditPage(
     alarm: MiyaAlarm,
     onSave: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
-    var title by remember { mutableStateOf(alarm.title ?: "") }
-    var time by remember { mutableStateOf(alarm.time) }
-    var voiceId by remember { mutableStateOf(alarm.voiceId) }
-    var repeatDays by remember { mutableStateOf(alarm.repeatDays) }
-    var date by remember { mutableStateOf(alarm.date) }
-    var showCalendar by remember { mutableStateOf(false) }
-
-    val colors = MiyaTheme.colors
+    var title by remember(alarm.id, alarm.title) { mutableStateOf(alarm.title.orEmpty()) }
+    var time by remember(alarm.id, alarm.time) { mutableStateOf(alarm.time) }
+    var voiceId by remember(alarm.id, alarm.voiceId) { mutableStateOf(alarm.voiceId) }
+    var repeatDays by remember(alarm.id, alarm.repeatDays) { mutableStateOf(alarm.repeatDays) }
+    var date by remember(alarm.id, alarm.date) { mutableStateOf(alarm.date) }
+    var showCalendar by remember(alarm.id) { mutableStateOf(false) }
 
     if (showCalendar) {
         MiyaCalendarDialog(
             initialDate = date,
-            onDateSelected = {
+            onConfirm = {
                 date = it
                 repeatDays = emptySet()
                 showCalendar = false
@@ -352,186 +369,248 @@ fun AlarmEditPage(
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 130.dp, start = 20.dp, end = 20.dp, bottom = 20.dp), // 상단 여백 살짝 조절
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(top = 130.dp),
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        // 스크롤 가능한 콘텐츠 영역
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 88.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            MiyaTimePicker(
+                time = time,
+                onTimeChange = { newTime -> time = newTime },
+            )
 
-        // 직접 만든 커스텀 타임 피커 적용
-        MiyaTimePicker(
-            time = time,
-            onTimeChange = { newTime -> time = newTime },
+            AlarmTitleSection(
+                title = title,
+                onTitleChange = { title = it },
+            )
+
+            AlarmScheduleSection(
+                date = date,
+                repeatDays = repeatDays,
+                onOpenCalendar = { showCalendar = true },
+                onToggleRepeatDay = { day ->
+                    val isSelected = repeatDays.contains(day)
+                    repeatDays = if (isSelected) repeatDays - day else repeatDays + day
+                    date = null
+                },
+            )
+
+            AlarmVoiceSection(
+                selectedVoiceId = voiceId,
+                onVoiceSelected = { voiceId = it },
+            )
+
+            // 기존 알람에만 삭제 버튼 표시
+            if (onDelete != null && alarm.id != 0) {
+                DeleteAlarmButton(onClick = onDelete)
+            }
+        }
+
+        // 하단 고정 저장 버튼
+        SaveAlarmButton(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .navigationBarsPadding(),
+            onClick = {
+                val finalDate = if (date == null && repeatDays.isEmpty()) LocalDate.now() else date
+                onSave(time, voiceId, title.ifEmpty { null }, repeatDays, finalDate)
+            },
+        )
+    }
+}
+
+private val AlarmVoiceOptions = listOf("default_voice", "gentle_morning", "energetic_start")
+
+private val AlarmDayOptions = listOf(
+    AlarmDayOption(DayOfWeek.MONDAY, "월"),
+    AlarmDayOption(DayOfWeek.TUESDAY, "화"),
+    AlarmDayOption(DayOfWeek.WEDNESDAY, "수"),
+    AlarmDayOption(DayOfWeek.THURSDAY, "목"),
+    AlarmDayOption(DayOfWeek.FRIDAY, "금"),
+    AlarmDayOption(DayOfWeek.SATURDAY, "토"),
+    AlarmDayOption(DayOfWeek.SUNDAY, "일"),
+)
+
+private data class AlarmDayOption(
+    val day: DayOfWeek,
+    val label: String,
+)
+
+@Composable
+private fun AlarmEditSectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(20.dp),
+            )
+            .background(
+                color = colors.surface,
+                shape = RoundedCornerShape(20.dp),
+            )
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun AlarmTitleSection(
+    title: String,
+    onTitleChange: (String) -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    AlarmEditSectionCard(modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = "title",
+            fontWeight = FontWeight.Bold,
+            color = colors.primary,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Column(
-            modifier = Modifier // 1. 가로를 꽉 채워주는 게 카드 형태일 때 더 예쁩니다.
-                .fillMaxWidth()
-                // 2. 그림자 영역 (background보다 먼저 와야 합니다)
-                .shadow(
-                    elevation = 8.dp, // 그림자의 깊이 (값이 클수록 더 붕 떠 보임)
-                    shape = RoundedCornerShape(20.dp), // 둥근 모서리 반경
-                    spotColor = colors.primary.copy(alpha = 0.5f), // (선택) 테마에 맞춰 그림자 색상에 primary를 살짝 섞으면 더 고급스럽습니다.
+        TextField(
+            value = title,
+            onValueChange = onTitleChange,
+            maxLines = 1,
+            singleLine = true,
+            placeholder = {
+                Text(
+                    text = "제목을 입력해 주세요",
+                    color = colors.onSurface.copy(alpha = 0.4f),
                 )
-                // 3. 배경색과 실제 잘리는 모양(clip) 설정
-                .background(
-                    color = colors.surface,
-                    shape = RoundedCornerShape(20.dp), // shadow의 shape과 반드시 똑같이 맞춰주세요.
-                )
-                // 4. 내부 여백 (둥근 모서리에 컨텐츠가 닿지 않게 여유를 줍니다)
-                .padding(8.dp),
-        ) {
-            Text(
-                "title",
-                fontWeight = FontWeight.Bold,
-                color = colors.primary,
-                modifier = Modifier.padding(start = 12.dp, top = 8.dp),
-            )
-            TextField(
-                value = title,
-                onValueChange = { title = it },
-                maxLines = 1,
-                singleLine = true, // 엔터 키를 눌렀을 때 줄바꿈이 안 되게 막아줍니다.
-                placeholder = {
-                    Text(
-                        text = "제목을 입력해 주세요",
-                        color = colors.onSurface.copy(alpha = 0.4f), // 힌트답게 색상을 살짝 연하게 처리
-                    )
-                },
-                colors = TextFieldDefaults.colors(
-                    // 1. 배경 투명하게
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    // 2. 밑줄 없애기
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                ),
-            )
-        }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+            ),
+        )
+    }
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
+@Composable
+private fun AlarmScheduleSection(
+    date: LocalDate?,
+    repeatDays: Set<DayOfWeek>,
+    onOpenCalendar: () -> Unit,
+    onToggleRepeatDay: (DayOfWeek) -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    val summaryText = remember(date, repeatDays) {
+        buildAlarmScheduleSummary(date = date, repeatDays = repeatDays)
+    }
 
-        Column(
-            modifier = Modifier // 1. 가로를 꽉 채워주는 게 카드 형태일 때 더 예쁩니다.
-                .fillMaxWidth()
-                // 2. 그림자 영역 (background보다 먼저 와야 합니다)
-                .shadow(
-                    elevation = 8.dp, // 그림자의 깊이 (값이 클수록 더 붕 떠 보임)
-                    shape = RoundedCornerShape(20.dp), // 둥근 모서리 반경
-                    spotColor = colors.primary.copy(alpha = 0.5f), // (선택) 테마에 맞춰 그림자 색상에 primary를 살짝 섞으면 더 고급스럽습니다.
-                )
-                // 3. 배경색과 실제 잘리는 모양(clip) 설정
-                .background(
-                    color = colors.surface,
-                    shape = RoundedCornerShape(20.dp), // shadow의 shape과 반드시 똑같이 맞춰주세요.
-                )
-                // 4. 내부 여백 (둥근 모서리에 컨텐츠가 닿지 않게 여유를 줍니다)
-                .padding(16.dp),
-        ) {
-            Text(
-                "Repeat",
-                fontWeight = FontWeight.Bold,
-                color = colors.primary,
-                modifier = Modifier.align(Alignment.Start),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                DayOfWeek.values().forEach { day ->
-                    val isSelected = repeatDays.contains(day)
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                if (isSelected) colors.primary else colors.offline,
-                                shape = RoundedCornerShape(16.dp),
-                            ).clickable {
-                                repeatDays = if (isSelected) repeatDays - day else repeatDays + day
-                                date = null
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = day.name.take(1),
-                            color = if (isSelected) colors.background else colors.onSurface,
-                            fontSize = 16.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
+    AlarmEditSectionCard {
         Row(
-            modifier = Modifier // 1. 가로를 꽉 채워주는 게 카드 형태일 때 더 예쁩니다.
-                .fillMaxWidth()
-                // 2. 그림자 영역 (background보다 먼저 와야 합니다)
-                .shadow(
-                    elevation = 8.dp, // 그림자의 깊이 (값이 클수록 더 붕 떠 보임)
-                    shape = RoundedCornerShape(20.dp), // 둥근 모서리 반경
-                    spotColor = colors.primary.copy(alpha = 0.5f), // (선택) 테마에 맞춰 그림자 색상에 primary를 살짝 섞으면 더 고급스럽습니다.
-                )
-                // 3. 배경색과 실제 잘리는 모양(clip) 설정
-                .background(
-                    color = colors.surface,
-                    shape = RoundedCornerShape(20.dp), // shadow의 shape과 반드시 똑같이 맞춰주세요.
-                )
-                // 4. 내부 여백 (둥근 모서리에 컨텐츠가 닿지 않게 여유를 줍니다)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(
-                    "Specific Date",
-                    fontWeight = FontWeight.Bold,
-                    color = colors.primary,
-                )
-                Text(
-                    text = date?.toString() ?: "No date selected",
-                    color = if (date != null) colors.onSurface else colors.onSurface.copy(alpha = 0.5f),
-                    fontSize = 14.sp,
-                )
-            }
-            IconButton(onClick = { showCalendar = true }) {
+            Text(
+                text = summaryText,
+                fontWeight = FontWeight.Bold,
+                color = colors.primary,
+            )
+
+            IconButton(
+                onClick = onOpenCalendar,
+                modifier = Modifier.size(24.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Default.CalendarMonth,
                     contentDescription = "Select Date",
-                    tint = colors.primary,
+                    tint = colors.primary.copy(alpha = 0.7f),
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            AlarmDayOptions.forEach { option ->
+                RepeatDayChip(
+                    label = option.label,
+                    selected = repeatDays.contains(option.day),
+                    onClick = { onToggleRepeatDay(option.day) },
+                )
+            }
+        }
+    }
+}
 
+@Composable
+private fun RepeatDayChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .background(
+                color = if (selected) colors.primary else colors.offline.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp),
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
         Text(
-            "Sound",
+            text = label,
+            color = if (selected) colors.background else colors.onSurface,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        )
+    }
+}
+
+@Composable
+private fun AlarmVoiceSection(
+    selectedVoiceId: String,
+    onVoiceSelected: (String) -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    AlarmEditSectionCard {
+        Text(
+            text = "Sound",
             fontWeight = FontWeight.Bold,
             color = colors.primary,
-            modifier = Modifier.align(Alignment.Start),
         )
-        val voices = listOf("default_voice", "gentle_morning", "energetic_start")
-        voices.forEach { voice ->
+
+        AlarmVoiceOptions.forEach { voice ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { voiceId = voice }
-                    .padding(vertical = 4.dp),
+                    .clickable { onVoiceSelected(voice) },
             ) {
                 RadioButton(
-                    selected = voiceId == voice,
-                    onClick = { voiceId = voice },
+                    selected = selectedVoiceId == voice,
+                    onClick = { onVoiceSelected(voice) },
                     colors = RadioButtonDefaults.colors(
                         selectedColor = colors.primary,
                         unselectedColor = colors.offline,
@@ -540,22 +619,72 @@ fun AlarmEditPage(
                 Text(text = voice, color = colors.onSurface)
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.weight(1f))
+@Composable
+private fun SaveAlarmButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MiyaTheme.colors
 
-        Button(
-            onClick = { onSave(time, voiceId, title.ifEmpty { null }, repeatDays, date) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.primary,
-                contentColor = colors.background,
-            ),
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Text("Save Alarm", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(56.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = colors.primary,
+            contentColor = colors.background,
+        ),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Text("저장하기", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun DeleteAlarmButton(
+    onClick: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = colors.offline,
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.offline.copy(alpha = 0.5f)),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Delete,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.size(8.dp))
+        Text("알람 삭제", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+private fun buildAlarmScheduleSummary(
+    date: LocalDate?,
+    repeatDays: Set<DayOfWeek>,
+): String {
+    return when {
+        date != null -> date.toString()
+        repeatDays.isNotEmpty() -> {
+            if (repeatDays.size == AlarmDayOptions.size) {
+                "매일 반복"
+            } else {
+                repeatDays.sorted().joinToString(", ") { day ->
+                    AlarmDayOptions.first { it.day == day }.label
+                } + " 반복"
+            }
         }
+        else -> "${LocalDate.now()} (오늘)"
     }
 }
 
