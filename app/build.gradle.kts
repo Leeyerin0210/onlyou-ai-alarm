@@ -56,7 +56,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation("com.github.commandiron:WheelPickerCompose:1.1.11")
+    implementation(libs.calendar.compose)
 
     // Legacy Support for Themes
     implementation(libs.androidx.appcompat)
