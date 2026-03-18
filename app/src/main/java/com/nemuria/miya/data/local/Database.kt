@@ -12,7 +12,7 @@ interface AlarmDao {
     suspend fun getAlarmById(id: Int): AlarmEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAlarm(alarm: AlarmEntity)
+    suspend fun insertAlarm(alarm: AlarmEntity): Long
 
     @Update
     suspend fun updateAlarm(alarm: AlarmEntity)
@@ -36,7 +36,7 @@ interface StreamScheduleDao {
     suspend fun deleteSchedule(schedule: StreamScheduleEntity)
 }
 
-@Database(entities = [AlarmEntity::class, DDayEntity::class, StreamScheduleEntity::class], version = 2, exportSchema = false)
+@Database(entities = [AlarmEntity::class, DDayEntity::class, StreamScheduleEntity::class], version = 3, exportSchema = false)
 @TypeConverters(MiyaTypeConverters::class)
 abstract class MiyaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao

@@ -58,7 +58,14 @@ fun TopBar(
 
         // 2. 중앙 제목 (MaterialTheme.typography를 사용하여 동적 폰트 지원)
         Text(
-            text = if (currentScreen == "home") "MIYA" else "SCHEDULE",
+            text =
+            when(currentScreen){
+                "home" -> "홈"
+                "schedule" -> "스케줄"
+                "alarm" -> "알람"
+                "profile" -> "프로필"
+                else -> title
+            },
             style = MaterialTheme.typography.headlineMedium,
             color = colors.secondary,
         )

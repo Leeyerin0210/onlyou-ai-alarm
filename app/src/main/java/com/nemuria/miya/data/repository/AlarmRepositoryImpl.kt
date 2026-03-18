@@ -22,8 +22,8 @@ class AlarmRepositoryImpl @Inject constructor(
         return alarmDao.getAlarmById(id)?.toDomainModel()
     }
 
-    override suspend fun insertAlarm(alarm: MiyaAlarm) {
-        alarmDao.insertAlarm(alarm.toEntity())
+    override suspend fun insertAlarm(alarm: MiyaAlarm): Int {
+        return alarmDao.insertAlarm(alarm.toEntity()).toInt()
     }
 
     override suspend fun updateAlarm(alarm: MiyaAlarm) {
@@ -35,14 +35,14 @@ class AlarmRepositoryImpl @Inject constructor(
     }
 
     private fun AlarmEntity.toDomainModel() = MiyaAlarm(
-        id = id, hour = hour, minute = minute, isEnabled = isEnabled,
-        repeatDays = repeatDays, voiceId = voiceId, illustrationId = illustrationId,
+        id = id, title = title, hour = hour, minute = minute, isEnabled = isEnabled,
+        repeatDays = repeatDays, date = date, voiceId = voiceId, illustrationId = illustrationId,
         label = label, isOneTime = isOneTime
     )
 
     private fun MiyaAlarm.toEntity() = AlarmEntity(
-        id = id, hour = hour, minute = minute, isEnabled = isEnabled,
-        repeatDays = repeatDays, voiceId = voiceId, illustrationId = illustrationId,
+        id = id, title = title, hour = hour, minute = minute, isEnabled = isEnabled,
+        repeatDays = repeatDays, date = date, voiceId = voiceId, illustrationId = illustrationId,
         label = label, isOneTime = isOneTime
     )
 }

@@ -4,10 +4,12 @@ import java.time.DayOfWeek
 
 data class MiyaAlarm(
     val id: Int = 0,
+    val title: String? = null,
     val hour: Int,
     val minute: Int,
     val isEnabled: Boolean = true,
     val repeatDays: Set<DayOfWeek> = emptySet(),
+    val date: java.time.LocalDate? = null,
     val voiceId: String = "default_voice",
     val illustrationId: String = "default_illu",
     val label: String? = null,

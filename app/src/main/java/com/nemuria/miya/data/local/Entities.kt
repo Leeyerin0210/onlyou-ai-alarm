@@ -9,10 +9,12 @@ import java.time.LocalDate
 @Entity(tableName = "alarms")
 data class AlarmEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String?,
     val hour: Int,
     val minute: Int,
     val isEnabled: Boolean,
     val repeatDays: Set<DayOfWeek>,
+    val date: LocalDate?,
     val voiceId: String,
     val illustrationId: String,
     val label: String?,
