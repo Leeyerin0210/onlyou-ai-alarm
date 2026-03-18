@@ -44,8 +44,8 @@ fun TopBar(
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // 1. 왼쪽 뒤로가기 버튼 (스케줄 화면)
-        if (currentScreen == "schedule") {
+        // 1. 왼쪽 뒤로가기 버튼 (스케줄 화면 또는 알람 편집)
+        if (currentScreen == "schedule" || currentScreen == "alarm_edit") {
             Box(modifier = Modifier.align(Alignment.CenterStart)) {
                 GothicIconButton(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
@@ -56,13 +56,14 @@ fun TopBar(
             }
         }
 
-        // 2. 중앙 제목 (MaterialTheme.typography를 사용하여 동적 폰트 지원)
+        // 2. 중앙 제목
         Text(
             text =
             when(currentScreen){
                 "home" -> "홈"
                 "schedule" -> "스케줄"
                 "alarm" -> "알람"
+                "alarm_edit" -> "알람 편집"
                 "profile" -> "프로필"
                 else -> title
             },

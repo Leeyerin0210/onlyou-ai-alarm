@@ -1,6 +1,14 @@
 package com.nemuria.miya.data.local
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -36,9 +44,10 @@ interface StreamScheduleDao {
     suspend fun deleteSchedule(schedule: StreamScheduleEntity)
 }
 
-@Database(entities = [AlarmEntity::class, DDayEntity::class, StreamScheduleEntity::class], version = 3, exportSchema = false)
+@Database(entities = [AlarmEntity::class, DDayEntity::class, StreamScheduleEntity::class], version = 4, exportSchema = false)
 @TypeConverters(MiyaTypeConverters::class)
 abstract class MiyaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+
     abstract fun streamScheduleDao(): StreamScheduleDao
 }

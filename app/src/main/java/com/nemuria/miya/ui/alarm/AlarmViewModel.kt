@@ -6,10 +6,15 @@ import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.domain.repository.AlarmRepository
 import com.nemuria.miya.util.AlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,7 +30,7 @@ class AlarmViewModel @Inject constructor(
     val editingAlarm: StateFlow<MiyaAlarm?> = _editingAlarm.asStateFlow()
 
     fun startEditing(alarm: MiyaAlarm?) {
-        _editingAlarm.value = alarm ?: MiyaAlarm(id = 0, hour = 8, minute = 0)
+        _editingAlarm.value = alarm ?: MiyaAlarm(id = 0)
     }
 
     fun stopEditing() {
@@ -33,8 +38,7 @@ class AlarmViewModel @Inject constructor(
     }
 
     fun saveAlarm(
-        hour: Int,
-        minute: Int,
+        time : LocalTime,
         voiceId: String,
         title: String?,
         repeatDays: Set<DayOfWeek>,
@@ -43,8 +47,7 @@ class AlarmViewModel @Inject constructor(
         val current = _editingAlarm.value ?: return
         viewModelScope.launch {
             val alarmToSave = current.copy(
-                hour = hour,
-                minute = minute,
+                time = time,
                 voiceId = voiceId,
                 title = title,
                 repeatDays = repeatDays,

@@ -3,7 +3,6 @@ package com.nemuria.miya.util
 import com.nemuria.miya.domain.model.MiyaAlarm
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
@@ -12,7 +11,7 @@ object AlarmCalculator {
         alarm: MiyaAlarm,
         now: LocalDateTime,
     ): Long {
-        val targetTime = LocalTime.of(alarm.hour, alarm.minute)
+        val targetTime = alarm.time
 
         // 반복 요일이 없는 경우 (일회성)
         if (alarm.repeatDays.isEmpty()) {

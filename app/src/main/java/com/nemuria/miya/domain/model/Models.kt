@@ -1,12 +1,12 @@
 package com.nemuria.miya.domain.model
 
 import java.time.DayOfWeek
+import java.time.LocalTime
 
 data class MiyaAlarm(
     val id: Int = 0,
     val title: String? = null,
-    val hour: Int,
-    val minute: Int,
+    val time : LocalTime = LocalTime.now(),
     val isEnabled: Boolean = true,
     val repeatDays: Set<DayOfWeek> = emptySet(),
     val date: java.time.LocalDate? = null,

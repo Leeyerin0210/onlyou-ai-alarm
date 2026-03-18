@@ -19,13 +19,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.nemuria.miya.ui.alarm.AlarmEditPage
 import com.nemuria.miya.ui.alarm.AlarmScreen
 import com.nemuria.miya.ui.components.MiyaBottomNavigationBar
 import com.nemuria.miya.ui.components.TopBar
@@ -56,18 +56,25 @@ class MainActivity : ComponentActivity() {
 
             MiyaTheme(colors = currentColors, fontType = currentFontType) {
                 var currentScreen by remember { mutableStateOf("home") }
+                var isEditingAlarm by remember { mutableStateOf(false) }
+                var alarmBackTrigger by remember { mutableIntStateOf(0) }
 
                 Scaffold(
                     containerColor = Color.Transparent,
                     topBar = {
                         TopBar(
-                            currentScreen = currentScreen,
-                            onBack = { currentScreen = "home" },
+                            currentScreen = if (isEditingAlarm) "alarm_edit" else currentScreen,
+                            onBack = {
+                                if (isEditingAlarm) {
+                                    alarmBackTrigger++
+                                } else {
+                                    currentScreen = "home"
+                                }
+                            },
                             onSetting = { /* 설정창 열기 */ },
                         )
                     },
-                    // bottomBar 슬롯은 비워둡니다 (수동 배치 예정)
-                ) { _ ->
+                ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -96,7 +103,10 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     "alarm" -> {
-                                        AlarmScreen()
+                                        AlarmScreen(
+                                            onEditingStateChange = { isEditingAlarm = it },
+                                            backTrigger = alarmBackTrigger,
+                                        )
                                     }
 
                                     "profile" -> {
@@ -107,15 +117,15 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        if(currentScreen != "editingAlarm"){
-                            // 2. 공중에 떠 있는 플로팅 바텀 바
+
+                        // 2. 공중에 떠 있는 플로팅 바텀 바
+                        if (!isEditingAlarm) {
                             MiyaBottomNavigationBar(
                                 currentScreen = currentScreen,
                                 onNavigate = { currentScreen = it },
-                                modifier = Modifier.align(Alignment.BottomCenter), // 하단 중앙에 배치
+                                modifier = Modifier.align(Alignment.BottomCenter),
                             )
                         }
-
                     }
                 }
             }
