@@ -48,10 +48,10 @@ com.nemuria.miya
 
 ### 2. 테마 데이터 흐름 (Data Flow)
 
-1.  **Firebase/DB**: 스트리머별 `theme` 맵 데이터에 6가지 Hex String을 저장합니다.
+1.  **Firebase/DB**: 스트리머별 `theme` 맵 데이터에 7가지 Hex String을 저장합니다.
 2.  **Domain (`StreamerTheme`)**: 서버에서 받아온 문자열 데이터를 모델화합니다.
 3.  **UI (`MiyaColors`)**: `toMiyaColors()` 확장 함수를 통해 Hex String을 `Color` 객체로 변환하여 Compose 테마에 주입합니다.
-4.  **Components**: 모든 UI 컴포넌트(`GothicCard`, `GhanaText` 등)는 `MiyaTheme.colors`를 참조하여 자신의 색상을 자동으로 결정합니다.
+4.  **Components**: 모든 UI 컴포넌트는 `MiyaTheme.colors`를 참조하여 자신의 색상을 자동으로 결정합니다.
 
 ---
 
@@ -67,12 +67,6 @@ com.nemuria.miya
   - `name` (String): 스트리머 이름 (예: `네무리아 미야`)
   - `fontType` (String): 폰트 프리셋 (`GOTHIC` 또는 `DEFAULT`)
   - `theme` (Map):
-    - `primaryHex` (String): 메인 브랜드 컬러 (예: `#C5A059`)
-    - `secondaryHex` (String): 포인트 컬러 (예: `#800101`)
-    - `backgroundHex` (String): 전체 배경색 (예: `#FFFFFF`)
-    - `surfaceHex` (String): 카드 배경색 (예: `#1A1A1A`)
-    - `onSurfaceHex` (String): 카드 위 텍스트 색상 (예: `#F5F5DC`)
-    - `offlineHex` (String): 비활성 상태 색상 (예: `#9A9A9A`)
 
 ### 2. `schedules` Collection
 주간 편성표에 표시될 방송 일정 데이터입니다.
