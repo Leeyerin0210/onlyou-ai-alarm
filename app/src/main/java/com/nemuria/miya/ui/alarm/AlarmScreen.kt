@@ -82,7 +82,7 @@ fun AlarmItem(
                     text = String.format("%02d:%02d", alarm.time.hour, alarm.time.minute),
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (alarm.isEnabled) colors.onSurface else colors.onSurface.copy(alpha = 0.4f),
+                    color = if (alarm.isEnabled) colors.onSurfaceA else colors.onSurfaceA.copy(alpha = 0.4f),
                 )
 
                 val formatter = DateTimeFormatter.ofPattern("M.d")
@@ -107,7 +107,7 @@ fun AlarmItem(
                 Text(
                     text = repeatText,
                     fontSize = 12.sp,
-                    color = colors.onSurface.copy(alpha = 0.6f),
+                    color = colors.onSurfaceA.copy(alpha = 0.6f),
                 )
             }
 
@@ -116,7 +116,7 @@ fun AlarmItem(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete",
-                        tint = colors.onSurface.copy(alpha = 0.3f),
+                        tint = colors.onSurfaceA.copy(alpha = 0.3f),
                     )
                 }
                 Switch(

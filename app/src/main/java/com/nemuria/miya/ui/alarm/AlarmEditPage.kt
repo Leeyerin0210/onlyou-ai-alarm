@@ -101,7 +101,7 @@ fun MiyaCalendarDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MiyaTheme.colors.surface,
+                containerColor = MiyaTheme.colors.surfaceA,
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         ) {
@@ -144,7 +144,7 @@ fun MiyaCalendarDialog(
                         modifier = Modifier
                             .clickable { onDismissRequest() }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = MiyaTheme.colors.onSurface.copy(alpha = 0.5f),
+                        color = MiyaTheme.colors.onSurfaceA.copy(alpha = 0.5f),
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
@@ -178,8 +178,8 @@ fun Day(day: CalendarDay, isSelected: Boolean, onClick: (CalendarDay) -> Unit) {
             text = day.date.dayOfMonth.toString(),
             color = when {
                 isSelected -> MiyaTheme.colors.background
-                day.position == DayPosition.MonthDate -> MiyaTheme.colors.onSurface
-                else -> MiyaTheme.colors.onSurface.copy(alpha = 0.3f)
+                day.position == DayPosition.MonthDate -> MiyaTheme.colors.onSurfaceA
+                else -> MiyaTheme.colors.onSurfaceA.copy(alpha = 0.3f)
             },
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
         )
@@ -263,7 +263,7 @@ fun CustomWheelPicker(
                         color = if (isSelected) {
                             MiyaTheme.colors.primary
                         } else {
-                            MiyaTheme.colors.offline.copy(
+                            MiyaTheme.colors.neutral.copy(
                                 alpha = 0.3f,
                             )
                         },
@@ -462,7 +462,7 @@ private fun AlarmEditSectionCard(
                 shape = RoundedCornerShape(20.dp),
             )
             .background(
-                color = colors.surface,
+                color = colors.surfaceA,
                 shape = RoundedCornerShape(20.dp),
             )
             .padding(16.dp),
@@ -494,7 +494,7 @@ private fun AlarmTitleSection(
             placeholder = {
                 Text(
                     text = "제목을 입력해 주세요",
-                    color = colors.onSurface.copy(alpha = 0.4f),
+                    color = colors.onSurfaceA.copy(alpha = 0.4f),
                 )
             },
             colors = TextFieldDefaults.colors(
@@ -572,7 +572,7 @@ private fun RepeatDayChip(
         modifier = Modifier
             .size(40.dp)
             .background(
-                color = if (selected) colors.primary else colors.offline.copy(alpha = 0.2f),
+                color = if (selected) colors.primary else colors.neutral.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(12.dp),
             )
             .clickable(onClick = onClick),
@@ -580,7 +580,7 @@ private fun RepeatDayChip(
     ) {
         Text(
             text = label,
-            color = if (selected) colors.background else colors.onSurface,
+            color = if (selected) colors.background else colors.onSurfaceA,
             fontSize = 14.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
         )
@@ -613,10 +613,10 @@ private fun AlarmVoiceSection(
                     onClick = { onVoiceSelected(voice) },
                     colors = RadioButtonDefaults.colors(
                         selectedColor = colors.primary,
-                        unselectedColor = colors.offline,
+                        unselectedColor = colors.neutral,
                     ),
                 )
-                Text(text = voice, color = colors.onSurface)
+                Text(text = voice, color = colors.onSurfaceA)
             }
         }
     }
@@ -654,9 +654,9 @@ private fun DeleteAlarmButton(
             .fillMaxWidth()
             .height(52.dp),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = colors.offline,
+            contentColor = colors.neutral,
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, colors.offline.copy(alpha = 0.5f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.neutral.copy(alpha = 0.5f)),
         shape = MaterialTheme.shapes.medium,
     ) {
         Icon(

@@ -12,31 +12,37 @@ import com.nemuria.miya.domain.model.StreamerTheme
 
 @Immutable
 data class MiyaColors(
-    val primary: Color, // e.g., Gold
-    val secondary: Color, // e.g., Gothic Red
-    val background: Color, // e.g., White or Black
-    val surface: Color, // e.g., Gothic Grey
-    val onSurface: Color, // e.g., Vintage White (Text on cards)
-    val offline: Color, // e.g., Empty Grey
+    val background: Color,  // 앱 전체 기본 배경 (텍스트 직접 올라오지 않음)
+    val surfaceA: Color,    // A 카드 배경 (일반 카드)
+    val onSurfaceA: Color,  // A 카드 위 텍스트
+    val surfaceB: Color,    // B 카드 배경 (강조 카드)
+    val onSurfaceB: Color,  // B 카드 위 텍스트
+    val primary: Color,     // 메인 테마 색상
+    val secondary: Color,   // 두번째 테마 색상
+    val neutral: Color,     // 비활성/중립 색상
 )
 
 fun StreamerTheme.toMiyaColors() =
     MiyaColors(
+        background = backgroundHex.toColor(),
+        surfaceA = surfaceAHex.toColor(),
+        onSurfaceA = onSurfaceAHex.toColor(),
+        surfaceB = surfaceBHex.toColor(),
+        onSurfaceB = onSurfaceBHex.toColor(),
         primary = primaryHex.toColor(),
         secondary = secondaryHex.toColor(),
-        background = backgroundHex.toColor(),
-        surface = surfaceHex.toColor(),
-        onSurface = onSurfaceHex.toColor(),
-        offline = offlineHex.toColor(),
+        neutral = neutralHex.toColor(),
     )
 
 val MiyaDefaultColors = MiyaColors(
-    primary = GoldMedium,
-    secondary = GothicRed,
-    background = Color.White,
-    surface = GothicGrey,
-    onSurface = VintageWhite,
-    offline = EmptyGrey,
+    background = Color.White,            // #FFFFFF — 앱 기본 배경
+    surfaceA = GothicGrey,           // #1A1A1A — 일반 카드 배경
+    onSurfaceA = VintageWhite,       // #F5F5DC — 일반 카드 텍스트
+    surfaceB = Color(0xFF2A1A1A),    // 짙은 레드 틴트 — 강조 카드 배경
+    onSurfaceB = GoldLight,          // #FFD700 — 강조 카드 텍스트
+    primary = GoldMedium,            // #C5A059
+    secondary = GothicRed,           // #800101
+    neutral = EmptyGrey,             // #9A9A9A
 )
 
 val LocalMiyaColors = staticCompositionLocalOf { MiyaDefaultColors }
@@ -56,8 +62,8 @@ fun MiyaTheme(
         primary = colors.primary,
         secondary = colors.secondary,
         background = colors.background,
-        surface = colors.surface,
-        onSurface = colors.onSurface,
+        surface = colors.surfaceA,
+        onSurface = colors.onSurfaceA,
     )
 
     CompositionLocalProvider(LocalMiyaColors provides colors) {

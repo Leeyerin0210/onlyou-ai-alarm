@@ -105,19 +105,19 @@ private fun ScheduleSkeleton() {
                 modifier = Modifier
                     .width(180.dp)
                     .height(28.dp)
-                    .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                    .background(colors.neutral.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
             )
             Spacer(Modifier.height(8.dp))
             Box(
                 modifier = Modifier
                     .width(120.dp)
                     .height(20.dp)
-                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
+                    .background(colors.neutral.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
             )
 
             Spacer(Modifier.height(16.dp))
             GradientDivider(
-                gradientColors = listOf(Color.Transparent, colors.offline.copy(alpha = 0.3f), Color.Transparent),
+                gradientColors = listOf(Color.Transparent, colors.neutral.copy(alpha = 0.3f), Color.Transparent),
                 thickness = 2.dp,
             )
             Spacer(Modifier.height(16.dp))
@@ -137,13 +137,13 @@ private fun ScheduleSkeleton() {
                                 modifier = Modifier
                                     .width(32.dp)
                                     .height(16.dp)
-                                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
+                                    .background(colors.neutral.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
                             )
                             Spacer(Modifier.height(4.dp))
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
-                                    .background(colors.offline.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                                    .background(colors.neutral.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
                             )
                         }
                         Spacer(Modifier.width(16.dp))
@@ -152,14 +152,14 @@ private fun ScheduleSkeleton() {
                             modifier = Modifier
                                 .weight(1f)
                                 .height(56.dp)
-                                .background(colors.offline.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                                .background(colors.neutral.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.4f)
                                     .height(12.dp)
-                                    .background(colors.offline.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
+                                    .background(colors.neutral.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
                             )
                         }
                     }
@@ -299,14 +299,14 @@ private fun DayIndicator(
     } else if (hasSchedules) {
         colors.secondary
     } else {
-        colors.offline.copy(alpha = 0.5f)
+        colors.neutral.copy(alpha = 0.5f)
     }
     val textColor = if (isToday) {
         colors.primary
     } else if (hasSchedules) {
-        colors.onSurface
+        colors.onSurfaceA
     } else {
-        colors.offline
+        colors.neutral
     }
 
     Box(
@@ -321,7 +321,7 @@ private fun DayIndicator(
                 .padding(end = 4.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(colors.offline.copy(alpha = 0.2f), colors.offline.copy(alpha = 0.2f)),
+                        colors = listOf(colors.neutral.copy(alpha = 0.2f), colors.neutral.copy(alpha = 0.2f)),
                     ),
                 ),
         )
@@ -378,7 +378,7 @@ private fun ScheduleItem(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.surface.copy(alpha = 0.7f)),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceA.copy(alpha = 0.7f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             1.dp,
@@ -411,14 +411,14 @@ private fun ScheduleItem(
                 GhanaText(
                     text = schedule.title,
                     fontSize = 20.sp,
-                    color = colors.onSurface,
+                    color = colors.onSurfaceA,
                 )
 
                 schedule.description?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurface.copy(alpha = 0.6f),
+                        color = colors.onSurfaceA.copy(alpha = 0.6f),
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -428,7 +428,7 @@ private fun ScheduleItem(
                 Icon(
                     imageVector = Icons.Default.Notifications,
                     contentDescription = "알림 설정",
-                    tint = if (schedule.isAlarmEnabled) colors.primary else colors.offline.copy(alpha = 0.4f),
+                    tint = if (schedule.isAlarmEnabled) colors.primary else colors.neutral.copy(alpha = 0.4f),
                     modifier = Modifier.size(28.dp),
                 )
             }
@@ -443,7 +443,7 @@ private fun OfflineCard(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, colors.offline.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, colors.neutral.copy(alpha = 0.2f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
@@ -457,7 +457,7 @@ private fun OfflineCard(modifier: Modifier = Modifier) {
                 text = "No Stream Scheduled",
                 fontFamily = GhanaChocolate,
                 fontSize = 16.sp,
-                color = colors.offline.copy(alpha = 0.6f),
+                color = colors.neutral.copy(alpha = 0.6f),
                 letterSpacing = 1.sp,
             )
         }

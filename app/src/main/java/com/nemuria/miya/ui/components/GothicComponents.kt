@@ -74,7 +74,7 @@ fun GothicCard(
         modifier = modifier,
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = colors.surface,
+            containerColor = colors.surfaceA,
         ),
         border = BorderStroke(1.dp, colors.primary),
         elevation = CardDefaults.cardElevation(4.dp),

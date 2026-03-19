@@ -60,7 +60,7 @@ fun MiyaBottomNavigationBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 20.dp),
-        color = colors.surface.copy(alpha = 0.95f),
+        color = colors.surfaceA.copy(alpha = 0.95f),
     ) {
         Row(
             modifier = Modifier
@@ -97,7 +97,7 @@ private fun MiyaBottomNavItem(
 ) {
     val colors = MiyaTheme.colors
     val contentColor by animateColorAsState(
-        targetValue = colors.onSurface,
+        targetValue = colors.onSurfaceA,
         label = "color",
     )
 

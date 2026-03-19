@@ -82,7 +82,7 @@ class AlarmActivity : ComponentActivity() {
                     Text(
                         text = "알람이 울리고 있습니다",
                         fontSize = 16.sp,
-                        color = MiyaTheme.colors.onSurface.copy(alpha = 0.6f),
+                        color = MiyaTheme.colors.onSurfaceA.copy(alpha = 0.6f),
                     )
 
                     Spacer(modifier = Modifier.height(64.dp))

@@ -38,10 +38,12 @@ class ThemeManager @Inject constructor(
                     val theme = StreamerTheme(
                         primaryHex = themeMap["primaryHex"] ?: "#C5A059",
                         secondaryHex = themeMap["secondaryHex"] ?: "#800101",
-                        backgroundHex = themeMap["backgroundHex"] ?: "#FFFFFF",
-                        surfaceHex = themeMap["surfaceHex"] ?: "#1A1A1A",
-                        onSurfaceHex = themeMap["onSurfaceHex"] ?: "#F5F5DC",
-                        offlineHex = themeMap["offlineHex"] ?: "#9A9A9A",
+                        backgroundHex = themeMap["backgroundHex"] ?: "#0D0D0D",
+                        surfaceAHex = themeMap["surfaceAHex"] ?: "#1A1A1A",
+                        onSurfaceAHex = themeMap["onSurfaceAHex"] ?: "#F5F5DC",
+                        surfaceBHex = themeMap["surfaceBHex"] ?: "#2A1A1A",
+                        onSurfaceBHex = themeMap["onSurfaceBHex"] ?: "#FFD700",
+                        neutralHex = themeMap["neutralHex"] ?: "#9A9A9A",
                         fontType = fontTypeStr.toMiyaFontType(),
                         mainImageUrl = mainImage
                     )

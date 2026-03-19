@@ -87,7 +87,7 @@ fun HomeContent(
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 )
             } else {
-                Box(modifier = Modifier.fillMaxSize().background(colors.surface))
+                Box(modifier = Modifier.fillMaxSize().background(colors.surfaceA))
             }
 
             Box(
@@ -119,7 +119,7 @@ fun HomeContent(
                 Text(
                     text = if (uiState.isStreamOnline) "● LIVE NOW" else "OFFLINE",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (uiState.isStreamOnline) Color.Red else colors.offline,
+                    color = if (uiState.isStreamOnline) Color.Red else colors.neutral,
                 )
             }
         }
@@ -136,7 +136,7 @@ fun HomeContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text = "우리가 처음 만난 날로부터", color = colors.onSurface)
+                Text(text = "우리가 처음 만난 날로부터", color = colors.onSurfaceA)
                 Text(
                     text = "${uiState.daysSinceMeeting}일",
                     fontSize = 48.sp,
@@ -179,13 +179,13 @@ fun HomeContent(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             GothicCard(modifier = Modifier.weight(1f)) {
-                Text(text = "다음 ${uiState.upcomingAnniversary}", color = colors.onSurface.copy(alpha = 0.6f))
+                Text(text = "다음 ${uiState.upcomingAnniversary}", color = colors.onSurfaceA.copy(alpha = 0.6f))
                 Text(text = "D-${uiState.daysToAnniversary}", color = colors.primary, style = MaterialTheme.typography.headlineMedium)
             }
 
             GothicCard(modifier = Modifier.weight(1f)) {
                 var isEnabled by remember { mutableStateOf(true) }
-                Text(text = "실시간 알림", color = colors.onSurface.copy(alpha = 0.6f))
+                Text(text = "실시간 알림", color = colors.onSurfaceA.copy(alpha = 0.6f))
                 Switch(
                     checked = isEnabled,
                     onCheckedChange = { isEnabled = it },

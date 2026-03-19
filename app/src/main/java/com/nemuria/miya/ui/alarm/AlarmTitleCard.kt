@@ -47,7 +47,7 @@ fun AlarmTitleCard() {
                 spotColor = colors.primary.copy(alpha = 0.5f)
             )
             .background(
-                color = colors.surface,
+                color = colors.surfaceA,
                 shape = RoundedCornerShape(20.dp)
             )
             .padding(16.dp), // 카드 내부 컨텐츠 여백
@@ -75,7 +75,7 @@ fun AlarmTitleCard() {
             interactionSource = interactionSource,
             // 입력되는 텍스트 스타일 (크고 진하게)
             textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = colors.onSurface,
+                color = colors.onSurfaceA,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium
             ),
@@ -89,7 +89,7 @@ fun AlarmTitleCard() {
                     visualTransformation = VisualTransformation.None,
                     interactionSource = interactionSource,
                     // 입력 칸이 비었을 때 보여줄 가이드 문구
-                    placeholder = { Text("알람 이름을 입력해 주세요", color = colors.onSurface.copy(alpha = 0.4f)) },
+                    placeholder = { Text("알람 이름을 입력해 주세요", color = colors.onSurfaceA.copy(alpha = 0.4f)) },
                     shape = RoundedCornerShape(12.dp), // 입력 칸 자체 모서리
                     colors = TextFieldDefaults.colors(
                         // 입력 칸 배경색 (카드 surface와 대비되게 살짝 다르게 줘도 좋습니다)
