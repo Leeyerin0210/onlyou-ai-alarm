@@ -81,9 +81,9 @@ class AlarmViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteAlarm(alarm)
             scheduler.cancel(alarm)
-        }
-        if (_editingAlarm.value?.id == alarm.id) {
-            stopEditing()
+            if (_editingAlarm.value?.id == alarm.id) {
+                stopEditing()
+            }
         }
     }
 }

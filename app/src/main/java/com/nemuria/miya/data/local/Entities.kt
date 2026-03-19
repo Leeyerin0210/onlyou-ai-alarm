@@ -32,8 +32,8 @@ data class DDayEntity(
 @Entity(tableName = "stream_schedules")
 data class StreamScheduleEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val date: java.time.LocalDate,
-    val startTime: java.time.LocalTime,
+    val date: LocalDate,
+    val startTime: LocalTime,
     val title: String,
     val description: String?,
     val category: String?,
@@ -61,8 +61,8 @@ class MiyaTypeConverters {
     fun toLocalDate(data: String): LocalDate = LocalDate.parse(data)
 
     @TypeConverter
-    fun fromLocalTime(time: java.time.LocalTime): String = time.toString()
+    fun fromLocalTime(time: LocalTime): String = time.toString()
 
     @TypeConverter
-    fun toLocalTime(data: String): java.time.LocalTime = java.time.LocalTime.parse(data)
+    fun toLocalTime(data: String): LocalTime = LocalTime.parse(data)
 }

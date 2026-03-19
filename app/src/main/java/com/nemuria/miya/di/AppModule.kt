@@ -1,7 +1,9 @@
 package com.nemuria.miya.di
 
 import com.nemuria.miya.data.repository.AlarmRepositoryImpl
+import com.nemuria.miya.data.repository.ScheduleRepositoryImpl
 import com.nemuria.miya.domain.repository.AlarmRepository
+import com.nemuria.miya.domain.repository.ScheduleRepository
 import com.nemuria.miya.util.DateTimeProvider
 import com.nemuria.miya.util.DefaultDateTimeProvider
 import dagger.Binds
@@ -17,14 +19,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAlarmRepository(
-        alarmRepositoryImpl: AlarmRepositoryImpl
+        alarmRepositoryImpl: AlarmRepositoryImpl,
     ): AlarmRepository
 
     @Binds
     @Singleton
     abstract fun bindScheduleRepository(
-        scheduleRepositoryImpl: com.nemuria.miya.data.repository.ScheduleRepositoryImpl
-    ): com.nemuria.miya.domain.repository.ScheduleRepository
+        scheduleRepositoryImpl: ScheduleRepositoryImpl,
+    ): ScheduleRepository
 }
 
 @Module
@@ -32,7 +34,5 @@ abstract class RepositoryModule {
 object AppModule {
     @Provides
     @Singleton
-    fun provideDateTimeProvider(): DateTimeProvider {
-        return DefaultDateTimeProvider()
-    }
+    fun provideDateTimeProvider(): DateTimeProvider = DefaultDateTimeProvider()
 }

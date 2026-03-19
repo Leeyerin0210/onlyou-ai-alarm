@@ -13,7 +13,16 @@ object AlarmCalculator {
     ): Long {
         val targetTime = alarm.time
 
-        // 반복 요일이 없는 경우 (일회성)
+        // 특정 날짜가 지정된 일회성 알람 처리
+        if (alarm.date != null) {
+            val nextAlarm = LocalDateTime.of(alarm.date, targetTime)
+            if (nextAlarm.isAfter(now)) {
+                return nextAlarm.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+            return 0L
+        }
+
+        // 반복 요일이 없는 경우 (오늘/내일 일회성)
         if (alarm.repeatDays.isEmpty()) {
             var nextAlarm = LocalDateTime.of(now.toLocalDate(), targetTime)
             if (nextAlarm.isBefore(now)) {

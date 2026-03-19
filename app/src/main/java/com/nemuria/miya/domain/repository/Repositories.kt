@@ -1,6 +1,7 @@
 package com.nemuria.miya.domain.repository
 
 import com.nemuria.miya.domain.model.MiyaAlarm
+import com.nemuria.miya.domain.model.StreamSchedule
 import kotlinx.coroutines.flow.Flow
 
 interface AlarmRepository {
@@ -12,9 +13,9 @@ interface AlarmRepository {
 }
 
 interface ScheduleRepository {
-    fun getAllSchedules(): Flow<List<com.nemuria.miya.domain.model.StreamSchedule>>
+    fun getAllSchedules(): Flow<List<StreamSchedule>>
     suspend fun refreshSchedules()
-    suspend fun insertSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
-    suspend fun updateSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
-    suspend fun deleteSchedule(schedule: com.nemuria.miya.domain.model.StreamSchedule)
+    suspend fun insertSchedule(schedule: StreamSchedule)
+    suspend fun updateSchedule(schedule: StreamSchedule)
+    suspend fun deleteSchedule(schedule: StreamSchedule)
 }
