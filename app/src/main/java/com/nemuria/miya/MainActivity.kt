@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
             val colors = MiyaTheme.colors
 
             LaunchedEffect(Unit) {
-                themeManager.fetchStreamerTheme()
+                themeManager.observeStreamerTheme()
             }
 
             MiyaTheme(colors = currentColors, fontType = currentFontType) {
@@ -130,5 +130,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 화면이 보일 때 실시간 리스너 등록 (이미 등록됐으면 내부에서 중복 제거)
+        themeManager.observeStreamerTheme()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 화면이 사라질 때 리스너 해제 (Firestore 연결 및 배터리 최적화)
+        themeManager.stopObserving()
     }
 }
