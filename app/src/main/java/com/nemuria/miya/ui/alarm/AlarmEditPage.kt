@@ -63,6 +63,7 @@ import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.nemuria.miya.domain.model.MiyaAlarm
+import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.theme.MiyaTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -347,6 +348,7 @@ fun MiyaTimePicker(
 @Composable
 fun AlarmEditPage(
     alarm: MiyaAlarm,
+    purchasedVoices: List<VoiceAsset>,
     onSave: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
@@ -405,6 +407,7 @@ fun AlarmEditPage(
             )
 
             AlarmVoiceSection(
+                purchasedVoices = purchasedVoices,
                 selectedVoiceId = voiceId,
                 onVoiceSelected = { voiceId = it },
             )
@@ -429,8 +432,6 @@ fun AlarmEditPage(
         )
     }
 }
-
-private val AlarmVoiceOptions = listOf("default_voice", "gentle_morning", "energetic_start")
 
 private val AlarmDayOptions = listOf(
     AlarmDayOption(DayOfWeek.MONDAY, "월"),
@@ -589,6 +590,7 @@ private fun RepeatDayChip(
 
 @Composable
 private fun AlarmVoiceSection(
+    purchasedVoices: List<VoiceAsset>,
     selectedVoiceId: String,
     onVoiceSelected: (String) -> Unit,
 ) {
@@ -601,22 +603,30 @@ private fun AlarmVoiceSection(
             color = colors.primary,
         )
 
-        AlarmVoiceOptions.forEach { voice ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onVoiceSelected(voice) },
-            ) {
-                RadioButton(
-                    selected = selectedVoiceId == voice,
-                    onClick = { onVoiceSelected(voice) },
-                    colors = RadioButtonDefaults.colors(
-                        selectedColor = colors.primary,
-                        unselectedColor = colors.neutral,
-                    ),
-                )
-                Text(text = voice, color = colors.onSurfaceA)
+        if (purchasedVoices.isEmpty()) {
+            Text(
+                text = "구매한 보이스가 없습니다",
+                color = colors.neutral,
+                fontSize = 14.sp,
+            )
+        } else {
+            purchasedVoices.forEach { voice ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onVoiceSelected(voice.id) },
+                ) {
+                    RadioButton(
+                        selected = selectedVoiceId == voice.id,
+                        onClick = { onVoiceSelected(voice.id) },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colors.primary,
+                            unselectedColor = colors.neutral,
+                        ),
+                    )
+                    Text(text = voice.name, color = colors.onSurfaceA)
+                }
             }
         }
     }
@@ -712,6 +722,7 @@ fun AlarmEditPageDarkPreview() {
         Box(modifier = Modifier.background(MiyaTheme.colors.background)) {
             AlarmEditPage(
                 alarm = mockAlarm,
+                purchasedVoices = emptyList(),
                 onSave = { _, _, _, _, _ -> },
             )
         }

@@ -1,9 +1,13 @@
 package com.nemuria.miya.di
 
 import com.nemuria.miya.data.repository.AlarmRepositoryImpl
+import com.nemuria.miya.data.repository.ArtistRepositoryImpl
 import com.nemuria.miya.data.repository.ScheduleRepositoryImpl
+import com.nemuria.miya.data.repository.VoiceRepositoryImpl
 import com.nemuria.miya.domain.repository.AlarmRepository
+import com.nemuria.miya.domain.repository.ArtistRepository
 import com.nemuria.miya.domain.repository.ScheduleRepository
+import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.DateTimeProvider
 import com.nemuria.miya.util.DefaultDateTimeProvider
 import dagger.Binds
@@ -27,6 +31,18 @@ abstract class RepositoryModule {
     abstract fun bindScheduleRepository(
         scheduleRepositoryImpl: ScheduleRepositoryImpl,
     ): ScheduleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindArtistRepository(
+        artistRepositoryImpl: ArtistRepositoryImpl,
+    ): ArtistRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVoiceRepository(
+        voiceRepositoryImpl: VoiceRepositoryImpl,
+    ): VoiceRepository
 }
 
 @Module

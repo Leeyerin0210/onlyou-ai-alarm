@@ -3,7 +3,9 @@ package com.nemuria.miya.ui.alarm
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nemuria.miya.domain.model.MiyaAlarm
+import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.domain.repository.AlarmRepository
+import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.AlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AlarmViewModel @Inject constructor(
     private val repository: AlarmRepository,
-    private val scheduler: AlarmScheduler
+    private val voiceRepository: VoiceRepository,
+    private val scheduler: AlarmScheduler,
 ) : ViewModel() {
 
     val alarms: StateFlow<List<MiyaAlarm>> = repository.getAllAlarms()
@@ -28,6 +31,16 @@ class AlarmViewModel @Inject constructor(
 
     private val _editingAlarm = MutableStateFlow<MiyaAlarm?>(null)
     val editingAlarm: StateFlow<MiyaAlarm?> = _editingAlarm.asStateFlow()
+
+    /**
+     * 현재 팔로우한 아티스트의 구매된 보이스 목록.
+     *
+     * TODO: 로그인 구현 후 현재 사용자의 팔로우 아티스트 ID를 동적으로 가져올 것.
+     * 현재는 임시로 Mock 아티스트 ID를 사용합니다.
+     */
+    val purchasedVoices: StateFlow<List<VoiceAsset>> =
+        voiceRepository.getPurchasedVoicesByArtist(MOCK_ARTIST_ID)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun startEditing(alarm: MiyaAlarm?) {
         _editingAlarm.value = alarm ?: MiyaAlarm(id = 0)
@@ -38,11 +51,11 @@ class AlarmViewModel @Inject constructor(
     }
 
     fun saveAlarm(
-        time : LocalTime,
+        time: LocalTime,
         voiceId: String,
         title: String?,
         repeatDays: Set<DayOfWeek>,
-        date: LocalDate?
+        date: LocalDate?,
     ) {
         val current = _editingAlarm.value ?: return
         viewModelScope.launch {
@@ -52,7 +65,7 @@ class AlarmViewModel @Inject constructor(
                 title = title,
                 repeatDays = repeatDays,
                 date = date,
-                isEnabled = true
+                isEnabled = true,
             )
             if (alarmToSave.id == 0) {
                 val newId = repository.insertAlarm(alarmToSave)
@@ -85,5 +98,10 @@ class AlarmViewModel @Inject constructor(
                 stopEditing()
             }
         }
+    }
+
+    companion object {
+        /** TODO: 로그인 구현 후 실제 사용자 데이터로 교체 */
+        private const val MOCK_ARTIST_ID = "mock_artist_001"
     }
 }

@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.google.firebase.firestore.FirebaseFirestore
 import com.nemuria.miya.data.local.AlarmDao
+import com.nemuria.miya.data.local.ArtistDao
 import com.nemuria.miya.data.local.MiyaDatabase
+import com.nemuria.miya.data.local.VoiceAssetDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,19 +30,22 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             MiyaDatabase::class.java,
-            "miya_database"
+            "miya_database",
         )
-        .fallbackToDestructiveMigration() // 버전이 바뀌면 기존 데이터를 지우고 다시 생성
-        .build()
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
-    fun provideAlarmDao(database: MiyaDatabase): AlarmDao {
-        return database.alarmDao()
-    }
+    fun provideAlarmDao(database: MiyaDatabase): AlarmDao = database.alarmDao()
 
     @Provides
-    fun provideStreamScheduleDao(database: MiyaDatabase): com.nemuria.miya.data.local.StreamScheduleDao {
-        return database.streamScheduleDao()
-    }
+    fun provideStreamScheduleDao(database: MiyaDatabase): com.nemuria.miya.data.local.StreamScheduleDao =
+        database.streamScheduleDao()
+
+    @Provides
+    fun provideArtistDao(database: MiyaDatabase): ArtistDao = database.artistDao()
+
+    @Provides
+    fun provideVoiceAssetDao(database: MiyaDatabase): VoiceAssetDao = database.voiceAssetDao()
 }

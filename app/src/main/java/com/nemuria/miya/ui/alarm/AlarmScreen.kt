@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nemuria.miya.domain.model.MiyaAlarm
+import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.theme.MiyaTheme
 import java.time.DayOfWeek
@@ -57,6 +58,7 @@ fun AlarmScreen(
 ) {
     val alarms by viewModel.alarms.collectAsState()
     val editingAlarm by viewModel.editingAlarm.collectAsState()
+    val purchasedVoices by viewModel.purchasedVoices.collectAsState()
     val context = LocalContext.current
 
     // Android 14+: USE_FULL_SCREEN_INTENT 권한 미허용 시 설정 화면으로 안내
@@ -86,6 +88,7 @@ fun AlarmScreen(
     AlarmContent(
         alarms = alarms,
         editingAlarm = editingAlarm,
+        purchasedVoices = purchasedVoices,
         onToggleAlarm = { viewModel.toggleAlarm(it) },
         onDeleteAlarm = { viewModel.deleteAlarm(it) },
         onStartEditing = { viewModel.startEditing(it) },
@@ -97,6 +100,7 @@ fun AlarmScreen(
 fun AlarmContent(
     alarms: List<MiyaAlarm>,
     editingAlarm: MiyaAlarm?,
+    purchasedVoices: List<VoiceAsset>,
     onToggleAlarm: (MiyaAlarm) -> Unit,
     onDeleteAlarm: (MiyaAlarm) -> Unit,
     onStartEditing: (MiyaAlarm?) -> Unit,
@@ -138,6 +142,7 @@ fun AlarmContent(
         } else {
             AlarmEditPage(
                 alarm = editingAlarm,
+                purchasedVoices = purchasedVoices,
                 onSave = onSaveAlarm,
                 onDelete = { onDeleteAlarm(editingAlarm) },
             )
@@ -157,6 +162,7 @@ fun AlarmListPreview() {
         AlarmContent(
             alarms = mockAlarms,
             editingAlarm = null,
+            purchasedVoices = emptyList(),
             onToggleAlarm = {},
             onDeleteAlarm = {},
             onStartEditing = {},

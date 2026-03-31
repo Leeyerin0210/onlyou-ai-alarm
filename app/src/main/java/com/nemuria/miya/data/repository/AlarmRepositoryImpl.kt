@@ -18,6 +18,9 @@ class AlarmRepositoryImpl
                 entities.map { it.toDomainModel() }
             }
 
+        override suspend fun getEnabledAlarms(): List<MiyaAlarm> =
+            alarmDao.getEnabledAlarms().map { it.toDomainModel() }
+
         override suspend fun getAlarmById(id: Int): MiyaAlarm? = alarmDao.getAlarmById(id)?.toDomainModel()
 
         override suspend fun insertAlarm(alarm: MiyaAlarm): Int = alarmDao.insertAlarm(alarm.toEntity()).toInt()

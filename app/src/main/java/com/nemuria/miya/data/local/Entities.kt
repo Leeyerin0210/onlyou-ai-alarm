@@ -40,6 +40,37 @@ data class StreamScheduleEntity(
     val isAlarmEnabled: Boolean,
 )
 
+// =================================================================
+// 아티스트 & 보이스 엔티티 (임시 Mock — 추후 서버 연동으로 교체)
+// =================================================================
+
+/**
+ * 아티스트 정보를 로컬에 저장.
+ * [isFollowed] 는 사용자가 해당 아티스트를 팔로우했는지 여부.
+ * 추후 로그인 구현 후 서버 팔로우 데이터로 교체됩니다.
+ */
+@Entity(tableName = "artists")
+data class ArtistEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val imageUrl: String?,
+    val isFollowed: Boolean = false,
+)
+
+/**
+ * 보이스 에셋 정보를 로컬에 저장.
+ * [isPurchased] 는 사용자가 해당 보이스를 구매했는지 여부.
+ * 추후 로그인 구현 후 서버 구매 이력으로 교체됩니다.
+ */
+@Entity(tableName = "voice_assets")
+data class VoiceAssetEntity(
+    @PrimaryKey val id: String,
+    val artistId: String,
+    val name: String,
+    val audioUrl: String,
+    val isPurchased: Boolean = false,
+)
+
 class MiyaTypeConverters {
     @TypeConverter
     fun fromDayOfWeekSet(days: Set<DayOfWeek>): String = days.joinToString(",") { it.name }
@@ -66,3 +97,4 @@ class MiyaTypeConverters {
     @TypeConverter
     fun toLocalTime(data: String): LocalTime = LocalTime.parse(data)
 }
+

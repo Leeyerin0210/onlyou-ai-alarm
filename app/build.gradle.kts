@@ -23,7 +23,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -79,6 +80,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.analytics)
+
+    // 루팅 탐지 (상업용 보이스 보호)
+    implementation("com.scottyab:rootbeer-lib:0.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

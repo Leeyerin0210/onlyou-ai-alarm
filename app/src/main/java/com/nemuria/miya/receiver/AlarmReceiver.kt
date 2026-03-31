@@ -10,8 +10,8 @@ import com.nemuria.miya.ui.alarm.AlarmActivity
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getIntExtra("ALARM_ID", -1)
-        val voiceId = intent.getStringExtra("ALARM_VOICE") ?: "default"
-        val alarmTitle = intent.getStringExtra("ALARM_TITLE") ?: ""
+        val voiceId = intent.getStringExtra(AlarmService.EXTRA_ALARM_VOICE) ?: "default"
+        val alarmTitle = intent.getStringExtra(AlarmService.EXTRA_ALARM_TITLE) ?: ""
 
         Log.d("MiyaAlarm", "Alarm Received: ID=$alarmId, Voice=$voiceId")
 
@@ -20,6 +20,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val activityIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra(AlarmService.EXTRA_ALARM_ID, alarmId)
             putExtra(AlarmService.EXTRA_ALARM_TITLE, alarmTitle)
+            putExtra(AlarmService.EXTRA_ALARM_VOICE, voiceId)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         context.startActivity(activityIntent)
@@ -28,8 +29,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val serviceIntent = Intent(context, AlarmService::class.java).apply {
             putExtra(AlarmService.EXTRA_ALARM_ID, alarmId)
             putExtra(AlarmService.EXTRA_ALARM_TITLE, alarmTitle)
+            putExtra(AlarmService.EXTRA_ALARM_VOICE, voiceId)
         }
         context.startForegroundService(serviceIntent)
     }
 }
-
