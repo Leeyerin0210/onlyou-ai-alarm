@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,17 +35,27 @@ fun TopBar(
     onSetting: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
+    // 홈 화면일 때는 이미지 위이므로 가독성을 위해 흰색 계열을, 다른 화면은 테마색 사용
+    val contentColor = if (currentScreen == "home") Color.White else colors.primary
 
-    // CenterAlignedTopAppBar 대신 직접 Box로 레이아웃을 짜서 크기 제한을 완전히 풉니다.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding() // 상태바 영역 확보
-            .height(90.dp) // 80dp 버튼과 제목이 여유 있게 들어갈 높이
+            // 상단 그라데이션 스크림 (가독성 확보)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.4f),
+                        Color.Black.copy(alpha = 0.1f),
+                        Color.Transparent,
+                    ),
+                ),
+            ).statusBarsPadding()
+            .height(90.dp)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // 1. 왼쪽 뒤로가기 버튼 (스케줄 화면 또는 알람 편집)
+        // 1. 왼쪽 뒤로가기 버튼
         if (currentScreen == "schedule" || currentScreen == "alarm_edit") {
             Box(modifier = Modifier.align(Alignment.CenterStart)) {
                 GothicIconButton(
@@ -58,17 +69,9 @@ fun TopBar(
 
         // 2. 중앙 제목
         Text(
-            text =
-            when(currentScreen){
-                "home" -> "홈"
-                "schedule" -> "스케줄"
-                "alarm" -> "알람"
-                "alarm_edit" -> "알람 편집"
-                "profile" -> "프로필"
-                else -> title
-            },
+            text = "",
             style = MaterialTheme.typography.headlineMedium,
-            color = colors.secondary,
+            color = contentColor,
         )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd)) {

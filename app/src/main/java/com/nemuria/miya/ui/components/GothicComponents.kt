@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,8 +60,6 @@ fun HeirText(
         modifier = modifier,
         style = style, // MiyaTheme에서 결정된 typography를 그대로 따름
         color = color,
-        fontSize = fontSize,
-        fontWeight = fontWeight,
     )
 }
 
@@ -70,14 +69,20 @@ fun GothicCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = MiyaTheme.colors
+
     Card(
-        modifier = modifier,
+        modifier = modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(8.dp),
+            clip = false,
+        ),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = colors.surfaceA,
         ),
-        border = BorderStroke(1.dp, colors.primary),
-        elevation = CardDefaults.cardElevation(4.dp),
+        // 테두리 두께를 살짝 늘리고, Primary 색상을 은은하게 섞어 검은 배경에서도 경계를 명확히 함
+        border = BorderStroke(0.8.dp, colors.primary.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

@@ -48,12 +48,6 @@ enum class MiyaFontType {
 data class StreamerTheme(
     val primaryHex: String,
     val secondaryHex: String,
-    val backgroundHex: String,
-    val surfaceAHex: String,
-    val onSurfaceAHex: String,
-    val surfaceBHex: String,
-    val onSurfaceBHex: String,
-    val neutralHex: String,
     val fontType: MiyaFontType = MiyaFontType.GOTHIC,
     val mainImageUrl: String? = null,
 )
