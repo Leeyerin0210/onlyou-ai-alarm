@@ -35,7 +35,6 @@ fun AlarmItem(
     val colors = MiyaTheme.colors
     GothicCard(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .clickable { onClick() },
     ) {

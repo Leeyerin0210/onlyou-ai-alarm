@@ -98,7 +98,7 @@ private fun ScheduleSkeleton() {
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 130.dp)
+                .padding(top = 40.dp)
                 .padding(horizontal = 16.dp),
         ) {
             Box(
@@ -202,7 +202,7 @@ fun ScheduleContent(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 100.dp)
+                .padding(top = 40.dp)
                 .padding(horizontal = 16.dp),
         ) {
             ScheduleHeader(dateRange = dateRangeText)
@@ -240,7 +240,7 @@ private fun ScheduleHeader(dateRange: String) {
     Column {
         GhanaText(
             text = "Weekly Schedule",
-            fontSize = 24.sp,
+            fontSize = 32.sp,
             color = colors.primary,
         )
         HeirText(

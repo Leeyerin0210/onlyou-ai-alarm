@@ -91,7 +91,7 @@ fun HomeContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(550.dp),
+                .height(500.dp),
         ) {
             HorizontalPager(
                 state = pagerState,
@@ -125,7 +125,7 @@ fun HomeContent(
                                         colors.background.copy(alpha = 0.3f),
                                         colors.background,
                                     ),
-                                    startY = 500f,
+                                    startY = 450f,
                                 ),
                             ),
                     )
