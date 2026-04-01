@@ -43,7 +43,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val currentColors by themeManager.currentColors.collectAsState()
+            val currentLightColors by themeManager.currentLightColors.collectAsState()
+            val currentDarkColors by themeManager.currentDarkColors.collectAsState()
             val currentFontType by themeManager.currentFontType.collectAsState()
             val colors = MiyaTheme.colors
 
@@ -51,7 +52,12 @@ class MainActivity : ComponentActivity() {
                 themeManager.observeStreamerTheme()
             }
 
-            MiyaTheme(colors = currentColors, fontType = currentFontType) {
+            MiyaTheme(
+                lightColors = currentLightColors,
+                darkColors = currentDarkColors,
+                fontType = currentFontType
+            ) {
+                val colors = MiyaTheme.colors
                 var currentScreen by remember { mutableStateOf("home") }
                 var isEditingAlarm by remember { mutableStateOf(false) }
                 var alarmBackTrigger by remember { mutableIntStateOf(0) }
@@ -59,7 +65,7 @@ class MainActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(currentColors.background),
+                        .background(colors.background),
                 ) {
                     // 1. 메인 콘텐츠 레이어
                     AnimatedContent(
@@ -121,6 +127,6 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         // 화면이 사라질 때 리스너 해제 (Firestore 연결 및 배터리 최적화)
-        themeManager.stopObserving()
+        themeManager.stopObserveStreamerTheme()
     }
 }

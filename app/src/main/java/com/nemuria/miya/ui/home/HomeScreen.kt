@@ -16,16 +16,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -153,27 +148,48 @@ fun HomeContent(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        // 2. 디데이(D-Day) 카운터
-        GothicCard(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            GothicCard(
+                modifier = Modifier
+                    .weight(1f),
             ) {
-                Text(text = "우리가 처음 만난 날로부터", color = colors.onSurfaceA)
-                Text(
-                    text = "${uiState.daysSinceMeeting}일",
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.primary,
-                )
-                Text(text = "함께한 모든 순간이 보석 같아요.", color = colors.primary.copy(alpha = 0.7f))
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalAlignment = Alignment.Start,
+                ) {
+                    Text(
+                        text = "${uiState.daysSinceMeeting}",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary,
+                    )
+                    Text(text = "우리가 만난 날짜", color = colors.primary)
+                }
+            }
+            GothicCard(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalAlignment = Alignment.Start,
+                ) {
+                    Text(
+                        text = "${uiState.daysToAnniversary}",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary,
+                    )
+                    Text(
+                        text = "다음 ${uiState.upcomingAnniversary}까지",
+                        color = colors.primary,
+                    )
+                }
             }
         }
+        // 2. 디데이(D-Day) 카운터
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -199,35 +215,6 @@ fun HomeContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 3. 다가오는 기념일 & 4. 알림 토글
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            GothicCard(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "다음 ${uiState.upcomingAnniversary}",
-                    color = colors.onSurfaceA.copy(alpha = 0.6f),
-                )
-                Text(
-                    text = "D-${uiState.daysToAnniversary}",
-                    color = colors.primary,
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-            }
-
-            GothicCard(modifier = Modifier.weight(1f)) {
-                var isEnabled by remember { mutableStateOf(true) }
-                Text(text = "실시간 알림", color = colors.onSurfaceA.copy(alpha = 0.6f))
-                Switch(
-                    checked = isEnabled,
-                    onCheckedChange = { isEnabled = it },
-                    colors = SwitchDefaults.colors(checkedThumbColor = colors.primary),
-                )
-            }
-        }
         Spacer(modifier = Modifier.height(120.dp))
     }
 }

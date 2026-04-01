@@ -5,14 +5,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
 import com.nemuria.miya.domain.model.MiyaFontType
-import com.nemuria.miya.domain.model.StreamerTheme
+import com.nemuria.miya.domain.model.ThemeModeColors
 
 @Immutable
 data class MiyaColors(
@@ -26,17 +26,19 @@ data class MiyaColors(
     val neutral: Color,
 )
 
-fun StreamerTheme.toMiyaColors() =
+/**
+ * 특정 모드(라이트/다크)의 색상 세트를 공통 컬러(primary, secondary)와 합쳐 MiyaColors 객체로 변환합니다.
+ */
+fun ThemeModeColors.toMiyaColors(primary: Color, secondary: Color) =
     MiyaColors(
-        primary = primaryHex.toColor(),
-        secondary = secondaryHex.toColor(),
-        // 아래 색상들은 초기화용이며, 실제 UI에서는 MiyaTheme 내부에서 결정됨
-        background = Color.Transparent,
-        surfaceA = Color.Transparent,
-        onSurfaceA = Color.Transparent,
-        surfaceB = Color.Transparent,
-        onSurfaceB = Color.Transparent,
-        neutral = Color.Transparent,
+        primary = primary,
+        secondary = secondary,
+        background = backgroundHex.toColor(),
+        surfaceA = surfaceAHex.toColor(),
+        onSurfaceA = onSurfaceAHex.toColor(),
+        surfaceB = surfaceBHex.toColor(),
+        onSurfaceB = onSurfaceBHex.toColor(),
+        neutral = neutralHex.toColor(),
     )
 
 val MiyaDefaultColors = MiyaColors(
@@ -54,37 +56,24 @@ val LocalMiyaColors = staticCompositionLocalOf { MiyaDefaultColors }
 
 @Composable
 fun MiyaTheme(
-    colors: MiyaColors = MiyaDefaultColors,
+    lightColors: MiyaColors = MiyaDefaultColors,
+    darkColors: MiyaColors = MiyaDefaultColors,
     fontType: MiyaFontType = MiyaFontType.GOTHIC,
     content: @Composable () -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
+    val targetColors = if (isDark) darkColors else lightColors
 
-    // 2가지 핵심 컬러를 기반으로 나머지 색상 자동 계산
-    // 다크모드 배경을 0xFF121212로 설정하여 그림자(Shadow) 가시성 확보
-    val baseBackground = if (isDark) Color(0xFF121212) else Color.White
-    val baseSurface = if (isDark) Color(0xFF1E1E1E) else Color(0xFFF8F8F8)
-    val baseOnSurface = if (isDark) Color(0xFFF5F5DC) else Color(0xFF1A1A1A)
-
-    // [개선] 아티스트의 Primary 색상을 배경과 섞어 강조 카드(Surface B) 색상 생성
-    val baseSurfaceB = if (isDark) {
-        // 다크모드: Primary 15% + 검정 배경 합성
-        colors.primary.copy(alpha = 0.15f).compositeOver(Color(0xFF121212))
-    } else {
-        // 라이트모드: Primary 5% + 흰색 배경 합성
-        colors.primary.copy(alpha = 0.05f).compositeOver(Color.White)
-    }
-
-    // 테마 색상 전환 애니메이션
+    // 스트리머가 커스텀한 색상을 사용하면서 애니메이션 적용
     val animatedColors = MiyaColors(
-        background = animateColorAsState(baseBackground, tween(600), label = "bg").value,
-        surfaceA = animateColorAsState(baseSurface, tween(600), label = "surfaceA").value,
-        onSurfaceA = animateColorAsState(baseOnSurface, tween(600), label = "onSurfaceA").value,
-        surfaceB = animateColorAsState(baseSurfaceB, tween(600), label = "surfaceB").value,
-        onSurfaceB = animateColorAsState(colors.primary, tween(600), label = "onSurfaceB").value,
-        primary = animateColorAsState(colors.primary, tween(600), label = "primary").value,
-        secondary = animateColorAsState(colors.secondary, tween(600), label = "secondary").value,
-        neutral = animateColorAsState(Color(0xFF9A9A9A), tween(600), label = "neutral").value,
+        background = animateColorAsState(targetColors.background, tween(600), label = "bg").value,
+        surfaceA = animateColorAsState(targetColors.surfaceA, tween(600), label = "surfaceA").value,
+        onSurfaceA = animateColorAsState(targetColors.onSurfaceA, tween(600), label = "onSurfaceA").value,
+        surfaceB = animateColorAsState(targetColors.surfaceB, tween(600), label = "surfaceB").value,
+        onSurfaceB = animateColorAsState(targetColors.onSurfaceB, tween(600), label = "onSurfaceB").value,
+        primary = animateColorAsState(targetColors.primary, tween(600), label = "primary").value,
+        secondary = animateColorAsState(targetColors.secondary, tween(600), label = "secondary").value,
+        neutral = animateColorAsState(targetColors.neutral, tween(600), label = "neutral").value,
     )
 
     val typography = when (fontType) {
@@ -92,13 +81,23 @@ fun MiyaTheme(
         MiyaFontType.DEFAULT -> PretendardTypography
     }
 
-    val colorScheme = darkColorScheme(
-        primary = animatedColors.primary,
-        secondary = animatedColors.secondary,
-        background = animatedColors.background,
-        surface = animatedColors.surfaceA,
-        onSurface = animatedColors.onSurfaceA,
-    )
+    val colorScheme = if (isDark) {
+        darkColorScheme(
+            primary = animatedColors.primary,
+            secondary = animatedColors.secondary,
+            background = animatedColors.background,
+            surface = animatedColors.surfaceA,
+            onSurface = animatedColors.onSurfaceA,
+        )
+    } else {
+        lightColorScheme(
+            primary = animatedColors.primary,
+            secondary = animatedColors.secondary,
+            background = animatedColors.background,
+            surface = animatedColors.surfaceA,
+            onSurface = animatedColors.onSurfaceA,
+        )
+    }
 
     CompositionLocalProvider(LocalMiyaColors provides animatedColors) {
         MaterialTheme(

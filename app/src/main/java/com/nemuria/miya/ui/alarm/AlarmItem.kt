@@ -92,8 +92,14 @@ fun AlarmItem(
 private fun buildRepeatText(alarm: MiyaAlarm): String {
     val formatter = DateTimeFormatter.ofPattern("M.d")
     return when {
-        alarm.date != null -> alarm.date.format(formatter)
-        alarm.repeatDays.isNotEmpty() -> alarm.repeatDays.sorted().joinToString(", ") { it.name.take(3) }
+        alarm.date != null -> {
+            alarm.date.format(formatter)
+        }
+
+        alarm.repeatDays.isNotEmpty() -> {
+            alarm.repeatDays.sorted().joinToString(", ") { it.name.take(3) }
+        }
+
         else -> {
             val now = LocalDateTime.now()
             val isTomorrow = alarm.time.isBefore(now.toLocalTime())

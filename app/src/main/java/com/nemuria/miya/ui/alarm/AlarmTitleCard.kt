@@ -44,13 +44,11 @@ fun AlarmTitleCard() {
             .shadow(
                 elevation = 8.dp,
                 shape = RoundedCornerShape(20.dp),
-                spotColor = colors.primary.copy(alpha = 0.5f)
-            )
-            .background(
+                spotColor = colors.primary.copy(alpha = 0.5f),
+            ).background(
                 color = colors.surfaceA,
-                shape = RoundedCornerShape(20.dp)
-            )
-            .padding(16.dp), // 카드 내부 컨텐츠 여백
+                shape = RoundedCornerShape(20.dp),
+            ).padding(16.dp), // 카드 내부 컨텐츠 여백
     ) {
         // 고정된 제목 텍스트
         Text(
@@ -58,9 +56,9 @@ fun AlarmTitleCard() {
             fontWeight = FontWeight.Bold,
             color = colors.primary,
             fontSize = 14.sp, // 제목은 조금 작게
-            modifier = Modifier.align(Alignment.Start)
+            modifier = Modifier.align(Alignment.Start),
         )
-        
+
         Spacer(Modifier.height(12.dp))
 
         // ---------------------------------------------------------
@@ -77,7 +75,7 @@ fun AlarmTitleCard() {
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 color = colors.onSurfaceA,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             ),
             singleLine = true, // 한 줄 입력으로 제한
             decorationBox = @Composable { innerTextField ->
@@ -93,20 +91,20 @@ fun AlarmTitleCard() {
                     shape = RoundedCornerShape(12.dp), // 입력 칸 자체 모서리
                     colors = TextFieldDefaults.colors(
                         // 입력 칸 배경색 (카드 surface와 대비되게 살짝 다르게 줘도 좋습니다)
-                        focusedContainerColor = colors.background.copy(alpha = 0.5f), 
+                        focusedContainerColor = colors.background.copy(alpha = 0.5f),
                         unfocusedContainerColor = colors.background.copy(alpha = 0.5f),
                         // 둥근 모서리일 때 밑줄 제거
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent
+                        disabledIndicatorColor = Color.Transparent,
                     ),
                     // ✨ 중요한 내부 패딩 설정
                     contentPadding = PaddingValues(
                         horizontal = 16.dp, // 양옆 여백
-                        vertical = 12.dp    // 위아래 여백
-                    )
+                        vertical = 12.dp, // 위아래 여백
+                    ),
                 )
-            }
+            },
         )
     }
 }

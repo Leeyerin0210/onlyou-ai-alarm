@@ -28,15 +28,17 @@ import com.nemuria.miya.service.AlarmService
 import com.nemuria.miya.ui.theme.MiyaTheme
 
 class AlarmActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // 뒤로가기로는 알람을 끄지 못하게 막음
-            }
-        })
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // 뒤로가기로는 알람을 끄지 못하게 막음
+                }
+            },
+        )
 
         // 잠금화면 위에 표시 + 화면 켜기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -123,5 +125,4 @@ class AlarmActivity : ComponentActivity() {
         startService(stopIntent)
         finish()
     }
-
 }

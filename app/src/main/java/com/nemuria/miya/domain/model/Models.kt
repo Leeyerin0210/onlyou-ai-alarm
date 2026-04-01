@@ -42,12 +42,23 @@ enum class DDayType {
 
 enum class MiyaFontType {
     GOTHIC,
-    DEFAULT
+    DEFAULT,
 }
+
+data class ThemeModeColors(
+    val backgroundHex: String,
+    val surfaceAHex: String,
+    val onSurfaceAHex: String,
+    val surfaceBHex: String,
+    val onSurfaceBHex: String,
+    val neutralHex: String = "#9A9A9A",
+)
 
 data class StreamerTheme(
     val primaryHex: String,
     val secondaryHex: String,
+    val light: ThemeModeColors,
+    val dark: ThemeModeColors,
     val fontType: MiyaFontType = MiyaFontType.GOTHIC,
     val mainImageUrl: String? = null,
 )

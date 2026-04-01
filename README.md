@@ -33,40 +33,62 @@ com.nemuria.miya
 
 ## 🎨 Dynamic Theming & Color System
 
-본 프로젝트는 여러 스트리머의 고유 색상에 맞춰 앱 전체의 분위기를 실시간으로 변경할 수 있는 **데이터 기반 동적 테마(Dynamic Theming)** 시스템을 갖추고 있습니다.
+본 프로젝트는 여러 스트리머의 고유 색상에 맞춰 앱 전체의 분위기를 실시간으로 변경할 수 있는 **하이브리드 동적 테마(Hybrid Dynamic Theming)** 시스템을 갖추고 있습니다.
 
-### 1. 핵심 컬러 슬롯 (6-Core Slots)
+### 1. 핵심 컬러 구조 (Hybrid Structure)
 
-| 슬롯명 | 역할 (UI Role) | 현재 예시 (Miya) |
-| :--- | :--- | :--- |
-| **Primary** | 메인 브랜드 컬러 (헤더, 테두리, 시간 텍스트, 활성 아이콘) | `#C5A059` (Gold) |
-| **Secondary** | 포인트 컬러 (스케줄 강조선, 구분선 등) | `#800101` (Gothic Red) |
-| **Background** | 전체 화면의 배경색 | `#FFFFFF` (White) |
-| **Surface** | 카드 및 컴포넌트의 내부 배경색 | `#1A1A1A` (Gothic Grey) |
-| **OnSurface** | Surface(카드) 위에 올라가는 텍스트 및 아이콘 색상 | `#F5F5DC` (Vintage White) |
-| **Offline** | 비활성화 상태나 방송 없는 날(Offline) 카드의 배경색 | `#9A9A9A` (Empty Grey) |
+테마는 모든 모드에서 유지되는 **공통 브랜드 컬러**와 사용자의 설정(라이트/다크)에 따라 변하는 **모드별 테마 컬러**로 구성됩니다.
 
-### 2. 테마 데이터 흐름 (Data Flow)
+| 구분 | 슬롯명            | 역할 (UI Role) |
+| :--- |:---------------| :--- |
+| **공통 (Global)** | **Primary**    | 아티스트 상징색 (브랜드 아이덴티티, 활성 아이콘, 시간 텍스트) |
+| | **Secondary**  | 아티스트 보조색 (포인트 요소, 강조선) |
+| **모드별 (Specific)** | **Background** | 해당 모드의 전체 화면 배경색 |
+| | **Surface A** | 일반 카드 배경색 (미지정 시 Background를 따라감) |
+| | **OnSurface A** | 일반 카드 위 텍스트 및 아이콘 색상 |
+| | **Surface B** | 강조 카드 배경색 (미지정 시 Surface A를 따라감) |
+| | **OnSurface B** | 강조 카드 위 텍스트 색상 (미지정 시 OnSurface A를 따라감) |
 
-1.  **Firebase/DB**: 스트리머별 `theme` 맵 데이터에 7가지 Hex String을 저장합니다.
-2.  **Domain (`StreamerTheme`)**: 서버에서 받아온 문자열 데이터를 모델화합니다.
-3.  **UI (`MiyaColors`)**: `toMiyaColors()` 확장 함수를 통해 Hex String을 `Color` 객체로 변환하여 Compose 테마에 주입합니다.
-4.  **Components**: 모든 UI 컴포넌트는 `MiyaTheme.colors`를 참조하여 자신의 색상을 자동으로 결정합니다.
+### 2. 지능형 폴백 시스템 (Smart Fallback)
+스트리머가 모든 색상을 지정하지 않아도 앱이 자연스럽게 작동하도록 설계되었습니다.
+- **카드 배경 자동화**: `Surface A`가 없으면 `Background`를, `Surface B`가 없으면 `Surface A`를 자동으로 따라가 디자인의 일관성을 유지합니다.
+- **텍스트 색상 자동화**: `OnSurface B`(강조 텍스트)가 데이터에 없을 경우 `OnSurface A`(일반 텍스트)를 자동으로 적용합니다.
+- **부드러운 전환**: 테마 변경이나 라이트/다크 모드 전환 시 모든 색상이 **0.6초간 페이드 애니메이션**과 함께 부드럽게 바뀝니다.
 
 ---
 
 ## 🔥 Firestore Data Structure Guide
 
-데이터베이스에 새로운 스트리머나 테마를 추가할 때 아래 구조를 참고하세요.
+### 1. `streamers` Collection 구조 (JSON 예시)
 
-### 1. `streamers` Collection
-앱 전체의 테마 색상과 폰트 스타일을 결정합니다.
+```json
+{
+  "name": "네무리아 미야",
+  "mainImage": "https://...",
+  "fontType": "GOTHIC",
+  "primary": "#C5A059",
+  "secondary": "#800101",
+  "lightTheme": {
+    "background": "#FFFFFF",
+    "surfaceA": "#F5F5F5",
+    "onSurfaceA": "#1A1A1A",
+    "surfaceB": "#FFF0F0",
+    "onSurfaceB": "#800101"
+  },
+  "darkTheme": {
+    "background": "#121212",
+    "surfaceA": "#1E1E1E",
+    "onSurfaceA": "#F5F5DC",
+    "surfaceB": "#2A1A1A",
+    "onSurfaceB": "#C5A059"
+  }
+}
+```
+```
 
-- **Document ID**: 스트리머 식별자 (예: `nemuria_miya`)
-- **Fields**:
-  - `name` (String): 스트리머 이름 (예: `네무리아 미야`)
-  - `fontType` (String): 폰트 프리셋 (`GOTHIC` 또는 `DEFAULT`)
-  - `theme` (Map):
+- **Primary/Secondary**: 아티스트의 고유 아이덴티티 컬러입니다.
+- **lightTheme/darkTheme**: 각 환경에서의 가독성과 분위기를 위해 별도로 설계된 색상 세트입니다.
+- **자동 폴백**: 특정 모드에서 `surfaceA` 등을 생략하면 해당 모드의 `background` 값이 적용됩니다.
 
 ### 2. `schedules` Collection
 주간 편성표에 표시될 방송 일정 데이터입니다.

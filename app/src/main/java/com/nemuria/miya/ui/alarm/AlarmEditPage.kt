@@ -163,7 +163,11 @@ fun MiyaCalendarDialog(
 }
 
 @Composable
-fun Day(day: CalendarDay, isSelected: Boolean, onClick: (CalendarDay) -> Unit) {
+fun Day(
+    day: CalendarDay,
+    isSelected: Boolean,
+    onClick: (CalendarDay) -> Unit,
+) {
     Box(
         modifier = Modifier
             .size(40.dp)
@@ -461,12 +465,10 @@ private fun AlarmEditSectionCard(
             .shadow(
                 elevation = 4.dp,
                 shape = RoundedCornerShape(20.dp),
-            )
-            .background(
+            ).background(
                 color = colors.surfaceA,
                 shape = RoundedCornerShape(20.dp),
-            )
-            .padding(16.dp),
+            ).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         content()
@@ -575,8 +577,7 @@ private fun RepeatDayChip(
             .background(
                 color = if (selected) colors.primary else colors.neutral.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick),
+            ).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -653,9 +654,7 @@ private fun SaveAlarmButton(
 }
 
 @Composable
-private fun DeleteAlarmButton(
-    onClick: () -> Unit,
-) {
+private fun DeleteAlarmButton(onClick: () -> Unit) {
     val colors = MiyaTheme.colors
 
     OutlinedButton(
@@ -682,9 +681,12 @@ private fun DeleteAlarmButton(
 private fun buildAlarmScheduleSummary(
     date: LocalDate?,
     repeatDays: Set<DayOfWeek>,
-): String {
-    return when {
-        date != null -> date.toString()
+): String =
+    when {
+        date != null -> {
+            date.toString()
+        }
+
         repeatDays.isNotEmpty() -> {
             if (repeatDays.size == AlarmDayOptions.size) {
                 "매일 반복"
@@ -694,9 +696,11 @@ private fun buildAlarmScheduleSummary(
                 } + " 반복"
             }
         }
-        else -> "${LocalDate.now()} (오늘)"
+
+        else -> {
+            "${LocalDate.now()} (오늘)"
+        }
     }
-}
 
 // 기존 프리뷰 코드와 동일 (생략)
 @Preview(showBackground = true, name = "2. Edit Page - Dark Mode")
