@@ -68,7 +68,7 @@ class ThemeManager @Inject constructor(
                     val theme = StreamerTheme(
                         primaryHex = themeMap["primaryHex"] as? String ?: "#C5A059",
                         secondaryHex = themeMap["secondaryHex"] as? String ?: "#800101",
-                        backgroundHex = themeMap["backgroundHex"] as? String ?: "#0D0D0D",
+                        backgroundHex = themeMap["backgroundHex"] as? String ?: "#FFFFFF",
                         surfaceAHex = themeMap["surfaceAHex"] as? String ?: "#1A1A1A",
                         onSurfaceAHex = themeMap["onSurfaceAHex"] as? String ?: "#F5F5DC",
                         surfaceBHex = themeMap["surfaceBHex"] as? String ?: "#2A1A1A",
@@ -106,7 +106,7 @@ class ThemeManager @Inject constructor(
 
     private fun loadCachedColors(): MiyaColors {
         return MiyaColors(
-            background = (prefs.getString(KEY_BG, null) ?: "#0D0D0D").toColor(),
+            background = (prefs.getString(KEY_BG, null) ?: "#FFFFFF").toColor(),
             surfaceA = (prefs.getString(KEY_SURFACE_A, null) ?: "#1A1A1A").toColor(),
             onSurfaceA = (prefs.getString(KEY_ON_SURFACE_A, null) ?: "#F5F5DC").toColor(),
             surfaceB = (prefs.getString(KEY_SURFACE_B, null) ?: "#2A1A1A").toColor(),

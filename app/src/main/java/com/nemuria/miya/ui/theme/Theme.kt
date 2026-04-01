@@ -1,5 +1,7 @@
 package com.nemuria.miya.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -35,14 +37,14 @@ fun StreamerTheme.toMiyaColors() =
     )
 
 val MiyaDefaultColors = MiyaColors(
-    background = Color.White,            // #FFFFFF — 앱 기본 배경
-    surfaceA = GothicGrey,           // #1A1A1A — 일반 카드 배경
-    onSurfaceA = VintageWhite,       // #F5F5DC — 일반 카드 텍스트
-    surfaceB = Color(0xFF2A1A1A),    // 짙은 레드 틴트 — 강조 카드 배경
-    onSurfaceB = GoldLight,          // #FFD700 — 강조 카드 텍스트
-    primary = GoldMedium,            // #C5A059
-    secondary = GothicRed,           // #800101
-    neutral = EmptyGrey,             // #9A9A9A
+    background = Color.White,         // 기본 배경을 흰색으로 설정
+    surfaceA = Color(0xFF1A1A1A),     // #1A1A1A — 일반 카드 배경
+    onSurfaceA = Color(0xFFF5F5DC),   // #F5F5DC — 일반 카드 텍스트
+    surfaceB = Color(0xFF2A1A1A),     // 짙은 레드 틴트 — 강조 카드 배경
+    onSurfaceB = Color(0xFFFFD700),   // #FFD700 — 강조 카드 텍스트
+    primary = Color(0xFFC5A059),      // #C5A059
+    secondary = Color(0xFF800101),    // #800101
+    neutral = Color(0xFF9A9A9A),      // #9A9A9A
 )
 
 val LocalMiyaColors = staticCompositionLocalOf { MiyaDefaultColors }
@@ -53,20 +55,32 @@ fun MiyaTheme(
     fontType: MiyaFontType = MiyaFontType.GOTHIC,
     content: @Composable () -> Unit,
 ) {
+    // 테마 색상 전환을 부드럽게 만들기 위해 애니메이션 적용
+    val animatedColors = MiyaColors(
+        background = animateColorAsState(colors.background, tween(600), label = "bg").value,
+        surfaceA = animateColorAsState(colors.surfaceA, tween(600), label = "surfaceA").value,
+        onSurfaceA = animateColorAsState(colors.onSurfaceA, tween(600), label = "onSurfaceA").value,
+        surfaceB = animateColorAsState(colors.surfaceB, tween(600), label = "surfaceB").value,
+        onSurfaceB = animateColorAsState(colors.onSurfaceB, tween(600), label = "onSurfaceB").value,
+        primary = animateColorAsState(colors.primary, tween(600), label = "primary").value,
+        secondary = animateColorAsState(colors.secondary, tween(600), label = "secondary").value,
+        neutral = animateColorAsState(colors.neutral, tween(600), label = "neutral").value,
+    )
+
     val typography = when (fontType) {
         MiyaFontType.GOTHIC -> GhanaTypography
         MiyaFontType.DEFAULT -> PretendardTypography
     }
 
     val colorScheme = darkColorScheme(
-        primary = colors.primary,
-        secondary = colors.secondary,
-        background = colors.background,
-        surface = colors.surfaceA,
-        onSurface = colors.onSurfaceA,
+        primary = animatedColors.primary,
+        secondary = animatedColors.secondary,
+        background = animatedColors.background,
+        surface = animatedColors.surfaceA,
+        onSurface = animatedColors.onSurfaceA,
     )
 
-    CompositionLocalProvider(LocalMiyaColors provides colors) {
+    CompositionLocalProvider(LocalMiyaColors provides animatedColors) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,

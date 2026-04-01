@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +20,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,8 +41,6 @@ import com.nemuria.miya.ui.components.GothicCard
 import com.nemuria.miya.ui.theme.MiyaTheme
 import com.nemuria.miya.ui.theme.ThemeManager
 
-// ... 기존 import 생략
-
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
@@ -46,26 +48,38 @@ fun HomeScreen(
     onNavigateToSchedule: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val mainImageUrl by themeManager.currentMainImageUrl.collectAsState()
 
-    // 실제 화면은 내부 Content Composable을 호출
     HomeContent(
         uiState = uiState,
-        mainImageUrl = mainImageUrl,
+        onPageChanged = viewModel::onPageChanged,
         onNavigateToSchedule = onNavigateToSchedule,
     )
 }
 
-/**
- * 프리뷰와 실제 화면에서 공통으로 사용할 UI 레이아웃
- */
 @Composable
 fun HomeContent(
-    uiState: HomeUiState, // ViewModel 대신 UI 상태 클래스 전달
-    mainImageUrl: String?,
+    uiState: HomeUiState,
+    onPageChanged: (Int) -> Unit = {},
     onNavigateToSchedule: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
+    val pagerState = rememberPagerState(initialPage = uiState.currentIndex) {
+        uiState.followedArtists.size.coerceAtLeast(1)
+    }
+
+    // [중요] 사용자가 스와이프하여 '안착'했을 때만 ViewModel에 알립니다. (무한루프 방지)
+    LaunchedEffect(pagerState.settledPage) {
+        if (pagerState.settledPage != uiState.currentIndex) {
+            onPageChanged(pagerState.settledPage)
+        }
+    }
+
+    // [중요] ViewModel에서 currentIndex가 외부 요인으로 바뀌면 페이저를 이동시킵니다.
+    LaunchedEffect(uiState.currentIndex) {
+        if (pagerState.currentPage != uiState.currentIndex) {
+            pagerState.animateScrollToPage(uiState.currentIndex)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -73,38 +87,52 @@ fun HomeContent(
             .background(colors.background)
             .verticalScroll(rememberScrollState()),
     ) {
-        // 1. 버튜버 비주얼 영역
+        // 1. 버튜버 비주얼 영역 (HorizontalPager 적용)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(500.dp),
+                .height(550.dp),
         ) {
-            if (mainImageUrl != null) {
-                AsyncImage(
-                    model = mainImageUrl,
-                    contentDescription = "Streamer Main Image",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize().background(colors.surfaceA))
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                val artist = uiState.followedArtists.getOrNull(page)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (artist?.imageUrl != null) {
+                        AsyncImage(
+                            model = artist.imageUrl,
+                            contentDescription = "Streamer Main Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(colors.surfaceA),
+                        )
+                    }
+
+                    // 그라데이션 오버레이 (텍스트 가독성)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        colors.background.copy(alpha = 0.3f),
+                                        colors.background,
+                                    ),
+                                    startY = 500f,
+                                ),
+                            ),
+                    )
+                }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                colors.background.copy(alpha = 0.3f),
-                                colors.background,
-                            ),
-                            startY = 400f,
-                        ),
-                    ),
-            )
-
+            // 하단 텍스트 (현재 선택된 스트리머 정보)
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -179,8 +207,15 @@ fun HomeContent(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             GothicCard(modifier = Modifier.weight(1f)) {
-                Text(text = "다음 ${uiState.upcomingAnniversary}", color = colors.onSurfaceA.copy(alpha = 0.6f))
-                Text(text = "D-${uiState.daysToAnniversary}", color = colors.primary, style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    text = "다음 ${uiState.upcomingAnniversary}",
+                    color = colors.onSurfaceA.copy(alpha = 0.6f),
+                )
+                Text(
+                    text = "D-${uiState.daysToAnniversary}",
+                    color = colors.primary,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
             }
 
             GothicCard(modifier = Modifier.weight(1f)) {
@@ -197,8 +232,6 @@ fun HomeContent(
     }
 }
 
-// --- Preview 영역 ---
-
 @Preview(showBackground = true, name = "Light Mode")
 @Composable
 fun HomePreview() {
@@ -210,8 +243,10 @@ fun HomePreview() {
                 daysSinceMeeting = 100,
                 upcomingAnniversary = "1주년",
                 daysToAnniversary = 265,
+                followedArtists = listOf(), // 프리뷰를 위해 빈 목록 또는 샘플 데이터 추가 가능
             ),
-            mainImageUrl = null, // 프리뷰에서는 이미지를 비워두거나 샘플 URL 사용
         )
     }
 }
+
+// --- Preview 영역 ---
