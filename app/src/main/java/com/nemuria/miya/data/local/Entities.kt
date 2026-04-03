@@ -31,7 +31,7 @@ data class DDayEntity(
 
 @Entity(tableName = "stream_schedules")
 data class StreamScheduleEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: String,
     val date: LocalDate,
     val startTime: LocalTime,
     val title: String,

@@ -50,6 +50,7 @@ class ScheduleViewModel @Inject constructor(
         val today = LocalDate.now()
         val samples = listOf(
             StreamSchedule(
+                id = "sample_1",
                 date = today,
                 startTime = LocalTime.of(20, 0),
                 title = "오늘의 수다 방송",
@@ -57,6 +58,7 @@ class ScheduleViewModel @Inject constructor(
                 description = "새로운 기능 업데이트 소식!"
             ),
             StreamSchedule(
+                id = "sample_2",
                 date = today.plusDays(2),
                 startTime = LocalTime.of(21, 0),
                 title = "공포 게임 특집",
@@ -64,6 +66,7 @@ class ScheduleViewModel @Inject constructor(
                 description = "절대 소리 지르지 않기 챌린지"
             ),
             StreamSchedule(
+                id = "sample_3",
                 date = today.plusDays(7),
                 startTime = LocalTime.of(22, 0),
                 title = "1주일 뒤 노래 방송",
@@ -71,6 +74,7 @@ class ScheduleViewModel @Inject constructor(
                 description = "미리 예약해두는 특별 라이브"
             ),
             StreamSchedule(
+                id = "sample_4",
                 date = today.plusDays(10),
                 startTime = LocalTime.of(19, 0),
                 title = "다음 주말 대청소 방송",

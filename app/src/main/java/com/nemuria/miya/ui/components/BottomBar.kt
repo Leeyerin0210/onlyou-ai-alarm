@@ -44,11 +44,10 @@ fun MiyaBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val items = listOf("home", "schedule", "alarm", "profile")
-    val labels = listOf("Home", "Schedule", "Alarm", "Profile")
+    val items = listOf("home", "alarm", "profile")
+    val labels = listOf("Home", "Alarm", "Profile")
     val icons = listOf(
         Icons.Default.Home,
-        Icons.Default.DateRange,
         Icons.Default.Notifications,
         Icons.Default.Person,
     )
@@ -77,7 +76,7 @@ fun MiyaBottomNavigationBar(
                     label = labels[index],
                     icon = icons[index],
                     isSelected = isSelected,
-                    showBadge = screen == "schedule",
+                    showBadge = false,
                     onClick = { onNavigate(screen) },
                     modifier = Modifier.weight(1f),
                 )

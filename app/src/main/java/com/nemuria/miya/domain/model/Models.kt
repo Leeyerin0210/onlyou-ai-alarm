@@ -24,7 +24,7 @@ data class DDayInfo(
 )
 
 data class StreamSchedule(
-    val id: Int = 0,
+    val id: String = "",
     val date: java.time.LocalDate,
     val startTime: java.time.LocalTime,
     val title: String,

@@ -40,6 +40,7 @@ class ScheduleRepositoryImpl @Inject constructor(
                 val localDateTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime()
                 
                 StreamScheduleEntity(
+                    id = doc.id,
                     date = localDateTime.toLocalDate(),
                     startTime = localDateTime.toLocalTime(),
                     title = doc.getString("title") ?: "제목 없음",

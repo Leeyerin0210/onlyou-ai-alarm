@@ -92,7 +92,7 @@ interface VoiceAssetDao {
         ArtistEntity::class,
         VoiceAssetEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)

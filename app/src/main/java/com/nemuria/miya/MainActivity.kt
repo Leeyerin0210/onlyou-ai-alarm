@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 "schedule" -> {
-                                    ScheduleScreen()
+                                    ScheduleScreen(onBack = { currentScreen = "home" })
                                 }
 
                                 "alarm" -> {
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // 2. 공중에 떠 있는 플로팅 바텀 바
-                    if (!isEditingAlarm) {
+                    if (!isEditingAlarm && currentScreen != "schedule") {
                         MiyaBottomNavigationBar(
                             currentScreen = currentScreen,
                             onNavigate = { currentScreen = it },

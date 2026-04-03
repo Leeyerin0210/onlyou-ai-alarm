@@ -1,5 +1,6 @@
 package com.nemuria.miya.ui.schedule
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,9 +62,14 @@ private val DayNumberFormatter = DateTimeFormatter.ofPattern("dd")
 private val DateRangeFormatter = DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)
 
 @Composable
-fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
+fun ScheduleScreen(
+    viewModel: ScheduleViewModel = hiltViewModel(),
+    onBack: () -> Unit = {},
+) {
     val schedules by viewModel.schedules.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    BackHandler(onBack = onBack)
 
     if (isLoading) {
         ScheduleSkeleton()
@@ -71,6 +77,7 @@ fun ScheduleScreen(viewModel: ScheduleViewModel = hiltViewModel()) {
         ScheduleContent(
             schedules = schedules,
             onAlarmToggle = viewModel::toggleAlarm,
+            onBack = onBack,
         )
     }
 }
@@ -173,6 +180,7 @@ private fun ScheduleSkeleton() {
 fun ScheduleContent(
     schedules: List<StreamSchedule>,
     onAlarmToggle: (StreamSchedule) -> Unit,
+    onBack: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
     val dateList = remember { (0..6).map { LocalDate.now().plusDays(it.toLong()) } }
@@ -187,25 +195,18 @@ fun ScheduleContent(
             .fillMaxSize()
             .background(colors.background),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.33f)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(colors.secondary.copy(alpha = 0.15f), Color.Transparent),
-                    ),
-                ),
-        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(top = 40.dp)
+                .padding(top = 16.dp)
                 .padding(horizontal = 16.dp),
         ) {
-            ScheduleHeader(dateRange = dateRangeText)
+            ScheduleHeader(
+                dateRange = dateRangeText,
+                onBack = onBack,
+            )
 
             Spacer(Modifier.height(16.dp))
             GradientDivider(
@@ -215,7 +216,7 @@ fun ScheduleContent(
             Spacer(Modifier.height(16.dp))
 
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 140.dp),
             ) {
                 items(dateList) { date ->
@@ -235,19 +236,39 @@ fun ScheduleContent(
 }
 
 @Composable
-private fun ScheduleHeader(dateRange: String) {
+private fun ScheduleHeader(
+    dateRange: String,
+    onBack: () -> Unit,
+) {
     val colors = MiyaTheme.colors
-    Column {
-        GhanaText(
-            text = "Weekly Schedule",
-            fontSize = 32.sp,
-            color = colors.primary,
-        )
-        HeirText(
-            text = dateRange,
-            color = colors.primary.copy(alpha = 0.8f),
-            fontWeight = FontWeight.Bold,
-        )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.padding(end = 8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Back",
+                tint = colors.primary,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+
+        Column {
+            GhanaText(
+                text = "Weekly Schedule",
+                fontSize = 32.sp,
+                color = colors.primary,
+            )
+            HeirText(
+                text = dateRange,
+                color = colors.primary.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 
@@ -261,7 +282,6 @@ private fun DayScheduleRow(
         DayIndicator(
             date = date,
             hasSchedules = schedules.isNotEmpty(),
-            modifier = Modifier.width(56.dp),
         )
 
         Spacer(Modifier.width(12.dp))
@@ -270,7 +290,7 @@ private fun DayScheduleRow(
             OfflineCard(modifier = Modifier.weight(1f).padding(vertical = 12.dp))
         } else {
             Column(
-                modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 schedules.forEach { schedule ->
@@ -312,24 +332,10 @@ private fun DayIndicator(
     Box(
         modifier = modifier.fillMaxHeight(),
     ) {
-        // 타임라인 수직 선
-        Box(
-            modifier = Modifier
-                .width(2.dp)
-                .fillMaxHeight()
-                .align(Alignment.CenterEnd)
-                .padding(end = 4.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(colors.neutral.copy(alpha = 0.2f), colors.neutral.copy(alpha = 0.2f)),
-                    ),
-                ),
-        )
 
-        // 노드(점)와 텍스트
         Column(
-            horizontalAlignment = Alignment.End,
-            modifier = Modifier.padding(top = 28.dp, end = 12.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier.padding(top = 24.dp,end = 12.dp,start = 4.dp),
         ) {
             HeirText(
                 text = date.format(DayNameFormatter),
@@ -345,25 +351,6 @@ private fun DayIndicator(
             )
         }
 
-        // 타임라인 둥근 노드(점)를 선 위에 오버레이
-        Box(
-            modifier = Modifier
-                .padding(top = 34.dp, end = 1.dp)
-                .size(8.dp)
-                .align(Alignment.TopEnd)
-                .background(dotColor, androidx.compose.foundation.shape.CircleShape),
-        )
-
-        // 오늘이라면 바깥에 퍼지는 글로우 효과 추가
-        if (isToday) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 3.dp, y = 30.dp)
-                    .size(16.dp)
-                    .background(dotColor.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape),
-            )
-        }
     }
 }
 
@@ -378,8 +365,8 @@ private fun ScheduleItem(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceA.copy(alpha = 0.7f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceA),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         border = BorderStroke(
             1.dp,
             Brush.linearGradient(
@@ -418,7 +405,7 @@ private fun ScheduleItem(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurfaceA.copy(alpha = 0.6f),
+                        color = colors.onSurfaceA,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -443,8 +430,6 @@ private fun OfflineCard(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, colors.neutral.copy(alpha = 0.2f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
@@ -508,6 +493,7 @@ private fun ScheduleContentPreview() {
         ScheduleContent(
             schedules = mockSchedules,
             onAlarmToggle = {},
+            onBack = {},
         )
     }
 }
