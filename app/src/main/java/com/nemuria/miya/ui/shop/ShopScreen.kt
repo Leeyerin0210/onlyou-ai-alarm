@@ -109,8 +109,12 @@ fun ShopScreen(
                     artist = uiState.selectedArtist!!,
                     voiceAssets = uiState.artistVoiceAssets,
                     purchasedIds = uiState.purchasedVoiceIds,
+                    playingAssetId = uiState.currentlyPlayingAssetId,
+                    isBuffering = uiState.isBuffering,
+                    isPlaying = uiState.isPlaying,
                     onToggleFollow = { viewModel.toggleFollow(uiState.selectedArtist!!.id, uiState.selectedArtist!!.isFollowed) },
-                    onPurchaseVoice = { viewModel.purchaseVoice(it) }
+                    onPurchaseVoice = { viewModel.purchaseVoice(it) },
+                    onPlayVoice = { id, url -> viewModel.playVoice(id, url) }
                 )
             }
         }
@@ -126,7 +130,7 @@ fun ShopArtistCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.85f) // 약간 세로로 길게 변경하여 텍스트 여백 확보
+            .aspectRatio(0.85f)
             .clip(RoundedCornerShape(20.dp))
             .background(colors.surfaceB)
             .clickable { onClick() }
@@ -152,7 +156,7 @@ fun ShopArtistCard(
                 )
         )
 
-        // 아티스트 닉네임 및 보이스 개수 텍스트
+        // 아티스트 닉네임
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -169,7 +173,7 @@ fun ShopArtistCard(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "5 Voices", // 가상 Mock Data
+                text = "Voices", 
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.7f)
             )
@@ -182,8 +186,12 @@ fun ArtistDetailSheetContent(
     artist: Artist,
     voiceAssets: List<VoiceAsset>,
     purchasedIds: Set<String>,
+    playingAssetId: String?,
+    isBuffering: Boolean,
+    isPlaying: Boolean,
     onToggleFollow: () -> Unit,
-    onPurchaseVoice: (String) -> Unit
+    onPurchaseVoice: (String) -> Unit,
+    onPlayVoice: (String, String) -> Unit
 ) {
     val colors = MiyaTheme.colors
     Column(
@@ -222,7 +230,7 @@ fun ArtistDetailSheetContent(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Follow Pill (Inverted logic from normal button)
+        // Follow Pill
         val buttonColor = if (artist.isFollowed) Color.Transparent else colors.primary
         val borderColor = if (artist.isFollowed) colors.primary.copy(alpha = 0.5f) else Color.Transparent
         val textColor = if (artist.isFollowed) colors.primary else colors.background
@@ -266,9 +274,17 @@ fun ArtistDetailSheetContent(
         ) {
             items(voiceAssets) { asset ->
                 val isPurchased = purchasedIds.contains(asset.id)
-                VoiceAssetRow(asset = asset, isPurchased = isPurchased) {
-                    onPurchaseVoice(asset.id)
-                }
+                val isThisAssetBuffering = isBuffering && playingAssetId == asset.id
+                val isThisAssetPlaying = isPlaying && playingAssetId == asset.id
+                
+                VoiceAssetRow(
+                    asset = asset,
+                    isPurchased = isPurchased,
+                    isBuffering = isThisAssetBuffering,
+                    isPlaying = isThisAssetPlaying,
+                    onPurchaseClick = { onPurchaseVoice(asset.id) },
+                    onPlayClick = { onPlayVoice(asset.id, asset.audioUrl) }
+                )
             }
         }
     }
@@ -278,7 +294,10 @@ fun ArtistDetailSheetContent(
 fun VoiceAssetRow(
     asset: VoiceAsset,
     isPurchased: Boolean,
-    onPurchaseClick: () -> Unit
+    isBuffering: Boolean,
+    isPlaying: Boolean,
+    onPurchaseClick: () -> Unit,
+    onPlayClick: () -> Unit
 ) {
     val colors = MiyaTheme.colors
     Row(
@@ -289,14 +308,32 @@ fun VoiceAssetRow(
         Surface(
             shape = CircleShape,
             color = colors.secondary.copy(alpha = 0.15f),
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .clickable { onPlayClick() }
         ) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = colors.secondary,
-                modifier = Modifier.padding(12.dp)
-            )
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                if (isBuffering) {
+                    CircularProgressIndicator(
+                        color = colors.secondary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else if (isPlaying) {
+                    Box(modifier = Modifier
+                        .size(16.dp)
+                        .background(colors.secondary, RoundedCornerShape(2.dp))
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = colors.secondary,
+                        modifier = Modifier.size(24.dp) // adjusted for scale
+                    )
+                }
+            }
         }
         
         Spacer(modifier = Modifier.width(16.dp))
@@ -310,7 +347,7 @@ fun VoiceAssetRow(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "0:15s · Preview",
+                text = "Preview",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.onSurfaceA.copy(alpha = 0.6f)
             )

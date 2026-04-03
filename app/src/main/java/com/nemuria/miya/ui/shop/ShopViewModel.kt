@@ -1,11 +1,14 @@
 package com.nemuria.miya.ui.shop
 
+import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nemuria.miya.domain.model.Artist
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.domain.repository.ArtistRepository
+import com.nemuria.miya.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -20,22 +23,41 @@ data class ShopUiState(
     val selectedArtist: Artist? = null,
     val artistVoiceAssets: List<VoiceAsset> = emptyList(),
     val purchasedVoiceIds: Set<String> = emptySet(),
+    val currentlyPlayingAssetId: String? = null,
+    val isPlaying: Boolean = false,
+    val isBuffering: Boolean = false
 )
 
 @HiltViewModel
 class ShopViewModel @Inject constructor(
-    private val artistRepository: ArtistRepository
+    private val artistRepository: ArtistRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ShopUiState())
     val uiState: StateFlow<ShopUiState> = _uiState
 
+    private var mediaPlayer: MediaPlayer? = null
+    private var voiceJob: Job? = null
+
     init {
+        mediaPlayer = MediaPlayer().apply {
+            setOnPreparedListener {
+                _uiState.update { state -> state.copy(isBuffering = false, isPlaying = true) }
+                start()
+            }
+            setOnCompletionListener {
+                _uiState.update { state -> state.copy(currentlyPlayingAssetId = null, isPlaying = false, isBuffering = false) }
+            }
+            setOnErrorListener { _, _, _ ->
+                _uiState.update { state -> state.copy(currentlyPlayingAssetId = null, isPlaying = false, isBuffering = false) }
+                true
+            }
+        }
+
         viewModelScope.launch {
             artistRepository.getAllArtistsWithFollowState().collectLatest { allStreamers ->
                 _uiState.update { state ->
-                    // Update main artists list
-                    // Also update selectedArtist if its follow state changed seamlessly
                     val updatedSelected = state.selectedArtist?.let { currentSelected ->
                         allStreamers.find { it.id == currentSelected.id }
                     }
@@ -64,26 +86,65 @@ class ShopViewModel @Inject constructor(
     }
 
     fun selectArtist(artist: Artist?) {
+        // Stop any running media first
+        stopVoice()
+        
         if (artist == null) {
+            voiceJob?.cancel()
             _uiState.update { it.copy(selectedArtist = null, artistVoiceAssets = emptyList()) }
             return
         }
 
-        // Generate dynamic mock voices tailored for this artist
-        val mockVoices = listOf(
-            VoiceAsset("${artist.id}_voice1", artist.id, "Good Morning Alarm", "dummy_url_1"),
-            VoiceAsset("${artist.id}_voice2", artist.id, "Sweet Goodnight", "dummy_url_2"),
-            VoiceAsset("${artist.id}_voice3", artist.id, "Cheerful Hello", "dummy_url_3"),
-            VoiceAsset("${artist.id}_voice4", artist.id, "Encouraging Cheer", "dummy_url_4"),
-            VoiceAsset("${artist.id}_voice5", artist.id, "Tough Love Scolding", "dummy_url_5"),
-        )
+        _uiState.update { it.copy(selectedArtist = artist) }
 
-        _uiState.update { 
-            it.copy(
-                selectedArtist = artist,
-                artistVoiceAssets = mockVoices
-            )
+        // Start listening to real DB snapshots for this artist
+        voiceJob?.cancel()
+        voiceJob = viewModelScope.launch {
+            voiceRepository.getVoicesByArtist(artist.id).collectLatest { voices ->
+                _uiState.update { it.copy(artistVoiceAssets = voices) }
+            }
         }
+    }
+
+    // --- Audio Player Handlers ---
+    
+    fun playVoice(assetId: String, audioUrl: String) {
+        val st = _uiState.value
+        // If clicking the same playing track -> Stop
+        if (st.currentlyPlayingAssetId == assetId && (st.isPlaying || st.isBuffering)) {
+            stopVoice()
+            return
+        }
+
+        // Otherwise reset and play new one
+        stopVoice()
+        
+        if (audioUrl.isBlank()) return
+        
+        _uiState.update { it.copy(currentlyPlayingAssetId = assetId, isBuffering = true, isPlaying = false) }
+        try {
+            mediaPlayer?.apply {
+                reset()
+                setDataSource(audioUrl)
+                prepareAsync() // Network stream buffering
+            }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(currentlyPlayingAssetId = null, isBuffering = false, isPlaying = false) }
+        }
+    }
+
+    fun stopVoice() {
+        if (mediaPlayer?.isPlaying == true) {
+            mediaPlayer?.pause()
+        }
+        mediaPlayer?.reset()
+        _uiState.update { it.copy(currentlyPlayingAssetId = null, isPlaying = false, isBuffering = false) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     fun toggleFollow(artistId: String, currentFollowStatus: Boolean) {
@@ -93,6 +154,7 @@ class ShopViewModel @Inject constructor(
     }
 
     fun purchaseVoice(voiceId: String) {
+        // Mock buying mechanism maintaining state
         _uiState.update { state ->
             val updatedSet = state.purchasedVoiceIds.toMutableSet().apply {
                 add(voiceId)

@@ -8,7 +8,9 @@ import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.VoiceEncryptionUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -19,16 +21,39 @@ class VoiceRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceAssetDao: VoiceAssetDao,
     private val encryptionUtil: VoiceEncryptionUtil,
+    private val firestore: com.google.firebase.firestore.FirebaseFirestore,
 ) : VoiceRepository {
 
     /** 암호화된 보이스 파일이 저장되는 내부 디렉토리 */
     private val voiceDir: File
         get() = File(context.filesDir, "voices").also { it.mkdirs() }
 
-    override fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> =
-        voiceAssetDao.getVoicesByArtist(artistId).map { entities ->
-            entities.map { it.toDomainModel() }
+    override fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> {
+        return callbackFlow {
+            val listener = firestore.collection("voices")
+                .whereEqualTo("artistId", artistId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        return@addSnapshotListener
+                    }
+                    val list = snapshot?.documents?.mapNotNull { doc ->
+                        val id = doc.id
+                        val name = doc.getString("name") ?: ""
+                        val audioUrl = doc.getString("audioUrl") ?: ""
+                        VoiceAsset(
+                            id = id,
+                            artistId = artistId,
+                            name = name,
+                            audioUrl = audioUrl,
+                            isPurchased = false,
+                            isDownloaded = File(voiceDir, "$id.enc").exists()
+                        )
+                    } ?: emptyList()
+                    trySend(list)
+                }
+            awaitClose { listener.remove() }
         }
+    }
 
     override fun getPurchasedVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> =
         voiceAssetDao.getPurchasedVoicesByArtist(artistId).map { entities ->
