@@ -58,7 +58,8 @@ class MainActivity : ComponentActivity() {
                 fontType = currentFontType
             ) {
                 val colors = MiyaTheme.colors
-                var currentScreen by remember { mutableStateOf("home") }
+                val startDestination = if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null) "home" else "login"
+                var currentScreen by remember { mutableStateOf(startDestination) }
                 var isEditingAlarm by remember { mutableStateOf(false) }
                 var alarmBackTrigger by remember { mutableIntStateOf(0) }
 
@@ -89,6 +90,12 @@ class MainActivity : ComponentActivity() {
                                     ScheduleScreen(onBack = { currentScreen = "home" })
                                 }
 
+                                "login" -> {
+                                    com.nemuria.miya.ui.login.LoginScreen(
+                                        onLoginSuccess = { currentScreen = "home" }
+                                    )
+                                }
+
                                 "alarm" -> {
                                     AlarmScreen(
                                         onEditingStateChange = { isEditingAlarm = it },
@@ -106,7 +113,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // 2. 공중에 떠 있는 플로팅 바텀 바
-                    if (!isEditingAlarm && currentScreen != "schedule") {
+                    if (!isEditingAlarm && currentScreen != "schedule" && currentScreen != "login") {
                         MiyaBottomNavigationBar(
                             currentScreen = currentScreen,
                             onNavigate = { currentScreen = it },

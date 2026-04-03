@@ -80,6 +80,12 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+
+    // Credential Manager (Google Sign-In)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // 루팅 탐지 (상업용 보이스 보호)
     implementation("com.scottyab:rootbeer-lib:0.1.0")

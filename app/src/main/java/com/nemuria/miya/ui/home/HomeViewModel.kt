@@ -43,15 +43,21 @@ class HomeViewModel
 
         private fun observeFollowedArtists() {
             viewModelScope.launch {
-                // 로그인 기능 구현 전까지는 모든 아티스트를 표시
-                artistRepository.getAllArtists().collectLatest { artists ->
+                // 로그인된 유저의 팔로우 아티스트들만 표시
+                artistRepository.getFollowedArtists().collectLatest { artists ->
                     if (artists.isNotEmpty()) {
                         _uiState.update { it.copy(followedArtists = artists) }
                         // 초기 로드 시 첫 번째 아티스트 테마 관찰 시작
                         val currentArtist = artists[_uiState.value.currentIndex.coerceIn(artists.indices)]
                         updateArtistContent(currentArtist)
                     } else {
-                        _uiState.update { it.copy(vtuberName = "로드 중...") }
+                        // 팔로우한 아티스트가 전무할 때 빈 화면 안내
+                        _uiState.update { 
+                            it.copy(
+                                followedArtists = emptyList(),
+                                vtuberName = "팔로우한 아티스트가 없습니다."
+                            ) 
+                        }
                     }
                 }
             }

@@ -43,6 +43,12 @@ abstract class RepositoryModule {
     abstract fun bindVoiceRepository(
         voiceRepositoryImpl: VoiceRepositoryImpl,
     ): VoiceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        authRepositoryImpl: com.nemuria.miya.data.repository.AuthRepositoryImpl,
+    ): com.nemuria.miya.domain.repository.AuthRepository
 }
 
 @Module
@@ -51,4 +57,12 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDateTimeProvider(): DateTimeProvider = DefaultDateTimeProvider()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): com.google.firebase.auth.FirebaseAuth = com.google.firebase.auth.FirebaseAuth.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideCredentialManager(@dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context): androidx.credentials.CredentialManager = androidx.credentials.CredentialManager.create(context)
 }

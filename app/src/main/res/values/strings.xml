@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">miya</string>
+    <!-- TODO: Google Cloud Console에서 발급받은 Web Client ID를 입력하세요 -->
+    <string name="google_web_client_id">40295201716-3t9p5np64mr2lm0phtuq1p98eokvonlr.apps.googleusercontent.com</string>
+    <string name="login_title">Miya 계정 로그인</string>
+    <string name="login_subtitle">구글 계정으로 로그인하여 아티스트와 함께하는 하루를 시작하세요.</string>
+    <string name="login_button_google">Google 계정으로 계속하기</string>
 </resources>
