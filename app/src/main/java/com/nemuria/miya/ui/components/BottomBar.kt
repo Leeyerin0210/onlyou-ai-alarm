@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,10 +45,11 @@ fun MiyaBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val items = listOf("home", "alarm", "profile")
-    val labels = listOf("Home", "Alarm", "Profile")
+    val items = listOf("home", "shop", "alarm", "profile")
+    val labels = listOf("Home", "Shop", "Alarm", "Profile")
     val icons = listOf(
         Icons.Default.Home,
+        Icons.Default.ShoppingCart,
         Icons.Default.Notifications,
         Icons.Default.Person,
     )

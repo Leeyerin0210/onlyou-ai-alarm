@@ -137,6 +137,10 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
+                                "shop" -> {
+                                    com.nemuria.miya.ui.shop.ShopScreen()
+                                }
+
                                 "profile" -> {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Text(text = "Profile Screen (Coming Soon)", color = colors.secondary)
