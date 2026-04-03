@@ -13,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import kotlinx.coroutines.tasks.await
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +59,8 @@ class MainActivity : ComponentActivity() {
                 fontType = currentFontType
             ) {
                 val colors = MiyaTheme.colors
-                val startDestination = if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null) "home" else "login"
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val startDestination = if (auth.currentUser != null) "auth_check" else "login"
                 var currentScreen by remember { mutableStateOf(startDestination) }
                 var isEditingAlarm by remember { mutableStateOf(false) }
                 var alarmBackTrigger by remember { mutableIntStateOf(0) }
@@ -79,6 +81,38 @@ class MainActivity : ComponentActivity() {
                     ) { screen ->
                         Box(modifier = Modifier.fillMaxSize()) {
                             when (screen) {
+                                "auth_check" -> {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        androidx.compose.material3.CircularProgressIndicator(color = colors.primary)
+                                    }
+                                    val uid = auth.currentUser?.uid
+                                    LaunchedEffect(uid) {
+                                        if (uid != null) {
+                                            try {
+                                                val doc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                                    .collection("users").document(uid).get()
+                                                    .await()
+                                                val follows = doc.get("followedArtistIds") as? List<String>
+                                                if (follows.isNullOrEmpty()) {
+                                                    currentScreen = "onboarding"
+                                                } else {
+                                                    currentScreen = "home"
+                                                }
+                                            } catch(e: Exception) {
+                                                currentScreen = "onboarding"
+                                            }
+                                        } else {
+                                            currentScreen = "login"
+                                        }
+                                    }
+                                }
+
+                                "onboarding" -> {
+                                    com.nemuria.miya.ui.onboarding.OnboardingScreen(
+                                        onOnboardingComplete = { currentScreen = "home" }
+                                    )
+                                }
+
                                 "home" -> {
                                     HomeScreen(
                                         onNavigateToSchedule = { currentScreen = "schedule" },
@@ -113,7 +147,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // 2. 공중에 떠 있는 플로팅 바텀 바
-                    if (!isEditingAlarm && currentScreen != "schedule" && currentScreen != "login") {
+                    if (!isEditingAlarm && currentScreen != "schedule" && currentScreen != "login" && currentScreen != "auth_check" && currentScreen != "onboarding") {
                         MiyaBottomNavigationBar(
                             currentScreen = currentScreen,
                             onNavigate = { currentScreen = it },

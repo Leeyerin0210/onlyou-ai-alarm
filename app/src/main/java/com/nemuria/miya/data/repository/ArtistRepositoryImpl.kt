@@ -34,6 +34,21 @@ class ArtistRepositoryImpl @Inject constructor(
             }
     }
 
+    override fun getAllArtistsWithFollowState(): Flow<List<Artist>> {
+        val uid = firebaseAuth.currentUser?.uid ?: return getAllArtists()
+
+        val userFollowsFlow = firestore.collection("users").document(uid)
+            .snapshots()
+            .map { doc ->
+                @Suppress("UNCHECKED_CAST")
+                (doc.get("followedArtistIds") as? List<String>) ?: emptyList()
+            }
+
+        return userFollowsFlow.combine(getAllArtists()) { follows, allStreamers ->
+            allStreamers.map { it.copy(isFollowed = follows.contains(it.id)) }
+        }
+    }
+
     override fun getFollowedArtists(): Flow<List<Artist>> {
         val uid = firebaseAuth.currentUser?.uid ?: return flowOf(emptyList())
 

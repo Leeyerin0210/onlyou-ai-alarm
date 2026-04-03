@@ -35,6 +35,7 @@ interface ScheduleRepository {
  */
 interface ArtistRepository {
     fun getAllArtists(): Flow<List<Artist>>
+    fun getAllArtistsWithFollowState(): Flow<List<Artist>>
     fun getFollowedArtists(): Flow<List<Artist>>
     suspend fun upsertArtist(artist: Artist)
     suspend fun setFollowed(artistId: String, isFollowed: Boolean)
