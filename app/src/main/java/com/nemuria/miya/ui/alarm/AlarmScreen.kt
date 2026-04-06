@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,11 +38,11 @@ import com.nemuria.miya.domain.model.Artist
 import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.components.GhanaText
+import com.nemuria.miya.ui.permission.hasAllAlarmPermissions
 import com.nemuria.miya.ui.theme.MiyaTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
-
 
 @Composable
 fun AlarmScreen(
@@ -79,6 +82,18 @@ fun AlarmScreen(
         }
     }
 
+    // 이전 시간 알람 → 다음 날 자동 조정 시 Toast 표시
+    LaunchedEffect(Unit) {
+        viewModel.pastTimeEvent.collect {
+            Toast
+                .makeText(
+                    context,
+                    "이전 시간 알람은 작성할 수 없습니다\n다음 날로 자동 변경되었습니다",
+                    Toast.LENGTH_LONG,
+                ).show()
+        }
+    }
+
     AlarmContent(
         alarms = alarms,
         editingAlarm = editingAlarm,
@@ -90,7 +105,7 @@ fun AlarmScreen(
         onDeleteAlarm = { viewModel.deleteAlarm(it) },
         onStartEditing = { viewModel.startEditing(it) },
         onSaveAlarm = { ti, v, t, rd, d -> viewModel.saveAlarm(ti, v, t, rd, d) },
-        onPlayToggle = { id, url -> viewModel.playVoice(id, url) }
+        onPlayToggle = { id, url -> viewModel.playVoice(id, url) },
     )
 }
 
@@ -109,6 +124,9 @@ fun AlarmContent(
     onPlayToggle: (String, String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
+    val context = LocalContext.current
+    // 권한 거부 Toast 디바운스: 2초 내 재표시 방지
+    val lastPermissionToastTime = remember { mutableLongStateOf(0L) }
 
     Box(modifier = Modifier.fillMaxSize().background(colors.background)) {
         if (editingAlarm == null) {
@@ -139,7 +157,22 @@ fun AlarmContent(
                 }
             }
             FloatingActionButton(
-                onClick = { onStartEditing(null) },
+                onClick = {
+                    if (hasAllAlarmPermissions(context)) {
+                        onStartEditing(null)
+                    } else {
+                        val now = System.currentTimeMillis()
+                        if (now - lastPermissionToastTime.longValue >= 2_000L) {
+                            lastPermissionToastTime.longValue = now
+                            Toast
+                                .makeText(
+                                    context,
+                                    "알람 권한이 필요합니다.\n설정 > 앱 > Miya에서 권한을 허용해 주세요.",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                        }
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 120.dp, end = 24.dp),
@@ -183,7 +216,7 @@ fun AlarmListPreview() {
             onDeleteAlarm = {},
             onStartEditing = {},
             onSaveAlarm = { _, _, _, _, _ -> },
-            onPlayToggle = { _, _ -> }
+            onPlayToggle = { _, _ -> },
         )
     }
 }

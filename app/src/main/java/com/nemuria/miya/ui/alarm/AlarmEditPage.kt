@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.widget.Toast
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -75,6 +77,7 @@ import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.theme.MiyaTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -388,12 +391,49 @@ fun AlarmEditPage(
     var date by remember(alarm.id, alarm.date) { mutableStateOf(alarm.date) }
     var showCalendar by remember(alarm.id) { mutableStateOf(false) }
     var showVoiceSelection by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // 첫 컴포지션 여부 (페이지 진입 시 자동 트리거 방지)
+    var isFirstTimeComposition by remember(alarm.id) { mutableStateOf(true) }
+
+    // 사용자가 시간 휠을 돌릴 때만 체크 (첫 진입 시 스킵)
+    LaunchedEffect(time) {
+        if (isFirstTimeComposition) {
+            isFirstTimeComposition = false
+            return@LaunchedEffect
+        }
+        if (repeatDays.isNotEmpty()) return@LaunchedEffect  // 반복 알람 제외
+        var targetDate = date ?: LocalDate.now()
+        if (LocalDateTime.of(targetDate, time).isBefore(LocalDateTime.now())) {
+            while (LocalDateTime.of(targetDate, time).isBefore(LocalDateTime.now())) {
+                targetDate = targetDate.plusDays(1)
+            }
+            date = targetDate
+            Toast.makeText(
+                context,
+                "이전 시간 알람은 작성할 수 없습니다\n${targetDate}로 자동 변경되었습니다",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
 
     if (showCalendar) {
         MiyaCalendarDialog(
             initialDate = date,
-            onConfirm = {
-                date = it
+            onConfirm = { picked ->
+                // 날짜+시간 조합이 이전이면 유효한 날짜가 될 때까지 하루씩 앞당김
+                var finalDate = picked
+                if (LocalDateTime.of(finalDate, time).isBefore(LocalDateTime.now())) {
+                    while (LocalDateTime.of(finalDate, time).isBefore(LocalDateTime.now())) {
+                        finalDate = finalDate.plusDays(1)
+                    }
+                    Toast.makeText(
+                        context,
+                        "이전 시간 알람은 작성할 수 없습니다\n${finalDate}로 자동 변경되었습니다",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                date = finalDate
                 repeatDays = emptySet()
                 showCalendar = false
             },
@@ -457,9 +497,24 @@ fun AlarmEditPage(
                 .navigationBarsPadding(),
             onClick = {
                 val finalDate = if (date == null && repeatDays.isEmpty()) LocalDate.now() else date
-                onSave(time, voiceId, title.ifEmpty { null }, repeatDays, finalDate)
+
+                // 반복 알람이 아닐 때만 이전 시간 체크 → 차단
+                val isPast = repeatDays.isEmpty() &&
+                    finalDate != null &&
+                    LocalDateTime.of(finalDate, time).isBefore(LocalDateTime.now())
+
+                if (isPast) {
+                    Toast.makeText(
+                        context,
+                        "이전 시간 알람은 저장할 수 없습니다.\n시간을 변경해 주세요.",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } else {
+                    onSave(time, voiceId, title.ifEmpty { null }, repeatDays, finalDate)
+                }
             },
         )
+
 
         if (showVoiceSelection) {
             VoiceSelectionPage(

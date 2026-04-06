@@ -6,7 +6,7 @@ import java.time.LocalTime
 data class MiyaAlarm(
     val id: Int = 0,
     val title: String? = null,
-    val time: LocalTime = LocalTime.now(),
+    val time: LocalTime = LocalTime.now().plusMinutes(1).withSecond(0).withNano(0),
     val isEnabled: Boolean = true,
     val repeatDays: Set<DayOfWeek> = emptySet(),
     val date: java.time.LocalDate? = null,

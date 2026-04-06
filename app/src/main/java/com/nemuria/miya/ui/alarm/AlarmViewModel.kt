@@ -11,15 +11,19 @@ import com.nemuria.miya.domain.repository.ArtistRepository
 import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.AlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import javax.inject.Inject
 
@@ -36,6 +40,10 @@ class AlarmViewModel @Inject constructor(
 
     private val _editingAlarm = MutableStateFlow<MiyaAlarm?>(null)
     val editingAlarm: StateFlow<MiyaAlarm?> = _editingAlarm.asStateFlow()
+
+    /** 이전 시간 알람이 다음 날로 자동 변경되었을 때 발행 */
+    private val _pastTimeEvent = MutableSharedFlow<Unit>()
+    val pastTimeEvent: SharedFlow<Unit> = _pastTimeEvent.asSharedFlow()
 
     /**
      * 사용자가 구매한 모든 보이스 목록을 스트리머 기준으로 그룹화한 맵
@@ -161,6 +169,7 @@ class AlarmViewModel @Inject constructor(
             if (alarmToSave.id == 0) {
                 val newId = repository.insertAlarm(alarmToSave)
                 scheduler.schedule(alarmToSave.copy(id = newId))
+
             } else {
                 repository.updateAlarm(alarmToSave)
                 scheduler.schedule(alarmToSave)
