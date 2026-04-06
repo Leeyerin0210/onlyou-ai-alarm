@@ -297,13 +297,18 @@ fun MiyaTimePicker(
     onTimeChange: (LocalTime) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // rememberUpdatedState: 콜백이 항상 최신 time/onTimeChange를 참조.
+    // 피커를 재生성하지 않고도 stale closure 문제를 해결함.
+    val currentTime by androidx.compose.runtime.rememberUpdatedState(time)
+    val currentOnTimeChange by androidx.compose.runtime.rememberUpdatedState(onTimeChange)
+
     val isPm = time.hour >= 12
     val hour12 = if (time.hour % 12 == 0) 12 else time.hour % 12
     val minute = time.minute
 
-    val amPmItems = listOf("AM", "PM")
-    val hourItems = (1..12).map { String.format("%02d", it) }
-    val minuteItems = (0..59).map { String.format("%02d", it) }
+    val amPmItems = remember { listOf("AM", "PM") }
+    val hourItems = remember { (1..12).map { String.format("%02d", it) } }
+    val minuteItems = remember { (0..59).map { String.format("%02d", it) } }
 
     Row(
         modifier = modifier
@@ -317,10 +322,13 @@ fun MiyaTimePicker(
             items = amPmItems,
             initialIndex = if (isPm) 1 else 0,
             onItemSelected = { index ->
+                val t = currentTime          // 항상 최신값
                 val newIsPm = index == 1
+                val h12 = if (t.hour % 12 == 0) 12 else t.hour % 12
                 val newHour24 =
-                    if (newIsPm) (if (hour12 == 12) 12 else hour12 + 12) else (if (hour12 == 12) 0 else hour12)
-                onTimeChange(LocalTime.of(newHour24, minute))
+                    if (newIsPm) (if (h12 == 12) 12 else h12 + 12)
+                    else (if (h12 == 12) 0 else h12)
+                currentOnTimeChange(LocalTime.of(newHour24, t.minute))
             },
             modifier = Modifier.weight(1f),
         )
@@ -332,10 +340,13 @@ fun MiyaTimePicker(
             items = hourItems,
             initialIndex = hour12 - 1,
             onItemSelected = { index ->
+                val t = currentTime          // 항상 최신값
                 val newHour12 = index + 1
+                val newIsPm = t.hour >= 12
                 val newHour24 =
-                    if (isPm) (if (newHour12 == 12) 12 else newHour12 + 12) else (if (newHour12 == 12) 0 else newHour12)
-                onTimeChange(LocalTime.of(newHour24, minute))
+                    if (newIsPm) (if (newHour12 == 12) 12 else newHour12 + 12)
+                    else (if (newHour12 == 12) 0 else newHour12)
+                currentOnTimeChange(LocalTime.of(newHour24, t.minute))
             },
             modifier = Modifier.weight(1f),
         )
@@ -347,12 +358,14 @@ fun MiyaTimePicker(
             items = minuteItems,
             initialIndex = minute,
             onItemSelected = { index ->
-                onTimeChange(LocalTime.of(time.hour, index))
+                val t = currentTime          // 항상 최신값
+                currentOnTimeChange(LocalTime.of(t.hour, index))
             },
             modifier = Modifier.weight(1f),
         )
     }
 }
+
 
 // =================================================================
 // 3. 실제 페이지
