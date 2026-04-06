@@ -45,6 +45,17 @@ class AlarmViewModel @Inject constructor(
         voiceRepository.getAllPurchasedVoices()
     ) { artists, voices ->
         val artistLookup = artists.associateBy { it.id }
+        
+        // --- 동기화: 구매는 했으나 기기에 암호화 파일이 없는 보이스 자동 다운로드 ---
+        voices.filter { !it.isDownloaded }.forEach { voice ->
+            viewModelScope.launch {
+                kotlin.runCatching {
+                    voiceRepository.downloadAndStoreVoice(voice)
+                }
+            }
+        }
+        // -------------------------------------------------------------
+
         voices.groupBy { artistLookup[it.artistId] }.mapNotNull { (artist, list) ->
             if (artist != null) artist to list else null
         }.toMap()

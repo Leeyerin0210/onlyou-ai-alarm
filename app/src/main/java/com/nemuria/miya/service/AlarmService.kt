@@ -100,7 +100,7 @@ class AlarmService : Service() {
             audioManager?.requestAudioFocus(focusRequest)
         }
 
-        serviceScope.launch {
+        serviceScope.launch(Dispatchers.IO) {
             if (rootCheckUtil.isDeviceRooted()) {
                 playSystemAlarmSound()
             } else {
@@ -126,19 +126,6 @@ class AlarmService : Service() {
     private fun playVoiceBytes(bytes: ByteArray) {
         releaseMediaPlayer()
         runCatching {
-            val pipe = android.os.ParcelFileDescriptor.createPipe()
-            val readFd = pipe[0]
-            val writeFd = pipe[1]
-
-            // 파이프에 bytes를 비동기 작성 후 쓰기 FD 닫기
-            serviceScope.launch(Dispatchers.IO) {
-                kotlin.runCatching {
-                    android.os.ParcelFileDescriptor.AutoCloseOutputStream(writeFd).use { stream ->
-                        stream.write(bytes)
-                    }
-                }
-            }
-
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -146,13 +133,25 @@ class AlarmService : Service() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build(),
                 )
-                setDataSource(readFd.fileDescriptor)
-                readFd.close()
+                // ParcelFileDescriptor 파이프는 lseek 불가 → MediaPlayer가 항상 실패함.
+                // MediaDataSource는 ByteArray를 직접 메모리에서 제공 → 파이프/FD 불필요.
+                setDataSource(object : android.media.MediaDataSource() {
+                    override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+                        if (position >= bytes.size) return -1
+                        val len = minOf(size, (bytes.size - position).toInt())
+                        System.arraycopy(bytes, position.toInt(), buffer, offset, len)
+                        return len
+                    }
+                    override fun getSize(): Long = bytes.size.toLong()
+                    override fun close() {}
+                })
                 isLooping = true
+                // IO 스레드에서 호출 중이므로 blocking prepare() 사용 가능
                 prepare()
                 start()
             }
-        }.onFailure {
+        }.onFailure { e ->
+            android.util.Log.e("MiyaAlarm", "playVoiceBytes failed: ${e.message}, fallback to system sound")
             playSystemAlarmSound()
         }
     }

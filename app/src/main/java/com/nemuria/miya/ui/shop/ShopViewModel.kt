@@ -155,6 +155,13 @@ class ShopViewModel @Inject constructor(
     fun purchaseVoice(voiceId: String) {
         viewModelScope.launch {
             voiceRepository.setPurchased(voiceId, true)
+            // 구매 시 즉각 다운로드 & 암호화 저장 트리거
+            val voice = _uiState.value.artistVoiceAssets.find { it.id == voiceId }
+            if (voice != null) {
+                kotlin.runCatching {
+                    voiceRepository.downloadAndStoreVoice(voice)
+                }
+            }
         }
     }
 }

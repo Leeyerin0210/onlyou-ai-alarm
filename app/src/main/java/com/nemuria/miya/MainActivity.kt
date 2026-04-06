@@ -42,6 +42,17 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            if (!notificationManager.canUseFullScreenIntent()) {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        }
+
         enableEdgeToEdge()
         setContent {
             val currentLightColors by themeManager.currentLightColors.collectAsState()
