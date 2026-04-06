@@ -56,7 +56,13 @@ class AlarmService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        val ctx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            createAttributionContext("MiyaAlarm")
+        } else {
+            this
+        }
+        audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -153,6 +159,12 @@ class AlarmService : Service() {
 
     /** 시스템 기본 알람음을 재생합니다 (루팅 감지 또는 보이스 없을 때 폴백). */
     private fun playSystemAlarmSound() {
+        val ctx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            createAttributionContext("MiyaAlarm")
+        } else {
+            this
+        }
+
         releaseMediaPlayer()
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -163,7 +175,7 @@ class AlarmService : Service() {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build(),
             )
-            setDataSource(applicationContext, alarmUri)
+            setDataSource(ctx, alarmUri)
             isLooping = true
             prepare()
             start()
@@ -171,17 +183,31 @@ class AlarmService : Service() {
     }
 
     private fun startVibration() {
+        val ctx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            createAttributionContext("MiyaAlarm")
+        } else {
+            this
+        }
+
         vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            val vibratorManager = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vibratorManager.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
 
         val pattern = longArrayOf(0, 800, 400, 800, 400)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val attributes = android.os.VibrationAttributes.Builder()
+                .setUsage(android.os.VibrationAttributes.USAGE_ALARM)
+                .build()
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0), attributes)
+        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val attributes = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .build()
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0), attributes)
         } else {
             @Suppress("DEPRECATION")
             vibrator?.vibrate(pattern, 0)

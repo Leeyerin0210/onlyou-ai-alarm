@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.nemuria.miya.domain.model.Artist
 import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.components.GhanaText
@@ -48,7 +49,10 @@ fun AlarmScreen(
 ) {
     val alarms by viewModel.alarms.collectAsState()
     val editingAlarm by viewModel.editingAlarm.collectAsState()
-    val purchasedVoices by viewModel.purchasedVoices.collectAsState()
+    val artistVoicesMap by viewModel.artistVoicesMap.collectAsState()
+    val playingVoiceId by viewModel.currentlyPlayingId.collectAsState()
+    val isBuffering by viewModel.isBuffering.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
     val context = LocalContext.current
 
     // Android 14+: USE_FULL_SCREEN_INTENT 권한 미허용 시 설정 화면으로 안내
@@ -78,11 +82,15 @@ fun AlarmScreen(
     AlarmContent(
         alarms = alarms,
         editingAlarm = editingAlarm,
-        purchasedVoices = purchasedVoices,
+        artistVoicesMap = artistVoicesMap,
+        playingVoiceId = playingVoiceId,
+        isBuffering = isBuffering,
+        isPlaying = isPlaying,
         onToggleAlarm = { viewModel.toggleAlarm(it) },
         onDeleteAlarm = { viewModel.deleteAlarm(it) },
         onStartEditing = { viewModel.startEditing(it) },
         onSaveAlarm = { ti, v, t, rd, d -> viewModel.saveAlarm(ti, v, t, rd, d) },
+        onPlayToggle = { id, url -> viewModel.playVoice(id, url) }
     )
 }
 
@@ -90,11 +98,15 @@ fun AlarmScreen(
 fun AlarmContent(
     alarms: List<MiyaAlarm>,
     editingAlarm: MiyaAlarm?,
-    purchasedVoices: List<VoiceAsset>,
+    artistVoicesMap: Map<Artist, List<VoiceAsset>>,
+    playingVoiceId: String?,
+    isBuffering: Boolean,
+    isPlaying: Boolean,
     onToggleAlarm: (MiyaAlarm) -> Unit,
     onDeleteAlarm: (MiyaAlarm) -> Unit,
     onStartEditing: (MiyaAlarm?) -> Unit,
     onSaveAlarm: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
+    onPlayToggle: (String, String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
 
@@ -139,9 +151,13 @@ fun AlarmContent(
         } else {
             AlarmEditPage(
                 alarm = editingAlarm,
-                purchasedVoices = purchasedVoices,
+                artistVoicesMap = artistVoicesMap,
+                playingVoiceId = playingVoiceId,
+                isBuffering = isBuffering,
+                isPlaying = isPlaying,
                 onSave = onSaveAlarm,
                 onDelete = { onDeleteAlarm(editingAlarm) },
+                onPlayToggle = onPlayToggle,
             )
         }
     }
@@ -159,11 +175,15 @@ fun AlarmListPreview() {
         AlarmContent(
             alarms = mockAlarms,
             editingAlarm = null,
-            purchasedVoices = emptyList(),
+            artistVoicesMap = emptyMap(),
+            playingVoiceId = null,
+            isBuffering = false,
+            isPlaying = false,
             onToggleAlarm = {},
             onDeleteAlarm = {},
             onStartEditing = {},
             onSaveAlarm = { _, _, _, _, _ -> },
+            onPlayToggle = { _, _ -> }
         )
     }
 }

@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -24,9 +26,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -57,11 +63,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
 import com.kizitonwose.calendar.core.DayPosition
 import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
+import com.nemuria.miya.domain.model.Artist
 import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.ui.theme.MiyaTheme
@@ -352,9 +360,13 @@ fun MiyaTimePicker(
 @Composable
 fun AlarmEditPage(
     alarm: MiyaAlarm,
-    purchasedVoices: List<VoiceAsset>,
+    artistVoicesMap: Map<Artist, List<VoiceAsset>>,
+    playingVoiceId: String?,
+    isBuffering: Boolean,
+    isPlaying: Boolean,
     onSave: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
     onDelete: (() -> Unit)? = null,
+    onPlayToggle: (String, String) -> Unit,
 ) {
     var title by remember(alarm.id, alarm.title) { mutableStateOf(alarm.title.orEmpty()) }
     var time by remember(alarm.id, alarm.time) { mutableStateOf(alarm.time) }
@@ -362,6 +374,7 @@ fun AlarmEditPage(
     var repeatDays by remember(alarm.id, alarm.repeatDays) { mutableStateOf(alarm.repeatDays) }
     var date by remember(alarm.id, alarm.date) { mutableStateOf(alarm.date) }
     var showCalendar by remember(alarm.id) { mutableStateOf(false) }
+    var showVoiceSelection by remember { mutableStateOf(false) }
 
     if (showCalendar) {
         MiyaCalendarDialog(
@@ -411,9 +424,9 @@ fun AlarmEditPage(
             )
 
             AlarmVoiceSection(
-                purchasedVoices = purchasedVoices,
+                artistVoicesMap = artistVoicesMap,
                 selectedVoiceId = voiceId,
-                onVoiceSelected = { voiceId = it },
+                onOpenSelection = { showVoiceSelection = true }
             )
 
             // 기존 알람에만 삭제 버튼 표시
@@ -434,6 +447,22 @@ fun AlarmEditPage(
                 onSave(time, voiceId, title.ifEmpty { null }, repeatDays, finalDate)
             },
         )
+
+        if (showVoiceSelection) {
+            VoiceSelectionPage(
+                artistVoicesMap = artistVoicesMap,
+                selectedVoiceId = voiceId,
+                playingVoiceId = playingVoiceId,
+                isBuffering = isBuffering,
+                isPlaying = isPlaying,
+                onVoiceSelected = {
+                    voiceId = it
+                    showVoiceSelection = false
+                },
+                onPlayToggle = onPlayToggle,
+                onClose = { showVoiceSelection = false }
+            )
+        }
     }
 }
 
@@ -591,43 +620,34 @@ private fun RepeatDayChip(
 
 @Composable
 private fun AlarmVoiceSection(
-    purchasedVoices: List<VoiceAsset>,
+    artistVoicesMap: Map<Artist, List<VoiceAsset>>,
     selectedVoiceId: String,
-    onVoiceSelected: (String) -> Unit,
+    onOpenSelection: () -> Unit
 ) {
     val colors = MiyaTheme.colors
 
-    AlarmEditSectionCard {
-        Text(
-            text = "Sound",
-            fontWeight = FontWeight.Bold,
-            color = colors.primary,
-        )
+    val selectedVoice = artistVoicesMap.values.flatten().find { it.id == selectedVoiceId }
+    val selectedName = selectedVoice?.name ?: "기본 알람음"
 
-        if (purchasedVoices.isEmpty()) {
-            Text(
-                text = "구매한 보이스가 없습니다",
-                color = colors.neutral,
-                fontSize = 14.sp,
-            )
-        } else {
-            purchasedVoices.forEach { voice ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onVoiceSelected(voice.id) },
-                ) {
-                    RadioButton(
-                        selected = selectedVoiceId == voice.id,
-                        onClick = { onVoiceSelected(voice.id) },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = colors.primary,
-                            unselectedColor = colors.neutral,
-                        ),
-                    )
-                    Text(text = voice.name, color = colors.onSurfaceA)
-                }
+    AlarmEditSectionCard(modifier = Modifier.clickable { onOpenSelection() }) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Sound",
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = selectedName,
+                    color = colors.onSurfaceA,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -702,6 +722,140 @@ private fun buildAlarmScheduleSummary(
         }
     }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+fun VoiceSelectionPage(
+    artistVoicesMap: Map<Artist, List<VoiceAsset>>,
+    selectedVoiceId: String,
+    playingVoiceId: String?,
+    isBuffering: Boolean,
+    isPlaying: Boolean,
+    onVoiceSelected: (String) -> Unit,
+    onPlayToggle: (String, String) -> Unit,
+    onClose: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val colors = MiyaTheme.colors
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+            ) {
+                androidx.compose.material3.IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = colors.onSurfaceA)
+                }
+                Text("사운드 선택", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.primary, modifier = Modifier.padding(start = 4.dp))
+            }
+
+            // Search Bar
+            androidx.compose.material3.TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                placeholder = { Text("노래 제목 검색...", color = colors.onSurfaceA.copy(alpha=0.5f)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription=null, tint=colors.onSurfaceA.copy(alpha=0.5f)) },
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = colors.surfaceA,
+                    unfocusedContainerColor = colors.surfaceA,
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                ),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            // List
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                artistVoicesMap.forEach { (artist, voices) ->
+                    val filtered = voices.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                    if (filtered.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = artist.name,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.primary,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+                        
+                        items(filtered) { voice ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onVoiceSelected(voice.id) },
+                            ) {
+                                androidx.compose.material3.RadioButton(
+                                    selected = selectedVoiceId == voice.id,
+                                    onClick = { onVoiceSelected(voice.id) },
+                                    colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                                        selectedColor = colors.primary,
+                                        unselectedColor = colors.neutral,
+                                    ),
+                                )
+                                Text(text = voice.name, color = colors.onSurfaceA)
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                val isThisAssetBuffering = isBuffering && playingVoiceId == voice.id
+                                val isThisAssetPlaying = isPlaying && playingVoiceId == voice.id
+
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = colors.secondary.copy(alpha = 0.15f),
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .clickable { onPlayToggle(voice.id, voice.audioUrl) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        if (isThisAssetBuffering) {
+                                            CircularProgressIndicator(
+                                                color = colors.secondary,
+                                                strokeWidth = 2.dp,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        } else if (isThisAssetPlaying) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .background(colors.secondary, RoundedCornerShape(2.dp))
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.PlayArrow,
+                                                contentDescription = "Play",
+                                                tint = colors.secondary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // 기존 프리뷰 코드와 동일 (생략)
 @Preview(showBackground = true, name = "2. Edit Page - Dark Mode")
 @Composable
@@ -726,8 +880,12 @@ fun AlarmEditPageDarkPreview() {
         Box(modifier = Modifier.background(MiyaTheme.colors.background)) {
             AlarmEditPage(
                 alarm = mockAlarm,
-                purchasedVoices = emptyList(),
+                artistVoicesMap = emptyMap(),
+                playingVoiceId = null,
+                isBuffering = false,
+                isPlaying = false,
                 onSave = { _, _, _, _, _ -> },
+                onPlayToggle = { _, _ -> }
             )
         }
     }

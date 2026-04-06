@@ -108,7 +108,6 @@ fun ShopScreen(
                 ArtistDetailSheetContent(
                     artist = uiState.selectedArtist!!,
                     voiceAssets = uiState.artistVoiceAssets,
-                    purchasedIds = uiState.purchasedVoiceIds,
                     playingAssetId = uiState.currentlyPlayingAssetId,
                     isBuffering = uiState.isBuffering,
                     isPlaying = uiState.isPlaying,
@@ -185,7 +184,6 @@ fun ShopArtistCard(
 fun ArtistDetailSheetContent(
     artist: Artist,
     voiceAssets: List<VoiceAsset>,
-    purchasedIds: Set<String>,
     playingAssetId: String?,
     isBuffering: Boolean,
     isPlaying: Boolean,
@@ -273,7 +271,7 @@ fun ArtistDetailSheetContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(voiceAssets) { asset ->
-                val isPurchased = purchasedIds.contains(asset.id)
+                val isPurchased = asset.isPurchased
                 val isThisAssetBuffering = isBuffering && playingAssetId == asset.id
                 val isThisAssetPlaying = isPlaying && playingAssetId == asset.id
                 

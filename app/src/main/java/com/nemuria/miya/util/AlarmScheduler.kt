@@ -67,27 +67,17 @@ class AlarmScheduler
 
             val timeInMillis = scheduledTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        timeInMillis,
-                        pendingIntent,
-                    )
-                } else {
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        timeInMillis,
-                        pendingIntent,
-                    )
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    timeInMillis,
-                    pendingIntent,
-                )
-            }
+            // Android 10+ 백그라운드 제약 및 도즈모드 회피를 위한 최강결합모드 (setAlarmClock 사용)
+            val showIntent = Intent(context, com.nemuria.miya.MainActivity::class.java)
+            val showPendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, showPendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
         }
 
         fun cancel(alarm: MiyaAlarm) {

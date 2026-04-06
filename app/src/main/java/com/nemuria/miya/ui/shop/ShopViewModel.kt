@@ -22,7 +22,6 @@ data class ShopUiState(
     val searchQuery: String = "",
     val selectedArtist: Artist? = null,
     val artistVoiceAssets: List<VoiceAsset> = emptyList(),
-    val purchasedVoiceIds: Set<String> = emptySet(),
     val currentlyPlayingAssetId: String? = null,
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false
@@ -154,12 +153,8 @@ class ShopViewModel @Inject constructor(
     }
 
     fun purchaseVoice(voiceId: String) {
-        // Mock buying mechanism maintaining state
-        _uiState.update { state ->
-            val updatedSet = state.purchasedVoiceIds.toMutableSet().apply {
-                add(voiceId)
-            }
-            state.copy(purchasedVoiceIds = updatedSet)
+        viewModelScope.launch {
+            voiceRepository.setPurchased(voiceId, true)
         }
     }
 }

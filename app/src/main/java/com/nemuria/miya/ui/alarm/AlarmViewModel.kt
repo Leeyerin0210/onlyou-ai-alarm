@@ -1,10 +1,13 @@
 package com.nemuria.miya.ui.alarm
 
+import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nemuria.miya.domain.model.Artist
 import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.domain.repository.AlarmRepository
+import com.nemuria.miya.domain.repository.ArtistRepository
 import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.AlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -23,6 +27,7 @@ import javax.inject.Inject
 class AlarmViewModel @Inject constructor(
     private val repository: AlarmRepository,
     private val voiceRepository: VoiceRepository,
+    private val artistRepository: ArtistRepository,
     private val scheduler: AlarmScheduler,
 ) : ViewModel() {
 
@@ -33,21 +38,96 @@ class AlarmViewModel @Inject constructor(
     val editingAlarm: StateFlow<MiyaAlarm?> = _editingAlarm.asStateFlow()
 
     /**
-     * 현재 팔로우한 아티스트의 구매된 보이스 목록.
-     *
-     * TODO: 로그인 구현 후 현재 사용자의 팔로우 아티스트 ID를 동적으로 가져올 것.
-     * 현재는 임시로 Mock 아티스트 ID를 사용합니다.
+     * 사용자가 구매한 모든 보이스 목록을 스트리머 기준으로 그룹화한 맵
      */
-    val purchasedVoices: StateFlow<List<VoiceAsset>> =
-        voiceRepository.getPurchasedVoicesByArtist(MOCK_ARTIST_ID)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val artistVoicesMap: StateFlow<Map<Artist, List<VoiceAsset>>> = combine(
+        artistRepository.getAllArtists(),
+        voiceRepository.getAllPurchasedVoices()
+    ) { artists, voices ->
+        val artistLookup = artists.associateBy { it.id }
+        voices.groupBy { artistLookup[it.artistId] }.mapNotNull { (artist, list) ->
+            if (artist != null) artist to list else null
+        }.toMap()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    private var mediaPlayer: MediaPlayer? = null
+    private val _currentlyPlayingId = MutableStateFlow<String?>(null)
+    val currentlyPlayingId: StateFlow<String?> = _currentlyPlayingId.asStateFlow()
+
+    private val _isBuffering = MutableStateFlow(false)
+    val isBuffering: StateFlow<Boolean> = _isBuffering.asStateFlow()
+
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    init {
+        mediaPlayer = MediaPlayer().apply {
+            setOnPreparedListener {
+                _isBuffering.value = false
+                _isPlaying.value = true
+                start()
+            }
+            setOnCompletionListener {
+                _currentlyPlayingId.value = null
+                _isPlaying.value = false
+                _isBuffering.value = false
+            }
+            setOnErrorListener { _, _, _ ->
+                _currentlyPlayingId.value = null
+                _isPlaying.value = false
+                _isBuffering.value = false
+                true
+            }
+        }
+    }
 
     fun startEditing(alarm: MiyaAlarm?) {
         _editingAlarm.value = alarm ?: MiyaAlarm(id = 0)
     }
 
     fun stopEditing() {
+        stopVoice()
         _editingAlarm.value = null
+    }
+
+    // --- Audio Player ---
+    fun playVoice(assetId: String, audioUrl: String) {
+        if (_currentlyPlayingId.value == assetId && (_isPlaying.value || _isBuffering.value)) {
+            stopVoice()
+            return
+        }
+        stopVoice()
+        if (audioUrl.isBlank()) return
+
+        _currentlyPlayingId.value = assetId
+        _isBuffering.value = true
+        _isPlaying.value = false
+        try {
+            mediaPlayer?.apply {
+                reset()
+                setDataSource(audioUrl)
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            _currentlyPlayingId.value = null
+            _isBuffering.value = false
+        }
+    }
+
+    fun stopVoice() {
+        if (mediaPlayer?.isPlaying == true) {
+            mediaPlayer?.pause()
+        }
+        mediaPlayer?.reset()
+        _currentlyPlayingId.value = null
+        _isPlaying.value = false
+        _isBuffering.value = false
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     fun saveAlarm(
@@ -100,8 +180,4 @@ class AlarmViewModel @Inject constructor(
         }
     }
 
-    companion object {
-        /** TODO: 로그인 구현 후 실제 사용자 데이터로 교체 */
-        private const val MOCK_ARTIST_ID = "mock_artist_001"
-    }
 }

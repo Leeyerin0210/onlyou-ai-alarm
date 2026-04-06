@@ -49,6 +49,7 @@ interface ArtistRepository {
 interface VoiceRepository {
     fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>>
     fun getPurchasedVoicesByArtist(artistId: String): Flow<List<VoiceAsset>>
+    fun getAllPurchasedVoices(): Flow<List<VoiceAsset>>
     suspend fun upsertVoice(voice: VoiceAsset)
     suspend fun setPurchased(voiceId: String, isPurchased: Boolean)
 

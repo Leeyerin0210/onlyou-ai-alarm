@@ -14,6 +14,9 @@
     <!-- 재부팅 시 알람 복구를 위한 권한 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- AppOps(진동, 미디어) 반복 호출 시 시스템 로그 스팸 방지 -->
+    <attribution android:tag="MiyaAlarm" android:label="@string/app_name" />
+
     <application
         android:name=".MiyaApplication"
         android:allowBackup="true"
