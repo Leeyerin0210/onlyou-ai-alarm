@@ -13,7 +13,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import kotlinx.coroutines.tasks.await
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +31,7 @@ import com.nemuria.miya.ui.schedule.ScheduleScreen
 import com.nemuria.miya.ui.theme.MiyaTheme
 import com.nemuria.miya.ui.theme.ThemeManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val notificationManager = getSystemService(android.app.NotificationManager::class.java)
             if (!notificationManager.canUseFullScreenIntent()) {
@@ -67,10 +67,11 @@ class MainActivity : ComponentActivity() {
             MiyaTheme(
                 lightColors = currentLightColors,
                 darkColors = currentDarkColors,
-                fontType = currentFontType
+                fontType = currentFontType,
             ) {
                 val colors = MiyaTheme.colors
-                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val auth = com.google.firebase.auth.FirebaseAuth
+                    .getInstance()
                 val startDestination = if (auth.currentUser != null) "auth_check" else "login"
                 var currentScreen by remember { mutableStateOf(startDestination) }
                 var isEditingAlarm by remember { mutableStateOf(false) }
@@ -100,8 +101,11 @@ class MainActivity : ComponentActivity() {
                                     LaunchedEffect(uid) {
                                         if (uid != null) {
                                             try {
-                                                val doc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                                    .collection("users").document(uid).get()
+                                                val doc = com.google.firebase.firestore.FirebaseFirestore
+                                                    .getInstance()
+                                                    .collection("users")
+                                                    .document(uid)
+                                                    .get()
                                                     .await()
                                                 val follows = doc.get("followedArtistIds") as? List<String>
                                                 if (follows.isNullOrEmpty()) {
@@ -109,7 +113,7 @@ class MainActivity : ComponentActivity() {
                                                 } else {
                                                     currentScreen = "home"
                                                 }
-                                            } catch(e: Exception) {
+                                            } catch (e: Exception) {
                                                 currentScreen = "onboarding"
                                             }
                                         } else {
@@ -120,7 +124,7 @@ class MainActivity : ComponentActivity() {
 
                                 "onboarding" -> {
                                     com.nemuria.miya.ui.onboarding.OnboardingScreen(
-                                        onOnboardingComplete = { currentScreen = "home" }
+                                        onOnboardingComplete = { currentScreen = "home" },
                                     )
                                 }
 
@@ -137,7 +141,7 @@ class MainActivity : ComponentActivity() {
 
                                 "login" -> {
                                     com.nemuria.miya.ui.login.LoginScreen(
-                                        onLoginSuccess = { currentScreen = "home" }
+                                        onLoginSuccess = { currentScreen = "home" },
                                     )
                                 }
 
@@ -149,7 +153,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 "shop" -> {
-                                    com.nemuria.miya.ui.shop.ShopScreen()
+                                    com.nemuria.miya.ui.shop
+                                        .ShopScreen()
                                 }
 
                                 "profile" -> {
@@ -162,7 +167,9 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // 2. 공중에 떠 있는 플로팅 바텀 바
-                    if (!isEditingAlarm && currentScreen != "schedule" && currentScreen != "login" && currentScreen != "auth_check" && currentScreen != "onboarding") {
+                    if (!isEditingAlarm && currentScreen != "schedule" && currentScreen != "login" && currentScreen != "auth_check" &&
+                        currentScreen != "onboarding"
+                    ) {
                         MiyaBottomNavigationBar(
                             currentScreen = currentScreen,
                             onNavigate = { currentScreen = it },

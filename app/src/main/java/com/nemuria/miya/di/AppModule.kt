@@ -15,7 +15,16 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/** 앱 생명주기와 동일한 CoroutineScope — Repository SharedFlow 호스팅용 */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -65,4 +74,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCredentialManager(@dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context): androidx.credentials.CredentialManager = androidx.credentials.CredentialManager.create(context)
+
+    /** 앱 전체 생명주기를 따르는 코루틴 스코프 (Repository SharedFlow 전용) */
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun provideApplicationScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }

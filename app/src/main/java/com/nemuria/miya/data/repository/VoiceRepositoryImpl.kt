@@ -3,20 +3,24 @@ package com.nemuria.miya.data.repository
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.snapshots
 import com.nemuria.miya.data.local.VoiceAssetDao
 import com.nemuria.miya.data.local.VoiceAssetEntity
+import com.nemuria.miya.di.ApplicationScope
 import com.nemuria.miya.domain.model.VoiceAsset
 import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.VoiceEncryptionUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -27,108 +31,72 @@ class VoiceRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceAssetDao: VoiceAssetDao,
     private val encryptionUtil: VoiceEncryptionUtil,
-    private val firestore: com.google.firebase.firestore.FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth
+    private val firestore: FirebaseFirestore,
+    private val firebaseAuth: FirebaseAuth,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : VoiceRepository {
 
     /** 암호화된 보이스 파일이 저장되는 내부 디렉토리 */
     private val voiceDir: File
         get() = File(context.filesDir, "voices").also { it.mkdirs() }
 
-    override fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> {
-        val uid = firebaseAuth.currentUser?.uid ?: return flowOf(emptyList())
+    /**
+     * 앱 레벨 캐싱: voices 컬렉션 전체 (구매 여부 제외).
+     * 구독자가 없으면 5초 후 Firestore 연결 자동 해제.
+     */
+    private val allVoicesShared = firestore.collection("voices")
+        .snapshots()
+        .map { snapshot ->
+            snapshot.documents.mapNotNull { doc ->
+                VoiceAsset(
+                    id = doc.id,
+                    artistId = doc.getString("artistId") ?: "",
+                    name = doc.getString("name") ?: "",
+                    audioUrl = doc.getString("audioUrl") ?: "",
+                    isPurchased = false,
+                    isDownloaded = File(voiceDir, "${doc.id}.enc").exists()
+                )
+            }
+        }.shareIn(appScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
-        val userPurchasedFlow = callbackFlow {
-            val listener = firestore.collection("users").document(uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    @Suppress("UNCHECKED_CAST")
-                    val ids = snapshot?.get("purchasedVoiceIds") as? List<String> ?: emptyList()
-                    trySend(ids)
-                }
-            awaitClose { listener.remove() }
-        }
+    /**
+     * 앱 레벨 캐싱: 현재 유저의 purchasedVoiceIds.
+     * 구독자가 없으면 5초 후 Firestore 연결 자동 해제.
+     */
+    private val purchasedIdsShared: Flow<List<String>> by lazy {
+        val uid = firebaseAuth.currentUser?.uid
+            ?: return@lazy flowOf(emptyList())
 
-        val voicesFlow = callbackFlow {
-            val listener = firestore.collection("voices")
-                .whereEqualTo("artistId", artistId)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    val list = snapshot?.documents?.mapNotNull { doc ->
-                        VoiceAsset(
-                            id = doc.id,
-                            artistId = artistId,
-                            name = doc.getString("name") ?: "",
-                            audioUrl = doc.getString("audioUrl") ?: "",
-                            isPurchased = false, // Will be combined below
-                            isDownloaded = File(voiceDir, "${doc.id}.enc").exists()
-                        )
-                    } ?: emptyList()
-                    trySend(list)
-                }
-            awaitClose { listener.remove() }
-        }
-
-        return voicesFlow.combine(userPurchasedFlow) { voices, purchasedIds ->
-            voices.map { it.copy(isPurchased = purchasedIds.contains(it.id)) }
-        }
+        firestore.collection("users").document(uid)
+            .snapshots()
+            .map { snapshot ->
+                @Suppress("UNCHECKED_CAST")
+                snapshot.get("purchasedVoiceIds") as? List<String> ?: emptyList()
+            }.shareIn(appScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
     }
 
-    override fun getAllPurchasedVoices(): Flow<List<VoiceAsset>> {
-        val uid = firebaseAuth.currentUser?.uid ?: return flowOf(emptyList())
-
-        val userPurchasedFlow = callbackFlow {
-            val listener = firestore.collection("users").document(uid)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    @Suppress("UNCHECKED_CAST")
-                    val ids = snapshot?.get("purchasedVoiceIds") as? List<String> ?: emptyList()
-                    trySend(ids)
-                }
-            awaitClose { listener.remove() }
+    override fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> =
+        allVoicesShared.combine(purchasedIdsShared) { voices, purchasedIds ->
+            voices
+                .filter { it.artistId == artistId }
+                .map { it.copy(
+                    isPurchased = purchasedIds.contains(it.id),
+                    isDownloaded = File(voiceDir, "${it.id}.enc").exists()
+                ) }
         }
 
-        val allVoicesFlow = callbackFlow {
-            val listener = firestore.collection("voices")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    val list = snapshot?.documents?.mapNotNull { doc ->
-                        VoiceAsset(
-                            id = doc.id,
-                            artistId = doc.getString("artistId") ?: "",
-                            name = doc.getString("name") ?: "",
-                            audioUrl = doc.getString("audioUrl") ?: "",
-                            isPurchased = false,
-                            isDownloaded = File(voiceDir, "${doc.id}.enc").exists()
-                        )
-                    } ?: emptyList()
-                    trySend(list)
-                }
-            awaitClose { listener.remove() }
+    override fun getAllPurchasedVoices(): Flow<List<VoiceAsset>> =
+        allVoicesShared.combine(purchasedIdsShared) { voices, purchasedIds ->
+            voices
+                .filter { purchasedIds.contains(it.id) }
+                .map { it.copy(
+                    isPurchased = true,
+                    isDownloaded = File(voiceDir, "${it.id}.enc").exists()
+                ) }
         }
-
-        return allVoicesFlow.combine(userPurchasedFlow) { voices, purchasedIds ->
-            voices.map { it.copy(isPurchased = purchasedIds.contains(it.id)) }
-                .filter { it.isPurchased }
-        }
-    }
 
     override fun getPurchasedVoicesByArtist(artistId: String): Flow<List<VoiceAsset>> =
-        getVoicesByArtist(artistId).map { voices ->
-            voices.filter { it.isPurchased }
-        }
+        getVoicesByArtist(artistId).map { voices -> voices.filter { it.isPurchased } }
 
     override suspend fun upsertVoice(voice: VoiceAsset) {
         voiceAssetDao.upsertVoice(voice.toEntity())
@@ -176,18 +144,6 @@ class VoiceRepositoryImpl @Inject constructor(
         val encryptedFile = File(voiceDir, "$voiceId.enc")
         if (!encryptedFile.exists()) return@withContext null
         encryptionUtil.decryptToByteArray(encryptedFile)
-    }
-
-    private fun VoiceAssetEntity.toDomainModel(): VoiceAsset {
-        val isDownloaded = File(voiceDir, "$id.enc").exists()
-        return VoiceAsset(
-            id = id,
-            artistId = artistId,
-            name = name,
-            audioUrl = audioUrl,
-            isPurchased = isPurchased,
-            isDownloaded = isDownloaded,
-        )
     }
 
     private fun VoiceAsset.toEntity() = VoiceAssetEntity(
