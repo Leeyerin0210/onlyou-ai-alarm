@@ -77,8 +77,11 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
 
-    // Google Gemini AI SDK
-    implementation("com.google.ai.client.generativeai:generativeai:0.4.0")
+    // Retrofit & OkHttp
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.sse)
 
     // Firebase
     implementation(platform(libs.firebase.bom))
