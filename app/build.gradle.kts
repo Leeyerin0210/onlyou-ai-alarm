@@ -65,6 +65,7 @@ dependencies {
 
     // Hilt
     implementation(libs.hilt.android)
+    implementation(libs.androidx.material3)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
@@ -76,11 +77,15 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
 
+    // Google Gemini AI SDK
+    implementation("com.google.ai.client.generativeai:generativeai:0.4.0")
+
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.config) // Remote Config 추가
 
     // Credential Manager (Google Sign-In)
     implementation(libs.androidx.credentials)

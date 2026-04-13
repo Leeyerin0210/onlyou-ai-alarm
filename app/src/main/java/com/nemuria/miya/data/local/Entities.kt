@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 @Entity(tableName = "alarms")
@@ -15,8 +16,7 @@ data class AlarmEntity(
     val isEnabled: Boolean,
     val repeatDays: Set<DayOfWeek>,
     val date: LocalDate?,
-    val voiceId: String,
-    val illustrationId: String,
+    val personaId: String,
     val label: String?,
     val isOneTime: Boolean,
 )
@@ -29,46 +29,47 @@ data class DDayEntity(
     val type: String,
 )
 
-@Entity(tableName = "stream_schedules")
-data class StreamScheduleEntity(
+@Entity(tableName = "ai_schedules")
+data class AiScheduleEntity(
     @PrimaryKey val id: String,
     val date: LocalDate,
     val startTime: LocalTime,
     val title: String,
     val description: String?,
-    val category: String?,
     val isAlarmEnabled: Boolean,
 )
 
-// =================================================================
-// 아티스트 & 보이스 엔티티 (임시 Mock — 추후 서버 연동으로 교체)
-// =================================================================
-
-/**
- * 아티스트 정보를 로컬에 저장.
- * [isFollowed] 는 사용자가 해당 아티스트를 팔로우했는지 여부.
- * 추후 로그인 구현 후 서버 팔로우 데이터로 교체됩니다.
- */
-@Entity(tableName = "artists")
-data class ArtistEntity(
+@Entity(tableName = "personas")
+data class PersonaEntity(
     @PrimaryKey val id: String,
     val name: String,
+    val prompt: String,
+    val description: String,
+    val voiceTone: Float,
+    val voiceSpeed: Float,
+    val userCallSign: String,
+    val isPurchased: Boolean,
+    val isSelected: Boolean,
     val imageUrl: String?,
-    val isFollowed: Boolean = false,
+    val primaryHex: String?,
+    val secondaryHex: String?,
 )
 
-/**
- * 보이스 에셋 정보를 로컬에 저장.
- * [isPurchased] 는 사용자가 해당 보이스를 구매했는지 여부.
- * 추후 로그인 구현 후 서버 구매 이력으로 교체됩니다.
- */
-@Entity(tableName = "voice_assets")
-data class VoiceAssetEntity(
+@Entity(tableName = "memories")
+data class MemoryEntity(
     @PrimaryKey val id: String,
-    val artistId: String,
-    val name: String,
-    val audioUrl: String,
-    val isPurchased: Boolean = false,
+    val type: String, // MemoryType enum name
+    val content: String,
+    val targetDate: LocalDate?,
+    val createdAt: LocalDateTime,
+)
+
+@Entity(tableName = "chat_messages")
+data class ChatMessageEntity(
+    @PrimaryKey val id: String,
+    val text: String,
+    val sender: String, // "USER" or "AI"
+    val timestamp: LocalDateTime,
 )
 
 class MiyaTypeConverters {
@@ -96,5 +97,10 @@ class MiyaTypeConverters {
 
     @TypeConverter
     fun toLocalTime(data: String): LocalTime = LocalTime.parse(data)
-}
 
+    @TypeConverter
+    fun fromLocalDateTime(dateTime: LocalDateTime): String = dateTime.toString()
+
+    @TypeConverter
+    fun toLocalDateTime(data: String): LocalDateTime = LocalDateTime.parse(data)
+}

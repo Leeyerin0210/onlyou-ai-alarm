@@ -1,9 +1,10 @@
 package com.nemuria.miya.domain.repository
 
-import com.nemuria.miya.domain.model.Artist
+import com.nemuria.miya.domain.model.AiSchedule
+import com.nemuria.miya.domain.model.ChatMessage
+import com.nemuria.miya.domain.model.Memory
 import com.nemuria.miya.domain.model.MiyaAlarm
-import com.nemuria.miya.domain.model.StreamSchedule
-import com.nemuria.miya.domain.model.VoiceAsset
+import com.nemuria.miya.domain.model.Persona
 import kotlinx.coroutines.flow.Flow
 
 interface AlarmRepository {
@@ -15,54 +16,59 @@ interface AlarmRepository {
     suspend fun deleteAlarm(alarm: MiyaAlarm)
 }
 
-interface ScheduleRepository {
-    fun getAllSchedules(): Flow<List<StreamSchedule>>
-    suspend fun refreshSchedules()
-    suspend fun insertSchedule(schedule: StreamSchedule)
-    suspend fun updateSchedule(schedule: StreamSchedule)
-    suspend fun deleteSchedule(schedule: StreamSchedule)
-}
-
-// =================================================================
-// 아티스트 & 보이스 Repository 인터페이스
-// 인터페이스를 유지하면 추후 서버 구현체로 교체 시 ViewModel 변경 불필요
-// =================================================================
-
 /**
- * 아티스트 팔로우 상태 관리.
- * 현재 구현: Room 로컬 DB (Mock)
- * 추후 교체: Firebase Auth + Firestore 기반 구현체
+ * AI 기반 일정 관리
  */
-interface ArtistRepository {
-    fun getAllArtists(): Flow<List<Artist>>
-    fun getAllArtistsWithFollowState(): Flow<List<Artist>>
-    fun getFollowedArtists(): Flow<List<Artist>>
-    suspend fun upsertArtist(artist: Artist)
-    suspend fun setFollowed(artistId: String, isFollowed: Boolean)
+interface ScheduleRepository {
+    fun getAllSchedules(): Flow<List<AiSchedule>>
+    suspend fun insertSchedule(schedule: AiSchedule)
+    suspend fun updateSchedule(schedule: AiSchedule)
+    suspend fun deleteSchedule(schedule: AiSchedule)
 }
 
 /**
- * 보이스 에셋 구매 상태 및 암호화 파일 관리.
- * 현재 구현: Room 로컬 DB (Mock) + 암호화 파일 저장
- * 추후 교체: Firebase Auth + Firestore + 서버 다운로드 구현체
+ * AI 페르소나 관리 및 구매 정보
+ */
+interface PersonaRepository {
+    fun getAllPersonas(): Flow<List<Persona>>
+    fun getPurchasedPersonas(): Flow<List<Persona>>
+    fun getSelectedPersona(): Flow<Persona?>
+    suspend fun syncPersonas() // Firebase와 로컬 DB 동기화
+    suspend fun setSelectedPersona(personaId: String)
+    suspend fun updatePersona(persona: Persona)
+    suspend fun upsertPersona(persona: Persona)
+}
+
+/**
+ * AI 채팅 기록 관리
+ */
+interface ChatRepository {
+    fun getChatMessages(): Flow<List<ChatMessage>>
+    fun sendMessage(message: ChatMessage, persona: Persona): Flow<String>
+    suspend fun clearHistory()
+}
+
+/**
+ * AI가 기억하는 유저의 맥락(메모리) 관리
+ */
+interface MemoryRepository {
+    fun getAllMemories(): Flow<List<Memory>>
+    suspend fun addMemory(memory: Memory)
+    suspend fun deleteMemory(memoryId: String)
+    suspend fun clearOldMemories()
+}
+
+/**
+ * 커스텀 TTS 음성 합성 및 재생 관리
  */
 interface VoiceRepository {
-    fun getVoicesByArtist(artistId: String): Flow<List<VoiceAsset>>
-    fun getPurchasedVoicesByArtist(artistId: String): Flow<List<VoiceAsset>>
-    fun getAllPurchasedVoices(): Flow<List<VoiceAsset>>
-    suspend fun upsertVoice(voice: VoiceAsset)
-    suspend fun setPurchased(voiceId: String, isPurchased: Boolean)
+    /**
+     * AI의 멘트를 음성으로 변환하여 반환
+     */
+    suspend fun synthesizeVoice(text: String, persona: Persona): ByteArray?
 
     /**
-     * 보이스 파일을 서버에서 다운로드하여 암호화 저장.
-     * 이미 다운로드된 경우 스킵.
+     * 기상 알람을 위한 초개인화 스크립트 생성
      */
-    suspend fun downloadAndStoreVoice(voice: VoiceAsset)
-
-    /**
-     * 보이스의 오디오 데이터를 메모리에서 복호화하여 반환.
-     * 디스크에 평문 파일을 생성하지 않음.
-     * @return 복호화된 오디오 ByteArray, 실패 시 null
-     */
-    suspend fun getVoiceBytes(voiceId: String): ByteArray?
+    suspend fun generateWakeUpScript(persona: Persona): String
 }

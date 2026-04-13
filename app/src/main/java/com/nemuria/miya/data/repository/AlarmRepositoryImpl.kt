@@ -41,8 +41,7 @@ class AlarmRepositoryImpl
                 isEnabled = isEnabled,
                 repeatDays = repeatDays,
                 date = date,
-                voiceId = voiceId,
-                illustrationId = illustrationId,
+                personaId = personaId,
                 label = label,
                 isOneTime = isOneTime,
             )
@@ -55,8 +54,7 @@ class AlarmRepositoryImpl
                 isEnabled = isEnabled,
                 repeatDays = repeatDays,
                 date = date,
-                voiceId = voiceId,
-                illustrationId = illustrationId,
+                personaId = personaId,
                 label = label,
                 isOneTime = isOneTime,
             )

@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.google.firebase.firestore.FirebaseFirestore
 import com.nemuria.miya.data.local.AlarmDao
-import com.nemuria.miya.data.local.ArtistDao
+import com.nemuria.miya.data.local.AiScheduleDao
+import com.nemuria.miya.data.local.PersonaDao
+import com.nemuria.miya.data.local.ChatDao
+import com.nemuria.miya.data.local.MemoryDao
 import com.nemuria.miya.data.local.MiyaDatabase
-import com.nemuria.miya.data.local.VoiceAssetDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,15 +39,28 @@ object DatabaseModule {
     }
 
     @Provides
+    @Singleton
+    fun provideRemoteConfig(): com.google.firebase.remoteconfig.FirebaseRemoteConfig {
+        return com.google.firebase.remoteconfig.FirebaseRemoteConfig.getInstance().apply {
+            val configSettings = com.google.firebase.remoteconfig.remoteConfigSettings {
+                minimumFetchIntervalInSeconds = 3600 // 1시간마다 업데이트
+            }
+            setConfigSettingsAsync(configSettings)
+        }
+    }
+
+    @Provides
     fun provideAlarmDao(database: MiyaDatabase): AlarmDao = database.alarmDao()
 
     @Provides
-    fun provideStreamScheduleDao(database: MiyaDatabase): com.nemuria.miya.data.local.StreamScheduleDao =
-        database.streamScheduleDao()
+    fun provideAiScheduleDao(database: MiyaDatabase): AiScheduleDao = database.aiScheduleDao()
 
     @Provides
-    fun provideArtistDao(database: MiyaDatabase): ArtistDao = database.artistDao()
+    fun providePersonaDao(database: MiyaDatabase): PersonaDao = database.personaDao()
 
     @Provides
-    fun provideVoiceAssetDao(database: MiyaDatabase): VoiceAssetDao = database.voiceAssetDao()
+    fun provideChatDao(database: MiyaDatabase): ChatDao = database.chatDao()
+
+    @Provides
+    fun provideMemoryDao(database: MiyaDatabase): MemoryDao = database.memoryDao()
 }

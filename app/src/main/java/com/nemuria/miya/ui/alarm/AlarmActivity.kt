@@ -8,39 +8,49 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.nemuria.miya.domain.model.Persona
+import com.nemuria.miya.domain.repository.PersonaRepository
 import com.nemuria.miya.service.AlarmService
 import com.nemuria.miya.ui.theme.MiyaTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class AlarmActivity : ComponentActivity() {
+
+    @Inject lateinit var personaRepository: PersonaRepository
+
+    // 스크립트가 나중에 업데이트될 수 있으므로 StateFlow로 관리
+    private val _aiScript = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    // 뒤로가기로는 알람을 끄지 못하게 막음
-                }
+                override fun handleOnBackPressed() {}
             },
         )
 
-        // 잠금화면 위에 표시 + 화면 켜기
+        // 잠금화면 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -51,70 +61,40 @@ class AlarmActivity : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
             )
         }
-        // 화면 켜진 상태 유지
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // 키가드(잠금화면) 해제 요청
-        val keyguardManager = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            keyguardManager.requestDismissKeyguard(this, null)
+        val alarmTitle = intent.getStringExtra(AlarmService.EXTRA_ALARM_TITLE) ?: "알람"
+        val personaId = intent.getStringExtra(AlarmService.EXTRA_PERSONA_ID) ?: ""
+
+        // 정실 시작 시 Intent에 스크립트가 있으면 바로 설정
+        intent.getStringExtra(AlarmService.EXTRA_AI_SCRIPT)?.let {
+            _aiScript.value = it
         }
 
-        val alarmTitle = intent.getStringExtra(AlarmService.EXTRA_ALARM_TITLE) ?: "알람"
-
         setContent {
-            MiyaTheme {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MiyaTheme.colors.background)
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "⏰",
-                        fontSize = 80.sp,
-                    )
+            var persona by remember { mutableStateOf<Persona?>(null) }
+            val aiScript by _aiScript.collectAsState()
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = alarmTitle.ifEmpty { "알람" },
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MiyaTheme.colors.primary,
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "알람이 울리고 있습니다",
-                        fontSize = 16.sp,
-                        color = MiyaTheme.colors.onSurfaceA.copy(alpha = 0.6f),
-                    )
-
-                    Spacer(modifier = Modifier.height(64.dp))
-
-                    Button(
-                        onClick = { stopAlarmAndFinish() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(64.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MiyaTheme.colors.primary,
-                            contentColor = MiyaTheme.colors.background,
-                        ),
-                        shape = MaterialTheme.shapes.large,
-                    ) {
-                        Text(
-                            "알람 끄기",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
+            LaunchedEffect(personaId) {
+                persona = personaRepository.getAllPersonas().first().find { it.id == personaId }
             }
+
+            MiyaTheme {
+                AlarmWakeUpContent(
+                    persona = persona,
+                    title = alarmTitle,
+                    script = aiScript,
+                    onDismiss = { stopAlarmAndFinish() }
+                )
+            }
+        }
+    }
+
+    // 이미 Activity가 뜨 있는 상태에서 새 Intent가 오면 (AI 스크립트 업데이트)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(AlarmService.EXTRA_AI_SCRIPT)?.let {
+            _aiScript.value = it
         }
     }
 
@@ -124,5 +104,118 @@ class AlarmActivity : ComponentActivity() {
         }
         startService(stopIntent)
         finish()
+    }
+}
+
+@Composable
+fun AlarmWakeUpContent(
+    persona: Persona?,
+    title: String,
+    script: String?,
+    onDismiss: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    
+    Box(modifier = Modifier.fillMaxSize().background(colors.background)) {
+        // Persona Visual Background
+        if (persona?.imageUrl != null) {
+            AsyncImage(
+                model = persona.imageUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.6f,
+            )
+        }
+        
+        // Gradient Overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, colors.background),
+                        startY = 500f,
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = colors.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // AI Script Bubble
+            Surface(
+                color = colors.surfaceA.copy(alpha = 0.9f),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (script != null) {
+                    Text(
+                        text = script,
+                        modifier = Modifier.padding(24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.onSurfaceA,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp,
+                    )
+                } else {
+                    // 스크립트 준비 중 로딩 표시
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = colors.primary,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "AI 기상 멘트 준비 중...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceA.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primary,
+                    contentColor = colors.background,
+                ),
+                shape = RoundedCornerShape(32.dp),
+            ) {
+                Text(
+                    "일어났어 (알람 끄기)",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }

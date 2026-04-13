@@ -10,17 +10,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -45,13 +52,13 @@ fun MiyaBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val items = listOf("home", "shop", "alarm", "profile")
-    val labels = listOf("Home", "Shop", "Alarm", "Profile")
+    val items = listOf("chat", "list", "alarm", "settings")
+    val labels = listOf("Chat", "List", "Alarm", "Settings")
     val icons = listOf(
-        Icons.Default.Home,
-        Icons.Default.ShoppingCart,
+        Icons.Default.Chat,
+        Icons.Default.List,
         Icons.Default.Notifications,
-        Icons.Default.Person,
+        Icons.Default.Settings,
     )
 
     Surface(
@@ -59,6 +66,7 @@ fun MiyaBottomNavigationBar(
         tonalElevation = 8.dp,
         shadowElevation = 16.dp,
         modifier = modifier
+            .navigationBarsPadding()
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 20.dp),
         color = colors.surfaceA.copy(alpha = 0.95f),

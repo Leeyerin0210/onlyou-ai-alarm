@@ -1,11 +1,15 @@
 package com.nemuria.miya.di
 
 import com.nemuria.miya.data.repository.AlarmRepositoryImpl
-import com.nemuria.miya.data.repository.ArtistRepositoryImpl
+import com.nemuria.miya.data.repository.PersonaRepositoryImpl
+import com.nemuria.miya.data.repository.ChatRepositoryImpl
+import com.nemuria.miya.data.repository.MemoryRepositoryImpl
 import com.nemuria.miya.data.repository.ScheduleRepositoryImpl
 import com.nemuria.miya.data.repository.VoiceRepositoryImpl
 import com.nemuria.miya.domain.repository.AlarmRepository
-import com.nemuria.miya.domain.repository.ArtistRepository
+import com.nemuria.miya.domain.repository.PersonaRepository
+import com.nemuria.miya.domain.repository.ChatRepository
+import com.nemuria.miya.domain.repository.MemoryRepository
 import com.nemuria.miya.domain.repository.ScheduleRepository
 import com.nemuria.miya.domain.repository.VoiceRepository
 import com.nemuria.miya.util.DateTimeProvider
@@ -43,9 +47,21 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindArtistRepository(
-        artistRepositoryImpl: ArtistRepositoryImpl,
-    ): ArtistRepository
+    abstract fun bindPersonaRepository(
+        personaRepositoryImpl: PersonaRepositoryImpl,
+    ): PersonaRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindChatRepository(
+        chatRepositoryImpl: ChatRepositoryImpl,
+    ): ChatRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMemoryRepository(
+        memoryRepositoryImpl: MemoryRepositoryImpl,
+    ): MemoryRepository
 
     @Binds
     @Singleton

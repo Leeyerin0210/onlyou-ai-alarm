@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.nemuria.miya.domain.model.Artist
+import com.nemuria.miya.domain.model.Persona
 import com.nemuria.miya.ui.theme.MiyaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +40,7 @@ fun OnboardingScreen(
     Scaffold(
         containerColor = colors.background,
         floatingActionButton = {
-            if (uiState.followedCount > 0) {
+            if (uiState.selectedCount > 0) {
                 ExtendedFloatingActionButton(
                     onClick = onOnboardingComplete,
                     containerColor = colors.primary,
@@ -59,14 +59,14 @@ fun OnboardingScreen(
         ) {
             Spacer(modifier = Modifier.height(48.dp))
             Text(
-                text = "만나서 반가워요!",
+                text = "파트너를 선택해주세요",
                 style = MaterialTheme.typography.displaySmall,
                 color = colors.primary,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "시작하려면 최소 1명 이상의 스트리머를 팔로우해 주세요.",
+                text = "당신을 깨워줄 첫 번째 AI 동반자를 선택해 주세요.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.primary.copy(alpha = 0.7f)
             )
@@ -77,7 +77,7 @@ fun OnboardingScreen(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("스트리머 검색...", color = colors.primary.copy(alpha = 0.5f)) },
+                placeholder = { Text("이름 또는 성격 검색...", color = colors.primary.copy(alpha = 0.5f)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = colors.primary) },
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -97,23 +97,22 @@ fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(uiState.filteredArtists) { artist ->
-                    ArtistCard(
-                        artist = artist,
-                        onToggleFollow = { viewModel.toggleFollow(artist.id, artist.isFollowed) }
+                items(uiState.filteredPersonas) { persona ->
+                    PersonaOnboardingCard(
+                        persona = persona,
+                        onSelect = { viewModel.selectPersona(persona.id) }
                     )
                 }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
-                item { Spacer(modifier = Modifier.height(80.dp)) } // for fab padding
             }
         }
     }
 }
 
 @Composable
-fun ArtistCard(
-    artist: Artist,
-    onToggleFollow: () -> Unit
+fun PersonaOnboardingCard(
+    persona: Persona,
+    onSelect: () -> Unit
 ) {
     val colors = MiyaTheme.colors
     Box(
@@ -122,20 +121,17 @@ fun ArtistCard(
             .height(240.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(colors.surfaceA)
-            .clickable { onToggleFollow() }
+            .clickable { onSelect() }
     ) {
-        if (artist.imageUrl != null) {
+        if (persona.imageUrl != null) {
             AsyncImage(
-                model = artist.imageUrl,
-                contentDescription = artist.name,
+                model = persona.imageUrl,
+                contentDescription = persona.name,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-        } else {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Gray))
         }
 
-        // Gradient Overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -155,29 +151,33 @@ fun ArtistCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = artist.name,
+                text = persona.name,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
+            Text(
+                text = persona.name,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.primary
+            )
             Spacer(modifier = Modifier.height(8.dp))
 
-            val buttonColor = if (artist.isFollowed) Color.Transparent else colors.primary
-            val borderColor = if (artist.isFollowed) Color.White.copy(alpha = 0.7f) else Color.Transparent
-            val textColor = if (artist.isFollowed) Color.White else colors.background
+            val buttonColor = if (persona.isSelected) colors.primary else Color.Transparent
+            val borderColor = if (persona.isSelected) Color.Transparent else Color.White.copy(alpha = 0.7f)
+            val textColor = if (persona.isSelected) colors.background else Color.White
 
             Surface(
                 color = buttonColor,
                 shape = RoundedCornerShape(50),
-                border = if (artist.isFollowed) BorderStroke(1.dp, borderColor) else null,
+                border = if (!persona.isSelected) BorderStroke(1.dp, borderColor) else null,
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
                     .height(36.dp)
-                    .clickable { onToggleFollow() }
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Text(
-                        text = if (artist.isFollowed) "FOLLOWING" else "FOLLOW",
+                        text = if (persona.isSelected) "SELECTED" else "SELECT",
                         style = MaterialTheme.typography.labelSmall,
                         color = textColor,
                         fontWeight = FontWeight.Bold

@@ -2,16 +2,18 @@ package com.nemuria.miya.domain.model
 
 import java.time.DayOfWeek
 import java.time.LocalTime
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.UUID
 
 data class MiyaAlarm(
     val id: Int = 0,
     val title: String? = null,
-    val time: LocalTime = LocalTime.now().plusMinutes(1).withSecond(0).withNano(0),
+    val time: LocalTime = LocalTime.of(7, 0),
     val isEnabled: Boolean = true,
     val repeatDays: Set<DayOfWeek> = emptySet(),
-    val date: java.time.LocalDate? = null,
-    val voiceId: String = "default_voice",
-    val illustrationId: String = "default_illu",
+    val date: LocalDate? = null,
+    val personaId: String = "default_persona",
     val label: String? = null,
     val isOneTime: Boolean = false,
 )
@@ -19,18 +21,8 @@ data class MiyaAlarm(
 data class DDayInfo(
     val id: Int = 0,
     val title: String,
-    val startDate: java.time.LocalDate,
+    val startDate: LocalDate,
     val type: DDayType,
-)
-
-data class StreamSchedule(
-    val id: String = "",
-    val date: java.time.LocalDate,
-    val startTime: java.time.LocalTime,
-    val title: String,
-    val description: String? = null,
-    val category: String? = null,
-    val isAlarmEnabled: Boolean = false,
 )
 
 enum class DDayType {
@@ -64,30 +56,66 @@ data class StreamerTheme(
 )
 
 // =================================================================
-// 아티스트 & 보이스 도메인 모델 (임시 Mock — 추후 서버 연동)
+// 페르소나 & AI 채팅 관련 도메인 모델
 // =================================================================
 
 /**
- * 아티스트 정보.
- * [isFollowed] 는 로컬 Room DB에서 관리되며, 추후 서버 팔로우 데이터로 교체됩니다.
+ * AI 페르소나 정보 (기존 아티스트 대체)
  */
-data class Artist(
+data class Persona(
     val id: String,
     val name: String,
-    val imageUrl: String? = null,
-    val isFollowed: Boolean = false,
+    val prompt: String, // AI의 성격 및 지침 (System Prompt)
+    val description: String,
+    val voiceTone: Float = 1.0f,
+    val voiceSpeed: Float = 1.0f,
+    val userCallSign: String = "주인님",
+    val isPurchased: Boolean = false,
+    val isSelected: Boolean = false,
+    val themeColors: StreamerTheme? = null,
+    val imageUrl: String? = null
 )
 
 /**
- * 아티스트의 개별 보이스 에셋.
- * [isPurchased] 는 로컬 Room DB에서 관리되며, 추후 서버 구매 이력으로 교체됩니다.
- * [isDownloaded] 는 기기 내부 저장소에 암호화 파일이 있는지 여부.
+ * AI가 기억하는 유저의 맥락 정보
  */
-data class VoiceAsset(
-    val id: String,
-    val artistId: String,
-    val name: String,
-    val audioUrl: String,
-    val isPurchased: Boolean = false,
-    val isDownloaded: Boolean = false,
+data class Memory(
+    val id: String = UUID.randomUUID().toString(),
+    val type: MemoryType,
+    val content: String,
+    val targetDate: LocalDate? = null,
+    val createdAt: LocalDateTime = LocalDateTime.now()
+)
+
+enum class MemoryType {
+    SCHEDULE, // 일정
+    STATE,    // 유저의 기분/상태
+    PREFERENCE, // 취향/특이사항
+    USER_NOTE   // 아티스트가 인식하는 유저에 대한 요약/메모
+}
+
+/**
+ * AI와의 대화 메시지
+ */
+data class ChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val sender: MessageSender,
+    val timestamp: LocalDateTime = LocalDateTime.now()
+)
+
+enum class MessageSender {
+    USER, AI
+}
+
+/**
+ * AI 기반 일정 (기존 StreamSchedule 대체)
+ */
+data class AiSchedule(
+    val id: String = UUID.randomUUID().toString(),
+    val date: LocalDate,
+    val startTime: LocalTime,
+    val title: String,
+    val description: String? = null,
+    val isAlarmEnabled: Boolean = false,
 )

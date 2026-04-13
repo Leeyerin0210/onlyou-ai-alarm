@@ -33,72 +33,88 @@ interface AlarmDao {
 }
 
 @Dao
-interface StreamScheduleDao {
-    @Query("SELECT * FROM stream_schedules")
-    fun getAllSchedules(): Flow<List<StreamScheduleEntity>>
+interface AiScheduleDao {
+    @Query("SELECT * FROM ai_schedules")
+    fun getAllSchedules(): Flow<List<AiScheduleEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSchedule(schedule: StreamScheduleEntity)
+    suspend fun insertSchedule(schedule: AiScheduleEntity)
 
     @Update
-    suspend fun updateSchedule(schedule: StreamScheduleEntity)
+    suspend fun updateSchedule(schedule: AiScheduleEntity)
 
     @Delete
-    suspend fun deleteSchedule(schedule: StreamScheduleEntity)
-}
-
-// =================================================================
-// 아티스트 & 보이스 DAO (임시 Mock — 추후 서버 연동으로 교체)
-// =================================================================
-
-@Dao
-interface ArtistDao {
-    @Query("SELECT * FROM artists")
-    fun getAllArtists(): Flow<List<ArtistEntity>>
-
-    @Query("SELECT * FROM artists WHERE isFollowed = 1")
-    fun getFollowedArtists(): Flow<List<ArtistEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertArtist(artist: ArtistEntity)
-
-    @Query("UPDATE artists SET isFollowed = :isFollowed WHERE id = :artistId")
-    suspend fun setFollowed(artistId: String, isFollowed: Boolean)
+    suspend fun deleteSchedule(schedule: AiScheduleEntity)
 }
 
 @Dao
-interface VoiceAssetDao {
-    @Query("SELECT * FROM voice_assets WHERE artistId = :artistId")
-    fun getVoicesByArtist(artistId: String): Flow<List<VoiceAssetEntity>>
+interface PersonaDao {
+    @Query("SELECT * FROM personas")
+    fun getAllPersonas(): Flow<List<PersonaEntity>>
 
-    @Query("SELECT * FROM voice_assets WHERE artistId = :artistId AND isPurchased = 1")
-    fun getPurchasedVoicesByArtist(artistId: String): Flow<List<VoiceAssetEntity>>
+    @Query("SELECT * FROM personas WHERE isPurchased = 1")
+    fun getPurchasedPersonas(): Flow<List<PersonaEntity>>
 
-    @Query("SELECT * FROM voice_assets WHERE id = :voiceId")
-    suspend fun getVoiceById(voiceId: String): VoiceAssetEntity?
+    @Query("SELECT * FROM personas WHERE isSelected = 1 LIMIT 1")
+    fun getSelectedPersona(): Flow<PersonaEntity?>
+
+    @Query("UPDATE personas SET isSelected = 0")
+    suspend fun deselectAll()
+
+    @Query("UPDATE personas SET isSelected = 1 WHERE id = :personaId")
+    suspend fun selectPersona(personaId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertVoice(voice: VoiceAssetEntity)
+    suspend fun upsertPersona(persona: PersonaEntity)
 
-    @Query("UPDATE voice_assets SET isPurchased = :isPurchased WHERE id = :voiceId")
-    suspend fun setPurchased(voiceId: String, isPurchased: Boolean)
+    @Update
+    suspend fun updatePersona(persona: PersonaEntity)
+}
+
+@Dao
+interface ChatDao {
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
+    fun getChatMessages(): Flow<List<ChatMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessage(message: ChatMessageEntity)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearHistory()
+}
+
+@Dao
+interface MemoryDao {
+    @Query("SELECT * FROM memories")
+    fun getAllMemories(): Flow<List<MemoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMemory(memory: MemoryEntity)
+
+    @Query("DELETE FROM memories WHERE id = :memoryId")
+    suspend fun deleteMemory(memoryId: String)
+
+    @Query("DELETE FROM memories")
+    suspend fun clearAll()
 }
 
 @Database(
     entities = [
         AlarmEntity::class,
         DDayEntity::class,
-        StreamScheduleEntity::class,
-        ArtistEntity::class,
-        VoiceAssetEntity::class,
+        AiScheduleEntity::class,
+        PersonaEntity::class,
+        MemoryEntity::class,
+        ChatMessageEntity::class,
     ],
-    version = 6,
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)
 abstract class MiyaDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
-    abstract fun streamScheduleDao(): StreamScheduleDao
-    abstract fun artistDao(): ArtistDao
-    abstract fun voiceAssetDao(): VoiceAssetDao
+    abstract fun aiScheduleDao(): AiScheduleDao
+    abstract fun personaDao(): PersonaDao
+    abstract fun chatDao(): ChatDao
+    abstract fun memoryDao(): MemoryDao
 }

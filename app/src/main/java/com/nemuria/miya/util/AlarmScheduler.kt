@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import com.nemuria.miya.domain.model.MiyaAlarm
 import com.nemuria.miya.receiver.AlarmReceiver
+import com.nemuria.miya.service.AlarmService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -27,10 +28,9 @@ class AlarmScheduler
             }
 
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                putExtra("ALARM_ID", alarm.id)
-                putExtra("ALARM_TIME", alarm.time)
-                putExtra("ALARM_VOICE", alarm.voiceId)
-                putExtra("ALARM_TITLE", alarm.title ?: "")
+                putExtra(AlarmService.EXTRA_ALARM_ID, alarm.id)
+                putExtra(AlarmService.EXTRA_PERSONA_ID, alarm.personaId)
+                putExtra(AlarmService.EXTRA_ALARM_TITLE, alarm.title ?: "")
             }
 
             val pendingIntent = PendingIntent.getBroadcast(
@@ -44,22 +44,15 @@ class AlarmScheduler
             var scheduledTime = LocalDateTime.of(now.toLocalDate(), alarm.time)
 
             if (alarm.date != null) {
-                // 지정 날짜 (Specific Date)
                 scheduledTime = LocalDateTime.of(alarm.date, alarm.time)
-                if (scheduledTime.isBefore(now)) {
-                    // If it's in the past, we shouldn't schedule it.
-                    // However, for this implementation, we just won't schedule or we can log it.
-                    return
-                }
+                if (scheduledTime.isBefore(now)) return
             } else if (alarm.repeatDays.isNotEmpty()) {
-                // 요일 반복 (Repeating days)
                 var nextTime = scheduledTime
                 while (nextTime.isBefore(now) || !alarm.repeatDays.contains(nextTime.dayOfWeek)) {
                     nextTime = nextTime.plusDays(1)
                 }
                 scheduledTime = nextTime
             } else {
-                // 기본 (오늘 또는 내일)
                 if (scheduledTime.isBefore(now)) {
                     scheduledTime = scheduledTime.plusDays(1)
                 }
@@ -67,7 +60,6 @@ class AlarmScheduler
 
             val timeInMillis = scheduledTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-            // Android 10+ 백그라운드 제약 및 도즈모드 회피를 위한 최강결합모드 (setAlarmClock 사용)
             val showIntent = Intent(context, com.nemuria.miya.MainActivity::class.java)
             val showPendingIntent = PendingIntent.getActivity(
                 context,

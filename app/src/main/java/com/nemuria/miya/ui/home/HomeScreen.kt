@@ -2,238 +2,144 @@ package com.nemuria.miya.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.nemuria.miya.ui.components.GothicCard
+import com.nemuria.miya.domain.model.Persona
 import com.nemuria.miya.ui.theme.MiyaTheme
-import com.nemuria.miya.ui.theme.ThemeManager
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    themeManager: ThemeManager,
-    onNavigateToSchedule: () -> Unit = {},
+    onChatClick: (Persona) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val colors = MiyaTheme.colors
 
-    HomeContent(
-        uiState = uiState,
-        onPageChanged = viewModel::onPageChanged,
-        onNavigateToSchedule = onNavigateToSchedule,
-    )
+    Scaffold(
+        containerColor = colors.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("My Partners", fontWeight = FontWeight.Bold, color = colors.primary) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        }
+    ) { paddingValues ->
+        if (uiState.activeChats.isEmpty() && !uiState.isLoading) {
+            EmptyChatPlaceholder()
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(uiState.activeChats) { persona ->
+                    ChatItem(persona = persona, onClick = { onChatClick(persona) })
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun HomeContent(
-    uiState: HomeUiState,
-    onPageChanged: (Int) -> Unit = {},
-    onNavigateToSchedule: () -> Unit = {},
+fun ChatItem(
+    persona: Persona,
+    onClick: () -> Unit
 ) {
     val colors = MiyaTheme.colors
-    val pagerState = rememberPagerState(initialPage = uiState.currentIndex) {
-        uiState.followedArtists.size.coerceAtLeast(1)
-    }
-
-    // [중요] 사용자가 스와이프하여 '안착'했을 때만 ViewModel에 알립니다. (무한루프 방지)
-    LaunchedEffect(pagerState.settledPage) {
-        if (pagerState.settledPage != uiState.currentIndex) {
-            onPageChanged(pagerState.settledPage)
-        }
-    }
-
-    // [중요] ViewModel에서 currentIndex가 외부 요인으로 바뀌면 페이저를 이동시킵니다.
-    LaunchedEffect(uiState.currentIndex) {
-        if (pagerState.currentPage != uiState.currentIndex) {
-            pagerState.animateScrollToPage(uiState.currentIndex)
-        }
-    }
-
-    Column(
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .verticalScroll(rememberScrollState()),
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 버튜버 비주얼 영역 (HorizontalPager 적용)
+        // Persona Avatar
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(500.dp),
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(colors.surfaceA)
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-            ) { page ->
-                val artist = uiState.followedArtists.getOrNull(page)
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (artist?.imageUrl != null) {
-                        AsyncImage(
-                            model = artist.imageUrl,
-                            contentDescription = "Streamer Main Image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(colors.surfaceA),
-                        )
-                    }
-
-                    // 그라데이션 오버레이 (텍스트 가독성)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        colors.background.copy(alpha = 0.3f),
-                                        colors.background,
-                                    ),
-                                    startY = 450f,
-                                ),
-                            ),
-                    )
-                }
-            }
-
-            // 하단 텍스트 (현재 선택된 스트리머 정보)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(16.dp)
-                    .padding(bottom = 20.dp),
-            ) {
-                Text(
-                    text = uiState.vtuberName,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = colors.primary,
+            if (persona.imageUrl != null) {
+                AsyncImage(
+                    model = persona.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
-                Text(
-                    text = if (uiState.isStreamOnline) "● LIVE NOW" else "OFFLINE",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (uiState.isStreamOnline) Color.Red else colors.neutral,
+            } else {
+                Icon(
+                    Icons.Default.Chat,
+                    contentDescription = null,
+                    modifier = Modifier.align(Alignment.Center).size(30.dp),
+                    tint = colors.primary.copy(alpha = 0.3f)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            GothicCard(
-                modifier = Modifier
-                    .weight(1f),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                    horizontalAlignment = Alignment.Start,
-                ) {
-                    Text(
-                        text = "${uiState.daysSinceMeeting}",
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.primary,
-                    )
-                    Text(text = "우리가 만난 날짜", color = colors.primary)
-                }
-            }
-            GothicCard(modifier = Modifier.weight(1f)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                    horizontalAlignment = Alignment.Start,
-                ) {
-                    Text(
-                        text = "${uiState.daysToAnniversary}",
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.primary,
-                    )
-                    Text(
-                        text = "다음 ${uiState.upcomingAnniversary}까지",
-                        color = colors.primary,
-                    )
-                }
-            }
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Text Info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = persona.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.onSurfaceA,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = persona.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceA.copy(alpha = 0.6f),
+                maxLines = 1
+            )
         }
-        // 2. 디데이(D-Day) 카운터
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 방송 스케줄 버튼
-        GothicCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clickable { onNavigateToSchedule() },
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text(text = "이번 주 방송 스케줄", color = colors.primary.copy(alpha = 0.7f))
-                    Text(text = "편성표 확인하기", color = colors.primary)
-                }
-                Text(text = "▶", color = colors.primary)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
-@Preview(showBackground = true, name = "Light Mode")
 @Composable
-fun HomePreview() {
-    MiyaTheme {
-        HomeContent(
-            uiState = HomeUiState(
-                vtuberName = "미야",
-                isStreamOnline = true,
-                daysSinceMeeting = 100,
-                upcomingAnniversary = "1주년",
-                daysToAnniversary = 265,
-                followedArtists = listOf(), // 프리뷰를 위해 빈 목록 또는 샘플 데이터 추가 가능
-            ),
+fun EmptyChatPlaceholder() {
+    val colors = MiyaTheme.colors
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Default.Chat,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = colors.primary.copy(alpha = 0.2f)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "아직 대화 중인 파트너가 없어요.",
+            color = colors.onSurfaceA.copy(alpha = 0.5f)
+        )
+        Text(
+            text = "상점에서 마음에 드는 캐릭터를 만나보세요!",
+            color = colors.onSurfaceA.copy(alpha = 0.5f),
+            fontSize = 14.sp
         )
     }
 }
-
-// --- Preview 영역 ---
