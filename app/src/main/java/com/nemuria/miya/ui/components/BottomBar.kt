@@ -52,13 +52,13 @@ fun MiyaBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val items = listOf("chat", "list", "alarm", "settings")
-    val labels = listOf("Chat", "List", "Alarm", "Settings")
+    val items = listOf("chat", "list", "schedule", "alarm")
+    val labels = listOf("채팅", "상점", "일정", "알람")
     val icons = listOf(
         Icons.Default.Chat,
-        Icons.Default.List,
+        Icons.Default.ShoppingCart,
+        Icons.Default.DateRange,
         Icons.Default.Notifications,
-        Icons.Default.Settings,
     )
 
     Surface(

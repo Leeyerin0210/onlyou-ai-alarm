@@ -10,7 +10,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val activeChats: List<Persona> = emptyList(),
+    val activeChats: List<Persona> = emptyList(), // 구매한 퍼소나 (기존 채팅 목록)
+    val allPersonas: List<Persona> = emptyList(),  // 전체 퍼소나 (에이전트 선택용)
     val isLoading: Boolean = false
 )
 
@@ -23,15 +24,21 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState
 
     init {
-        loadActiveChats()
-    }
-
-    private fun loadActiveChats() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            // 구매한 페르소나들(대화 가능한 상대) 목록 가져오기
-            personaRepository.getPurchasedPersonas().collectLatest { personas ->
-                _uiState.update { it.copy(activeChats = personas, isLoading = false) }
+
+            // 구매한 퍼소나와 전체 퍼소나를 동시에 관찰
+            combine(
+                personaRepository.getPurchasedPersonas(),
+                personaRepository.getAllPersonas()
+            ) { purchased, all ->
+                HomeUiState(
+                    activeChats = purchased,
+                    allPersonas = all,
+                    isLoading = false
+                )
+            }.collectLatest { newState ->
+                _uiState.value = newState
             }
         }
     }

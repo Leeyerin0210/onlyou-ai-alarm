@@ -19,7 +19,10 @@ data class MemoryExtractRequestDto(
 
 data class MemoryItemDto(
     val type: String,
-    val content: String
+    val content: String,
+    val date: String? = null,   // YYYY-MM-DD (SCHEDULE 전용)
+    val time: String? = null,   // HH:MM (SCHEDULE 전용)
+    val title: String? = null,  // 일정 제목 (SCHEDULE 전용)
 )
 
 // Alarm

@@ -122,9 +122,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                "list" -> {
-                                    com.nemuria.miya.ui.shop
-                                        .ShopScreen()
+                                "schedule" -> {
+                                    com.nemuria.miya.ui.schedule
+                                        .ScheduleScreen()
                                 }
 
                                 "alarm" -> {
@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val showBottomBar = !isEditingAlarm &&
-                        currentScreen in listOf("chat", "list", "alarm", "settings")
+                        currentScreen in listOf("chat", "list", "schedule", "alarm")
 
                     if (showBottomBar) {
                         MiyaBottomNavigationBar(

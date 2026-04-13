@@ -5,25 +5,24 @@ import androidx.lifecycle.viewModelScope
 import com.nemuria.miya.domain.model.AiSchedule
 import com.nemuria.miya.domain.repository.ScheduleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalTime
 import javax.inject.Inject
+
+data class ScheduleUiState(
+    val schedules: List<AiSchedule> = emptyList()
+)
 
 @HiltViewModel
 class ScheduleViewModel @Inject constructor(
     private val repository: ScheduleRepository
 ) : ViewModel() {
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading = _isLoading.asStateFlow()
+    private val _uiState = MutableStateFlow(ScheduleUiState())
+    val uiState: StateFlow<ScheduleUiState> = _uiState
 
+    // 이전 코드 호환용
+    val isLoading = MutableStateFlow(false)
     val schedules: StateFlow<List<AiSchedule>> = repository.getAllSchedules()
         .stateIn(
             scope = viewModelScope,
@@ -33,34 +32,22 @@ class ScheduleViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            try {
-                val currentSchedules = repository.getAllSchedules().first()
-                if (currentSchedules.isEmpty()) {
-                    generateSampleSchedules()
-                }
-            } finally {
-                _isLoading.value = false
+            repository.getAllSchedules().collect { list ->
+                _uiState.value = ScheduleUiState(schedules = list)
             }
         }
     }
 
-    private suspend fun generateSampleSchedules() {
-        val today = LocalDate.now()
-        val samples = listOf(
-            AiSchedule(
-                date = today,
-                startTime = LocalTime.of(20, 0),
-                title = "AI와 대화 나누기",
-                description = "오늘 하루는 어땠나요?"
-            ),
-            AiSchedule(
-                date = today.plusDays(1),
-                startTime = LocalTime.of(0, 0),
-                title = "전공 시험 공부",
-                description = "밤샘 공부 화이팅!"
-            )
-        )
-        samples.forEach { repository.insertSchedule(it) }
+    fun addSchedule(schedule: AiSchedule) {
+        viewModelScope.launch {
+            repository.insertSchedule(schedule)
+        }
+    }
+
+    fun deleteSchedule(schedule: AiSchedule) {
+        viewModelScope.launch {
+            repository.deleteSchedule(schedule)
+        }
     }
 
     fun updateSchedule(schedule: AiSchedule) {
