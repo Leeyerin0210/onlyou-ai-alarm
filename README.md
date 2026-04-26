@@ -14,7 +14,7 @@
 
 ### 2. Package Structure
 ```text
-com.nemuria.miya
+com.onlyou.com
 ├── domain             # 순수 비즈니스 로직 (Android 의존성 없음)
 │   ├── model          # 엔티티 (Alarm, DDay 등)
 │   └── repository     # 데이터 접근 인터페이스

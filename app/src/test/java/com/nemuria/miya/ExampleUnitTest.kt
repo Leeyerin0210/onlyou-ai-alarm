@@ -1,4 +1,4 @@
-package com.nemuria.miya
+package com.onlyou.com
 
 import org.junit.Assert.*
 import org.junit.Test

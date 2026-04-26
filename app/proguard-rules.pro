@@ -12,11 +12,11 @@
 -keep class com.scottyab.rootbeer.** { *; }
 
 # Hilt / DI - 보안 유틸 클래스가 Hilt 주입을 사용하므로 유지
--keep class com.nemuria.miya.util.VoiceEncryptionUtil { *; }
--keep class com.nemuria.miya.util.RootCheckUtil { *; }
+-keep class com.onlyou.com.util.VoiceEncryptionUtil { *; }
+-keep class com.onlyou.com.util.RootCheckUtil { *; }
 
 # Room 엔티티 유지 (테이블 이름/컬럼 이름이 문자열로 참조됨)
--keep class com.nemuria.miya.data.local.**Entity { *; }
+-keep class com.onlyou.com.data.local.**Entity { *; }
 
 # Firebase 관련 (기본 규칙으로 충분하나 명시적으로 유지)
 -keep class com.google.firebase.** { *; }

@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.nemuria.miya"
+    namespace = "com.onlyou.com"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.nemuria.miya"
+        applicationId = "com.onlyou.com"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

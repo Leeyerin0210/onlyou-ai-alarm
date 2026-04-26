@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "miya"
+rootProject.name = "onlyou"
 include(":app")
