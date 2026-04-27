@@ -24,13 +24,43 @@ class PersonaRepositoryImpl
         override fun getPurchasedPersonas(): Flow<List<Persona>> =
             personaDao.getPurchasedPersonas().map { entities -> entities.map { it.toDomain() } }
 
-        override fun getSelectedPersona(): Flow<Persona?> = personaDao.getSelectedPersona().map { it?.toDomain() }
+        override fun getSelectedPersona(): Flow<Persona?> =
+            personaDao.getSelectedPersona().map { entity ->
+                if (entity == null) {
+                    // 선택된 비서가 없으면 로컬 DB의 첫 번째 비서를 찾아봄
+                    val all = personaDao.getAllPersonasOnce()
+                    if (all.isNotEmpty()) {
+                        val first = all.first()
+                        personaDao.update(first.copy(isSelected = true))
+                        first.toDomain()
+                    } else {
+                        null
+                    }
+                } else {
+                    entity.toDomain()
+                }
+            }
+
 
         override suspend fun syncPersonas() {
             try {
-                // 1. 원격 페르소나 마스터 데이터 가져오기
-                val personaSnapshots = firestore.collection("personas").get().await()
+                // 1. 원격 페르소나 마스터 데이터 가져오기 (타임아웃 적용)
+                val personaSnapshots = try {
+                    kotlinx.coroutines.withTimeout(5000L) {
+                        firestore.collection("personas").get().await()
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (personaSnapshots == null || personaSnapshots.isEmpty) {
+                    // 서버에 데이터가 없거나 오류 시 기본 데이터 삽입 (Fallback)
+                    insertDefaultPersonas()
+                    return
+                }
+
                 val remotePersonas = personaSnapshots.documents.mapNotNull { doc ->
+                    // ... (기존 매핑 로직)
                     val id = doc.getString("id") ?: return@mapNotNull null
                     val themeColors = doc.get("themeColors") as? Map<String, String>
 
@@ -45,7 +75,7 @@ class PersonaRepositoryImpl
                         imageUrl = doc.getString("imageUrl"),
                         primaryHex = themeColors?.get("primaryHex") ?: doc.getString("primaryHex"),
                         secondaryHex = themeColors?.get("secondaryHex") ?: doc.getString("secondaryHex"),
-                        isPurchased = false, // 기본값, 아래 유저 정보에서 덮어씀
+                        isPurchased = false,
                         isSelected = false,
                     )
                 }
@@ -54,19 +84,21 @@ class PersonaRepositoryImpl
                 val uid = auth.currentUser?.uid
                 val (purchasedIds, selectedId) =
                     if (uid != null) {
-                        val userDoc = firestore
-                            .collection("users")
-                            .document(uid)
-                            .get()
-                            .await()
-                        val purchased = userDoc.get("purchasedPersonaIds") as? List<String> ?: emptyList()
-                        val selected = userDoc.getString("selectedPersonaId")
+                        val userDoc = try {
+                            kotlinx.coroutines.withTimeout(3000L) {
+                                firestore.collection("users").document(uid).get().await()
+                            }
+                        } catch (e: Exception) {
+                            null
+                        }
+                        val purchased = userDoc?.get("purchasedPersonaIds") as? List<String> ?: emptyList()
+                        val selected = userDoc?.getString("selectedPersonaId")
                         Pair(purchased, selected)
                     } else {
                         Pair(emptyList(), null)
                     }
 
-                // 3. 로컬 DB 업데이트 (합치기)
+                // 3. 로컬 DB 업데이트
                 remotePersonas.forEach { entity ->
                     val updatedEntity = entity.copy(
                         isPurchased = purchasedIds.contains(entity.id),
@@ -76,6 +108,28 @@ class PersonaRepositoryImpl
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                insertDefaultPersonas() // 어떤 에러가 나도 기본 데이터는 보장
+            }
+        }
+
+        private suspend fun insertDefaultPersonas() {
+            val count = personaDao.getAllPersonasOnce().size
+            if (count == 0) {
+                val defaultMiya = PersonaEntity(
+                    id = "miya_default",
+                    name = "미야",
+                    prompt = "너는 친절하고 다정한 개인 비서 '미야'야. 주인의 일정을 관리하고 항상 밝은 모습으로 응원해줘.",
+                    description = "코네(Conne)의 기본 비서입니다. 다정한 성격으로 당신의 하루를 챙겨줍니다.",
+                    voiceTone = 1.0f,
+                    voiceSpeed = 1.0f,
+                    userCallSign = "주인님",
+                    imageUrl = "https://example.com/miya_thumb.png", // 실제 사용 가능한 이미지 URL로 대체 가능
+                    primaryHex = "#FFB7C5",
+                    secondaryHex = "#FFF0F5",
+                    isPurchased = true,
+                    isSelected = true,
+                )
+                personaDao.upsertPersona(defaultMiya)
             }
         }
 

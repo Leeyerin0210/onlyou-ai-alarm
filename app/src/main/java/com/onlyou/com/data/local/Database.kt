@@ -52,6 +52,9 @@ interface PersonaDao {
     @Query("SELECT * FROM personas")
     fun getAllPersonas(): Flow<List<PersonaEntity>>
 
+    @Query("SELECT * FROM personas")
+    suspend fun getAllPersonasOnce(): List<PersonaEntity>
+
     @Query("SELECT * FROM personas WHERE isPurchased = 1")
     fun getPurchasedPersonas(): Flow<List<PersonaEntity>>
 
@@ -69,6 +72,9 @@ interface PersonaDao {
 
     @Update
     suspend fun updatePersona(persona: PersonaEntity)
+
+    @Update
+    suspend fun update(persona: PersonaEntity)
 }
 
 @Dao

@@ -27,15 +27,31 @@ import coil.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
+import androidx.compose.material.icons.filled.ArrowBack
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShopScreen(viewModel: ShopViewModel = hiltViewModel()) {
+fun ShopScreen(
+    viewModel: ShopViewModel = hiltViewModel(),
+    onBack: () -> Unit,
+) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Persona Shop", fontWeight = FontWeight.Bold, color = colors.primary) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.primary)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = colors.background),
+            )
+        },
         containerColor = colors.background,
     ) { paddingValues ->
         Column(
@@ -44,17 +60,16 @@ fun ShopScreen(viewModel: ShopViewModel = hiltViewModel()) {
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Persona Shop",
-                style = MaterialTheme.typography.displaySmall,
+                text = "최애 파트너 선택",
+                style = MaterialTheme.typography.headlineSmall,
                 color = colors.primary,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "당신을 깨워줄 최애 파트너를 선택하세요.",
-                style = MaterialTheme.typography.bodyLarge,
+                text = "당신을 깨워줄 파트너를 고용하세요.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = colors.primary.copy(alpha = 0.7f),
             )
 
@@ -105,6 +120,10 @@ fun ShopScreen(viewModel: ShopViewModel = hiltViewModel()) {
                     isPlaying = uiState.isPlaying,
                     isBuffering = uiState.isBuffering,
                     onPurchase = { viewModel.purchasePersona(it) },
+                    onSetCurrent = {
+                        viewModel.setCurrentPersona(it)
+                        viewModel.selectPersona(null)
+                    },
                     onPlayPreview = { id, url -> viewModel.playPreview(id, url) },
                 )
             }
@@ -190,6 +209,7 @@ fun PersonaDetailSheetContent(
     isPlaying: Boolean,
     isBuffering: Boolean,
     onPurchase: (Persona) -> Unit,
+    onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String, String?) -> Unit,
 ) {
     val colors = MiyaTheme.colors
@@ -252,7 +272,7 @@ fun PersonaDetailSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .clickable { onPlayPreview(persona.id, "dummy_url") }, // 실제 URL 필요
+                .clickable { onPlayPreview(persona.id, "dummy_url") },
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -263,7 +283,7 @@ fun PersonaDetailSheetContent(
                     CircularProgressIndicator(color = colors.secondary, modifier = Modifier.size(24.dp))
                 } else {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Default.PlayArrow else Icons.Default.PlayArrow, // Change to Stop icon if playing
+                        imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Preview Voice",
                         tint = colors.secondary,
                     )
@@ -280,25 +300,45 @@ fun PersonaDetailSheetContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Purchase Button
-        Button(
-            onClick = { onPurchase(persona) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colors.primary,
-                contentColor = Color.White,
-                disabledContainerColor = colors.primary.copy(alpha = 0.5f),
-            ),
-            shape = RoundedCornerShape(50),
-            enabled = !persona.isPurchased,
-        ) {
-            Text(
-                text = if (persona.isPurchased) "이미 보유 중인 페르소나" else "이 페르소나 구매하기 (1,000 Coins)",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
+        if (persona.isPurchased) {
+            // Set as Secretary Button
+            Button(
+                onClick = { onSetCurrent(persona) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (persona.isSelected) colors.neutral else colors.primary,
+                    contentColor = Color.White,
+                ),
+                shape = RoundedCornerShape(50),
+                enabled = !persona.isSelected,
+            ) {
+                Text(
+                    text = if (persona.isSelected) "현재 내 비서" else "비서로 고용하기",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        } else {
+            // Purchase Button
+            Button(
+                onClick = { onPurchase(persona) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primary,
+                    contentColor = Color.White,
+                ),
+                shape = RoundedCornerShape(50),
+            ) {
+                Text(
+                    text = "이 페르소나 구매하기 (1,000 Coins)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }

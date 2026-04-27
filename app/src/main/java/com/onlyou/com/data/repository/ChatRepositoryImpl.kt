@@ -86,7 +86,9 @@ class ChatRepositoryImpl
                             message = message.text,
                         )
 
+                        android.util.Log.d("ChatRepo", "Sending request to: ${apiService}")
                         val response = apiService.chatStream(requestDto)
+                        android.util.Log.d("ChatRepo", "Response received: ${response.code()}")
 
                         if (response.isSuccessful) {
                             response.body()?.source()?.let { source ->

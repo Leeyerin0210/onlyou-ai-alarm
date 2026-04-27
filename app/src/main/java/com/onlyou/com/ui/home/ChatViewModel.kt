@@ -28,13 +28,22 @@ class ChatViewModel
     @Inject
     constructor(
         private val chatRepository: ChatRepository,
+        private val personaRepository: com.onlyou.com.domain.repository.PersonaRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ChatUiState())
         val uiState: StateFlow<ChatUiState> = _uiState
 
-        fun setPersona(persona: Persona) {
-            _uiState.update { it.copy(persona = persona) }
+        init {
+            observeSelectedPersona()
             observeMessages()
+        }
+
+        private fun observeSelectedPersona() {
+            viewModelScope.launch {
+                personaRepository.getSelectedPersona().collectLatest { persona ->
+                    _uiState.update { it.copy(persona = persona) }
+                }
+            }
         }
 
         private fun observeMessages() {

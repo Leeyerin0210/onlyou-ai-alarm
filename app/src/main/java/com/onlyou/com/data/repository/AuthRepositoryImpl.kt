@@ -73,13 +73,17 @@ class AuthRepositoryImpl
                                 "email" to (user.email ?: ""),
                                 "photoUrl" to (user.photoUrl?.toString() ?: ""),
                             )
-                            firestore
-                                .collection("users")
-                                .document(user.uid)
-                                .set(userData, SetOptions.merge())
-                                .await()
+                            // 5초 타임아웃 설정: Firestore API가 비활성화되어 있어도 로그인 프로세스가 멈추지 않게 함
+                            kotlinx.coroutines.withTimeout(5000L) {
+                                firestore
+                                    .collection("users")
+                                    .document(user.uid)
+                                    .set(userData, SetOptions.merge())
+                                    .await()
+                            }
                         } catch (e: Exception) {
-                            // DB 저장에 예기치 않게 실패해도 로그인 세션 자체는 성공한 것으로 간주합니다.
+                            // 타임아웃이나 API 비활성화로 실패해도 로그인 세션 자체는 성공한 것으로 간주하여 앱 진입은 허용
+                            e.printStackTrace()
                         }
                         Result.success(user)
                     } ?: Result.failure(Exception("Firebase Sign-In failed: Null user"))

@@ -87,6 +87,13 @@ class ShopViewModel
             _uiState.update { it.copy(selectedPersona = persona) }
         }
 
+        fun setCurrentPersona(persona: Persona) {
+            viewModelScope.launch {
+                personaRepository.setSelectedPersona(persona.id)
+                // 선택 성공 후 UI에서도 업데이트 (isSelected가 반영된 새 리스트가 collect됨)
+            }
+        }
+
         // --- Audio Player Handlers (미리보기 음성 재생용) ---
 
         fun playPreview(

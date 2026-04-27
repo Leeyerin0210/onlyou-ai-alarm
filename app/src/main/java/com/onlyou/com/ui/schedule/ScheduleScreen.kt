@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ import java.util.UUID
 fun ScheduleScreen(
     viewModel: ScheduleViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
+    onNavigateToAlarm: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
     val uiState by viewModel.uiState.collectAsState()
@@ -60,19 +62,41 @@ fun ScheduleScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ChevronLeft,
+                    contentDescription = "Back",
+                    tint = colors.onSurfaceA,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
             Text(
                 text = "일정",
-                fontSize = 28.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = colors.onSurfaceA,
+                modifier = Modifier.padding(start = 4.dp)
             )
+            Spacer(modifier = Modifier.weight(1f))
+            
+            IconButton(onClick = onNavigateToAlarm) {
+                Icon(
+                    imageVector = Icons.Default.Alarm,
+                    contentDescription = "Alarm",
+                    tint = colors.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+            
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(end = 12.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SmartToy,
@@ -81,7 +105,7 @@ fun ScheduleScreen(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = "AI 자동 감지",
+                    text = "AI 감지",
                     fontSize = 12.sp,
                     color = colors.primary,
                     fontWeight = FontWeight.Medium,
