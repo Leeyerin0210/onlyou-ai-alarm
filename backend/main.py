@@ -1,6 +1,8 @@
 import os
 import json
 import asyncio
+from datetime import datetime
+import dateparser
 from typing import List, Optional
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
@@ -112,6 +114,9 @@ async def login(request: LoginRequest):
 
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
+    now = datetime.now()
+    current_date_str = now.strftime("%Y-%m-%d %A")
+    
     results = collection.query(
         query_texts=[request.message],
         n_results=3
@@ -122,6 +127,9 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
     async def event_generator():
         try:
             context_prompt = f"""
+            [현재 시간 정보]
+            오늘 날짜: {current_date_str}
+            
             [이전 기억 정보]
             {relevant_memories}
             
@@ -134,9 +142,41 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             ])
             full_user_input = f"{context_prompt}\n\nUser: {request.message}"
             response = model.generate_content(full_user_input, stream=True)
+            full_response_text = ""
             for chunk in response:
                 if chunk.text:
+                    full_response_text += chunk.text
                     yield f"data: {chunk.text}\n\n"
+            
+            print(f"\n[LLM Response]\n{full_response_text}\n")
+            
+            # 스트리밍 완료 후 일정 추출 시도
+            # dateparser로 자연어 날짜 후보군 미리 계산 (ko-date-parse 역할)
+            parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
+            date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
+
+            schedule_prompt = f"""
+            기준 날짜(오늘): {current_date_str}
+            {date_hint}
+            
+            위 정보를 바탕으로 다음 유저의 메시지에서 구체적인 '일정(SCHEDULE)'이 있다면 JSON 형식으로 추출하세요.
+            "내일", "이번주 토요일" 등 상대적인 날짜는 오늘({current_date_str})을 기준으로 정확히 계산하세요.
+            추출할 내용이 없다면 'None'이라고만 답하세요.
+            
+            문장: "{request.message}"
+            형식: {{"title": "일정명", "date": "YYYY-MM-DD", "time": "HH:MM"}}
+            """
+            sched_response = model.generate_content(schedule_prompt)
+            sched_text = sched_response.text.strip()
+            print(f"[Schedule Extraction Result]\n{sched_text}\n")
+            
+            if "{" in sched_text and "}" in sched_text:
+                # JSON 부분만 추출
+                start = sched_text.find("{")
+                end = sched_text.rfind("}") + 1
+                json_part = sched_text[start:end]
+                yield f"data: [SCHEDULE]{json_part}\n\n"
+                
         except Exception as e:
             print(f"Streaming Error: {str(e)}")
             yield f"data: [ERROR] {str(e)}\n\n"

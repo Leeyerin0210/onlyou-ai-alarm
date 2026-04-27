@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 
 class ChatRepositoryImpl
@@ -29,6 +31,7 @@ class ChatRepositoryImpl
         private val memoryExtractor: MemoryExtractor,
         private val memoryRepository: MemoryRepository,
         private val apiService: MiyaApiService,
+        private val scheduleRepository: com.onlyou.com.domain.repository.ScheduleRepository,
     ) : ChatRepository {
         override fun getChatMessages(): Flow<List<ChatMessage>> =
             chatDao.getChatMessages().map { entities -> entities.map { it.toDomain() } }
@@ -64,6 +67,8 @@ class ChatRepositoryImpl
                     }
 
                     var fullAiText = ""
+                    val gson = com.google.gson.Gson()
+
                     try {
                         val shortConstraint = "\n\n[Constraint: 항상 한 문단 이내로 짧게 대화하듯이]"
                         val systemPrompt = (persona.prompt ?: "당신은 상냥한 AI 파트너입니다.") + userNoteConstraint + shortConstraint
@@ -86,9 +91,7 @@ class ChatRepositoryImpl
                             message = message.text,
                         )
 
-                        android.util.Log.d("ChatRepo", "Sending request to: ${apiService}")
                         val response = apiService.chatStream(requestDto)
-                        android.util.Log.d("ChatRepo", "Response received: ${response.code()}")
 
                         if (response.isSuccessful) {
                             response.body()?.source()?.let { source ->
@@ -96,17 +99,46 @@ class ChatRepositoryImpl
                                     val line = source.readUtf8Line() ?: continue
                                     if (line.startsWith("data: ")) {
                                         var dataStr = line.substring(6).trim()
-                                        // 파이썬 FastAPI에서 \n 같은 이스케이프 문자가 그대로 올 수 있음
                                         dataStr = dataStr.replace("\\n", "\n")
                                         if (dataStr == "[DONE]") break
+
+                                        // 일정 정보인 경우
+                                        if (dataStr.startsWith("[SCHEDULE]")) {
+                                            try {
+                                                val jsonStr = dataStr.substring(10)
+                                                val schedData = gson.fromJson(jsonStr, Map::class.java)
+                                                val title = schedData["title"]?.toString() ?: "새로운 일정"
+                                                val dateStr = schedData["date"]?.toString() ?: ""
+                                                val timeStr = schedData["time"]?.toString() ?: "00:00"
+
+                                                if (dateStr.isNotBlank()) {
+                                                    val parsedDate = LocalDate.parse(dateStr)
+                                                    val parsedTime = try {
+                                                        LocalTime.parse(timeStr)
+                                                    } catch (e: Exception) {
+                                                        LocalTime.MIDNIGHT
+                                                    }
+
+                                                    scheduleRepository.insertSchedule(
+                                                        com.onlyou.com.domain.model.AiSchedule(
+                                                            title = title,
+                                                            date = parsedDate,
+                                                            startTime = parsedTime,
+                                                            description = "AI가 대화 중 자동으로 등록한 일정입니다.",
+                                                        ),
+                                                    )
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("ChatRepo", "Schedule parsing or insertion error", e)
+                                            }
+                                            continue // 텍스트 출력에서는 제외
+                                        }
 
                                         // 에러인 경우
                                         if (dataStr.startsWith("[ERROR]")) {
                                             throw RuntimeException(dataStr)
                                         }
 
-                                        // SSE가 부분 문자열을 보내므로 덧붙이기
-                                        // 여기 파이썬의 sse chunk.text가 줄바꿈 텍스트일 수 있음.
                                         fullAiText += dataStr
                                         emit(fullAiText)
                                     }
