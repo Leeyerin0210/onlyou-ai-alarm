@@ -116,13 +116,24 @@ async def login(request: LoginRequest):
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
     now = datetime.now()
     current_date_str = now.strftime("%Y-%m-%d %A")
+    timestamp_iso = now.isoformat()
     
+    # 메모리 검색 시 메타데이터 포함 시도 (기록 시간 파악용)
     results = collection.query(
         query_texts=[request.message],
         n_results=3
     )
-    relevant_memories = "\n".join(results['documents'][0]) if results['documents'] else ""
-    background_tasks.add_task(process_and_save_memory, request.message)
+    
+    # 검색된 기억에 기록 시간 정보를 붙여서 AI에게 전달
+    formatted_memories = []
+    if results['documents'] and results['metadatas']:
+        for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
+            recorded_at = meta.get('timestamp', '알 수 없는 시간')[:10]
+            formatted_memories.append(f"[{recorded_at} 기록]: {doc}")
+    
+    relevant_memories = "\n".join(formatted_memories) if formatted_memories else "기록된 정보 없음"
+    
+    background_tasks.add_task(process_and_save_memory, request.message, current_date_str, timestamp_iso)
 
     async def event_generator():
         try:
@@ -130,7 +141,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             [현재 시간 정보]
             오늘 날짜: {current_date_str}
             
-            [이전 기억 정보]
+            [이전 기억 정보 (기록된 시점을 참고하여 해석하세요)]
             {relevant_memories}
             
             [시스템 페르소나]
@@ -151,7 +162,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             print(f"\n[LLM Response]\n{full_response_text}\n")
             
             # 스트리밍 완료 후 일정 추출 시도
-            # dateparser로 자연어 날짜 후보군 미리 계산 (ko-date-parse 역할)
+            # dateparser로 자연어 날짜 후보군 미리 계산
             parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
             date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
 
@@ -159,8 +170,8 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             기준 날짜(오늘): {current_date_str}
             {date_hint}
             
-            위 정보를 바탕으로 다음 유저의 메시지에서 구체적인 '일정(SCHEDULE)'이 있다면 JSON 형식으로 추출하세요.
-            "내일", "이번주 토요일" 등 상대적인 날짜는 오늘({current_date_str})을 기준으로 정확히 계산하세요.
+            위 정보를 바탕으로 유저의 메시지에서 구체적인 '일정(SCHEDULE)'이 있다면 JSON 형식으로 추출하세요.
+            "내일", "이번주 토요일" 등 상대적인 날짜는 반드시 오늘({current_date_str})을 기준으로 계산하여 'YYYY-MM-DD' 절대 날짜로 변환하세요.
             추출할 내용이 없다면 'None'이라고만 답하세요.
             
             문장: "{request.message}"
@@ -183,13 +194,23 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-async def process_and_save_memory(message: str):
-    prompt = f"다음 문장에서 나중에 기억해야 할 중요한 사실(FACT)만 한 문장으로 추출해줘: \"{message}\"\n중요한 내용이 없다면 'None'이라고 답해."
+async def process_and_save_memory(message: str, current_date: str, timestamp: str):
+    prompt = f"""
+    기준 날짜: {current_date}
+    다음 문장에서 나중에 기억해야 할 중요한 사실(FACT)만 한 문장으로 추출하세요.
+    문장에 "내일", "어제" 등 상대적인 시간 표현이 있다면 기준 날짜를 바탕으로 반드시 'YYYY년 MM월 DD일' 형태의 절대 날짜로 변환하여 기록하세요.
+    
+    예시: (기준 2026-04-27) "내일 병원 가" -> "2026년 04월 28일에 병원에 방문함"
+    
+    문장: "{message}"
+    중요한 내용이 없다면 'None'이라고 답하세요.
+    """
     response = model.generate_content(prompt)
     extracted = response.text.strip()
     if extracted and extracted != "None":
         collection.add(
             documents=[extracted],
+            metadatas=[{"timestamp": timestamp}],
             ids=[f"mem_{os.urandom(4).hex()}"]
         )
 

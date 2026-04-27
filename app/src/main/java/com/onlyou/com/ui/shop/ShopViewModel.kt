@@ -4,6 +4,7 @@ import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyou.com.domain.model.Persona
+import com.onlyou.com.domain.repository.ChatRepository
 import com.onlyou.com.domain.repository.PersonaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ class ShopViewModel
     @Inject
     constructor(
         private val personaRepository: PersonaRepository,
+        private val chatRepository: ChatRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ShopUiState())
         val uiState: StateFlow<ShopUiState> = _uiState
@@ -90,11 +92,8 @@ class ShopViewModel
         fun setCurrentPersona(persona: Persona) {
             viewModelScope.launch {
                 personaRepository.setSelectedPersona(persona.id)
-                // 선택 성공 후 UI에서도 업데이트 (isSelected가 반영된 새 리스트가 collect됨)
             }
         }
-
-        // --- Audio Player Handlers (미리보기 음성 재생용) ---
 
         fun playPreview(
             personaId: String,
@@ -139,6 +138,12 @@ class ShopViewModel
         fun purchasePersona(persona: Persona) {
             viewModelScope.launch {
                 personaRepository.updatePersona(persona.copy(isPurchased = true))
+            }
+        }
+
+        fun clearChatHistory() {
+            viewModelScope.launch {
+                chatRepository.clearHistory()
             }
         }
     }
