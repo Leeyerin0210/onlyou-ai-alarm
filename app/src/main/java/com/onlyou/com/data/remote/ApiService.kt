@@ -22,4 +22,7 @@ interface MiyaApiService {
     suspend fun generateAlarmScript(
         @Body request: AlarmScriptRequestDto,
     ): AlarmScriptResponseDto
+
+    @retrofit2.http.DELETE("memory/clear")
+    suspend fun clearMemory(): Response<Unit>
 }

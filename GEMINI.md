@@ -34,7 +34,7 @@
 ## 4. Technical Stack
 - **Android Client:** Kotlin, Jetpack Compose, Material 3, Clean Architecture (MVVM), Coroutines/Flow, Room DB.
 - **Backend Server:** Python 3.x, FastAPI, SSE(Server-Sent Events) for Chat Streaming.
-- **AI Infrastructure:** Google Gemini API (gemini-1.5-flash / text-embedding-004), ChromaDB (Vector Database для RAG).
+- **AI Infrastructure:** Google Gemini API (gemini-3-flash-preview / gemini-embedding-001), ChromaDB (Vector Database для RAG).
 
 ## 5. Agent Instructions (Rules for AI)
 새로운 환경에서 작업을 이어받는 에이전트(Antigravity)는 반드시 다음 규칙을 따르십시오.

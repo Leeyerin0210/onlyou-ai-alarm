@@ -7,3 +7,4 @@ python-dotenv
 sse-starlette
 firebase-admin
 dateparser
+neo4j
