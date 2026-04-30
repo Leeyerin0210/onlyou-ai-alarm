@@ -47,6 +47,7 @@ data class PersonaEntity(
     val description: String,
     val voiceTone: Float,
     val voiceSpeed: Float,
+    val voicePrompt: String,
     val userCallSign: String,
     val isPurchased: Boolean,
     val isSelected: Boolean,

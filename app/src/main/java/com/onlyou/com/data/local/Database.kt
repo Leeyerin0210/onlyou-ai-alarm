@@ -67,6 +67,9 @@ interface PersonaDao {
     @Query("UPDATE personas SET isSelected = 1 WHERE id = :personaId")
     suspend fun selectPersona(personaId: String)
 
+    @Query("DELETE FROM personas WHERE id = :personaId")
+    suspend fun deletePersona(personaId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPersona(persona: PersonaEntity)
 
@@ -113,7 +116,7 @@ interface MemoryDao {
         MemoryEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)

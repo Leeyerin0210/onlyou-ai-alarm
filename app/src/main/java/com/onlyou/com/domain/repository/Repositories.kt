@@ -46,6 +46,8 @@ interface PersonaRepository {
 
     suspend fun syncPersonas() // Firebase와 로컬 DB 동기화
 
+    suspend fun deletePersona(personaId: String)
+
     suspend fun setSelectedPersona(personaId: String)
 
     suspend fun updatePersona(persona: Persona)

@@ -8,3 +8,7 @@ sse-starlette
 firebase-admin
 dateparser
 neo4j
+torch
+torchaudio
+soundfile
+qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS.git

@@ -4,6 +4,7 @@ import android.content.Context
 import com.onlyou.com.data.remote.AlarmScriptRequestDto
 import com.onlyou.com.data.remote.MemoryItemDto
 import com.onlyou.com.data.remote.MiyaApiService
+import com.onlyou.com.data.remote.VoiceSynthesizeRequestDto
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.MemoryRepository
 import com.onlyou.com.domain.repository.VoiceRepository
@@ -23,12 +24,24 @@ class VoiceRepositoryImpl
         override suspend fun synthesizeVoice(
             text: String,
             persona: Persona,
-        ): ByteArray? {
-            // 안드로이드 기본 TTS는 ByteArray 반환이 까다로우므로
-            // 여기서는 null을 반환하고 Service에서 직접 TTS를 호출하도록 설계 변경을 유도하거나
-            // 추후 외부 TTS API 연동 시 구현합니다.
-            return null
-        }
+        ): ByteArray? =
+            withContext(Dispatchers.IO) {
+                try {
+                    val request = VoiceSynthesizeRequestDto(
+                        text = text,
+                        instruct = persona.voicePrompt,
+                    )
+                    val response = apiService.synthesizeVoice(request)
+                    if (response.isSuccessful) {
+                        response.body()?.bytes()
+                    } else {
+                        null
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
 
         override suspend fun generateWakeUpScript(persona: Persona): String =
             withContext(Dispatchers.IO) {

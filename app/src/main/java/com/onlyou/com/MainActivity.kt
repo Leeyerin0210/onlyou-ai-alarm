@@ -111,8 +111,8 @@ class MainActivity : ComponentActivity() {
                         label = "screen_transition",
                     ) { screen ->
                         Box(modifier = Modifier.fillMaxSize()) {
-                            when (screen) {
-                                "splash_check" -> {
+                            when {
+                                screen == "splash_check" -> {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         CircularProgressIndicator(color = colors.primary)
                                     }
@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                "chat" -> {
+                                screen == "chat" -> {
                                     // 단일 비서 채팅 화면으로 통합
                                     ChatScreen(
                                         onNavigateToSchedule = { currentScreen = "schedule" },
@@ -148,14 +148,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                "schedule" -> {
+                                screen == "schedule" -> {
                                     com.onlyou.com.ui.schedule.ScheduleScreen(
                                         onBack = { currentScreen = "chat" },
                                         onNavigateToAlarm = { currentScreen = "alarm" },
                                     )
                                 }
 
-                                "alarm" -> {
+                                screen == "alarm" -> {
                                     AlarmScreen(
                                         onEditingStateChange = { isEditingAlarm = it },
                                         backTrigger = 0,
@@ -163,14 +163,25 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                "shop" -> {
+                                screen == "shop" -> {
                                     // 페르소나를 교체하는 '상점/에이전트 선택' 화면
                                     ShopScreen(
                                         onBack = { currentScreen = "settings" },
+                                        onNavigateToEdit = { id ->
+                                            currentScreen = "persona_edit/$id"
+                                        }
                                     )
                                 }
 
-                                "settings" -> {
+                                screen.startsWith("persona_edit") -> {
+                                    val id = screen.split("/").getOrNull(1)?.takeIf { it != "null" }
+                                    com.onlyou.com.ui.shop.PersonaEditScreen(
+                                        personaId = id,
+                                        onBack = { currentScreen = "shop" }
+                                    )
+                                }
+
+                                screen == "settings" -> {
                                     val scope = rememberCoroutineScope()
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -214,11 +225,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                "login" -> {
+                                screen == "login" -> {
                                     com.onlyou.com.ui.login.LoginScreen(
                                         onLoginSuccess = { currentScreen = "chat" },
                                     )
                                 }
+
+                                else -> {}
                             }
                         }
                     }

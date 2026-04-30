@@ -1,23 +1,120 @@
 import os
 import json
 import asyncio
+import io
+import torch
+import soundfile as sf
 from datetime import datetime
 import dateparser
 from typing import List, Optional
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from google import genai
 import chromadb
 from chromadb.utils import embedding_functions
+from chromadb.api.types import Documents, Embeddings
 import firebase_admin
 from firebase_admin import credentials, auth
 from neo4j import GraphDatabase
 
+# Qwen-TTS 패키지가 설치된 후 임포트 가능
+try:
+    from qwen_tts import Qwen3TTSModel
+except ImportError:
+    print("Warning: qwen_tts not installed. Voice synthesis will be disabled.")
+    Qwen3TTSModel = None
+
 load_dotenv()
 
-# Neo4j Config
+# ... (기존 설정 유지)
+
+class VoiceEngine:
+    def __init__(self):
+        self.model = None
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model_path = os.path.join(os.path.dirname(__file__), "Qwen3-TTS-12Hz-1.7B-VoiceDesign")
+
+    def load_model(self):
+        if Qwen3TTSModel is None:
+            raise ImportError("Qwen3TTSModel is not installed.")
+        if self.model is None:
+            print(f"--- Loading Qwen3-TTS VoiceDesign Model on {self.device} ---")
+            self.model = Qwen3TTSModel.from_pretrained(
+                self.model_path,
+                device_map=self.device,
+                dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+                attn_implementation="sdpa" # flash_attention_2 미설치 대비
+            )
+            print("--- VoiceDesign Model Loaded Successfully ---")
+
+    def synthesize(self, text: str, instruct: str):
+        if self.model is None:
+            self.load_model()
+            
+        # 제공된 스니펫의 Voice Design 방식 적용
+        wavs, sr = self.model.generate_voice_design(
+            text=text,
+            language="Korean", 
+            instruct=instruct,
+        )
+        
+        buffer = io.BytesIO()
+        sf.write(buffer, wavs[0], sr, format='WAV')
+        buffer.seek(0)
+        return buffer
+
+voice_engine = VoiceEngine()
+
+app = FastAPI(title="Conne Backend")
+
+@app.on_event("startup")
+async def startup_event():
+    print("--- Server Starting: Pre-loading VoiceDesign Model ---")
+    # 별도 스레드에서 모델 로딩 시작 (이벤트 루프 차단 방지)
+    asyncio.create_task(asyncio.to_thread(voice_engine.load_model))
+
+# ... (기존 미들웨어 유지)
+
+class VoiceSynthesizeRequest(BaseModel):
+    text: str
+    instruct: str
+
+@app.post("/voice/synthesize")
+async def synthesize_voice(request: VoiceSynthesizeRequest):
+    """
+    Qwen3-TTS Voice Design 기능을 사용하여 텍스트를 음성으로 변환합니다.
+    """
+    print(f"--- Voice Synthesis Request: {request.instruct} ---")
+    
+    if Qwen3TTSModel is None:
+        raise HTTPException(status_code=501, detail="Qwen-TTS engine is not installed.")
+    
+    # TTS 프롬프트(instruct)를 중국어로 번역 (Qwen3-TTS 최적화)
+    translated_instruct = request.instruct
+    if request.instruct.strip():
+        try:
+            translation_prompt = f"Translate the following TTS voice design instruction into Chinese: '{request.instruct}'. Output only the translated text."
+            translated_instruct_res = client.models.generate_content(model=model_id, contents=translation_prompt)
+            translated_instruct = translated_instruct_res.text.strip()
+            print(f"--- Translated Instruct (CN): {translated_instruct} ---")
+        except Exception as e:
+            print(f"Translation Error: {e}. Using original instruct.")
+    
+    try:
+        # 블로킹 연산을 스레드에서 실행하여 FastAPI의 비동기 이점 활용
+        audio_buffer = await asyncio.to_thread(
+            voice_engine.synthesize,
+            request.text,
+            translated_instruct
+        )
+        return Response(content=audio_buffer.read(), media_type="audio/wav")
+    except Exception as e:
+        print(f"Voice Synthesis Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ... (기존 엔드포인트들 하단에 위치)
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
@@ -27,21 +124,30 @@ neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 model_id = "gemini-3-flash-preview"
 
+# 최신 google-genai SDK를 사용하는 커스텀 임베딩 함수 정의
+class GeminiEmbeddingFunction(embedding_functions.EmbeddingFunction):
+    def __init__(self):
+        # ChromaDB 호환성을 위해 이름 지정
+        pass
+
+    def __call__(self, input: Documents) -> Embeddings:
+        response = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=input
+        )
+        return [e.values for e in response.embeddings]
+
+    def name(self) -> str:
+        return "google_generative_ai" # 기존에 저장된 이름과 일치시켜 충돌 방지
 
 # ChromaDB Config
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-# embedding_functions.GoogleGenerativeAiEmbeddingFunction는 구형 SDK 기반일 수 있음. 
-# 하지만 ChromaDB 내부에서 처리하므로 일단 유지하거나 필요시 수정.
-gemini_ef = embedding_functions.GoogleGenerativeAiEmbeddingFunction(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    model_name="gemini-embedding-001"
-)
+gemini_ef = GeminiEmbeddingFunction()
+
 collection = chroma_client.get_or_create_collection(
     name="user_memories",
     embedding_function=gemini_ef
 )
-
-app = FastAPI(title="Conne Backend")
 
 # Firebase Admin SDK Initialization
 if not firebase_admin._apps:
@@ -56,7 +162,6 @@ if not firebase_admin._apps:
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    body = await request.body()
     print(f"Incoming Request: {request.method} {request.url}")
     response = await call_next(request)
     return response

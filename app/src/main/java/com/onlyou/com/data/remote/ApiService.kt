@@ -3,6 +3,7 @@ package com.onlyou.com.data.remote
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.POST
 import retrofit2.http.Streaming
 
@@ -23,6 +24,11 @@ interface MiyaApiService {
         @Body request: AlarmScriptRequestDto,
     ): AlarmScriptResponseDto
 
-    @retrofit2.http.DELETE("memory/clear")
+    @POST("voice/synthesize")
+    suspend fun synthesizeVoice(
+        @Body request: VoiceSynthesizeRequestDto,
+    ): Response<ResponseBody>
+
+    @DELETE("memory/clear")
     suspend fun clearMemory(): Response<Unit>
 }

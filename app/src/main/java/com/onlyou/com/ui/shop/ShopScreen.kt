@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -34,6 +36,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 fun ShopScreen(
     viewModel: ShopViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    onNavigateToEdit: (String?) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
@@ -50,6 +53,15 @@ fun ShopScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = colors.background),
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onNavigateToEdit(null) },
+                containerColor = colors.primary,
+                contentColor = Color.White,
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
+            }
         },
         containerColor = colors.background,
     ) { paddingValues ->
@@ -112,7 +124,11 @@ fun ShopScreen(
                         viewModel.selectPersona(null)
                     },
                     onPlayPreview = { id, url -> viewModel.playPreview(id, url) },
-                    onDeleteHistory = { viewModel.clearChatHistory() }
+                    onDeleteHistory = { viewModel.clearChatHistory() },
+                    onEdit = {
+                        onNavigateToEdit(it)
+                        viewModel.selectPersona(null)
+                    },
                 )
             }
         }
@@ -120,7 +136,10 @@ fun ShopScreen(
 }
 
 @Composable
-fun ShopPersonaCard(persona: Persona, onClick: () -> Unit) {
+fun ShopPersonaCard(
+    persona: Persona,
+    onClick: () -> Unit,
+) {
     val colors = MiyaTheme.colors
     Box(
         modifier = Modifier
@@ -131,9 +150,18 @@ fun ShopPersonaCard(persona: Persona, onClick: () -> Unit) {
             .clickable { onClick() },
     ) {
         if (persona.imageUrl != null) {
-            AsyncImage(model = persona.imageUrl, contentDescription = persona.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            AsyncImage(
+                model = persona.imageUrl,
+                contentDescription = persona.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
         }
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)), startY = 300f)))
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)), startY = 300f),
+            ),
+        )
         Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
             Text(text = persona.name, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
         }
@@ -148,7 +176,8 @@ fun PersonaDetailSheetContent(
     onPurchase: (Persona) -> Unit,
     onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String, String?) -> Unit,
-    onDeleteHistory: () -> Unit
+    onDeleteHistory: () -> Unit,
+    onEdit: (String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -166,7 +195,7 @@ fun PersonaDetailSheetContent(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") }
-            }
+            },
         )
     }
 
@@ -176,13 +205,23 @@ fun PersonaDetailSheetContent(
     ) {
         Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(colors.surfaceB)) {
             if (persona.imageUrl != null) {
-                AsyncImage(model = persona.imageUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                AsyncImage(
+                    model = persona.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = persona.name, style = MaterialTheme.typography.headlineSmall, color = colors.onSurfaceA, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = persona.description, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceA.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(
+            text = persona.description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceA.copy(alpha = 0.7f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
         Spacer(modifier = Modifier.height(24.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -193,19 +232,33 @@ fun PersonaDetailSheetContent(
                 border = BorderStroke(1.dp, colors.secondary.copy(alpha = 0.3f)),
                 modifier = Modifier.weight(1f).height(56.dp).clickable { onPlayPreview(persona.id, "dummy_url") },
             ) {
-                Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = colors.secondary)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = if (isPlaying) "재생 중" else "보이스 듣기", color = colors.secondary, fontWeight = FontWeight.Bold)
                 }
             }
-            
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // 수정 버튼 추가
+            IconButton(
+                onClick = { onEdit(persona.id) },
+                modifier = Modifier.size(56.dp).background(colors.surfaceB, CircleShape),
+            ) {
+                Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Edit", tint = colors.primary)
+            }
+
             Spacer(modifier = Modifier.width(12.dp))
 
             // 삭제 버튼 (오른쪽 끝)
             IconButton(
                 onClick = { showDeleteConfirm = true },
-                modifier = Modifier.size(56.dp).background(colors.surfaceB, CircleShape)
+                modifier = Modifier.size(56.dp).background(colors.surfaceB, CircleShape),
             ) {
                 Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete History", tint = Color.Red)
             }
@@ -218,7 +271,7 @@ fun PersonaDetailSheetContent(
             modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
             shape = RoundedCornerShape(50),
-            enabled = !persona.isSelected
+            enabled = !persona.isSelected,
         ) {
             Text(text = if (persona.isPurchased) (if (persona.isSelected) "현재 비서" else "비서로 설정") else "구매하기", fontWeight = FontWeight.Bold)
         }

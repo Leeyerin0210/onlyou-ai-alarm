@@ -36,3 +36,9 @@ data class AlarmScriptRequestDto(
 data class AlarmScriptResponseDto(
     val script: String,
 )
+
+// Voice
+data class VoiceSynthesizeRequestDto(
+    val text: String,
+    val instruct: String,
+)

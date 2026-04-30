@@ -71,6 +71,7 @@ class PersonaRepositoryImpl
                         description = doc.getString("description") ?: "",
                         voiceTone = (doc.get("voiceTone") as? Number)?.toFloat() ?: 1.0f,
                         voiceSpeed = (doc.get("voiceSpeed") as? Number)?.toFloat() ?: 1.0f,
+                        voicePrompt = doc.getString("voicePrompt") ?: "다정하고 친절한 어조로",
                         userCallSign = doc.getString("userCallSign") ?: "주인님",
                         imageUrl = doc.getString("imageUrl"),
                         primaryHex = themeColors?.get("primaryHex") ?: doc.getString("primaryHex"),
@@ -122,6 +123,7 @@ class PersonaRepositoryImpl
                     description = "코네(Conne)의 기본 비서입니다. 다정한 성격으로 당신의 하루를 챙겨줍니다.",
                     voiceTone = 1.0f,
                     voiceSpeed = 1.0f,
+                    voicePrompt = "다정하고 친절한 어조로",
                     userCallSign = "주인님",
                     imageUrl = "https://example.com/miya_thumb.png", // 실제 사용 가능한 이미지 URL로 대체 가능
                     primaryHex = "#FFB7C5",
@@ -130,6 +132,15 @@ class PersonaRepositoryImpl
                     isSelected = true,
                 )
                 personaDao.upsertPersona(defaultMiya)
+            }
+        }
+
+        override suspend fun deletePersona(personaId: String) {
+            personaDao.deletePersona(personaId)
+            // Firebase에서도 삭제 시도
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                firestore.collection("personas").document(personaId).delete()
             }
         }
 
@@ -163,6 +174,7 @@ class PersonaRepositoryImpl
                 description = description,
                 voiceTone = voiceTone,
                 voiceSpeed = voiceSpeed,
+                voicePrompt = voicePrompt,
                 userCallSign = userCallSign,
                 isPurchased = isPurchased,
                 isSelected = isSelected,
@@ -200,6 +212,7 @@ class PersonaRepositoryImpl
                 description = description,
                 voiceTone = voiceTone,
                 voiceSpeed = voiceSpeed,
+                voicePrompt = voicePrompt,
                 userCallSign = userCallSign,
                 isPurchased = isPurchased,
                 isSelected = isSelected,
