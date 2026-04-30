@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.google.firebase.firestore.FirebaseFirestore
 import com.onlyou.com.data.local.AiScheduleDao
 import com.onlyou.com.data.local.AlarmDao
+import com.onlyou.com.data.local.AlarmVoiceChunkDao
 import com.onlyou.com.data.local.ChatDao
 import com.onlyou.com.data.local.MemoryDao
 import com.onlyou.com.data.local.MiyaDatabase
@@ -60,4 +61,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMemoryDao(database: MiyaDatabase): MemoryDao = database.memoryDao()
+
+    @Provides
+    fun provideAlarmVoiceChunkDao(database: MiyaDatabase): AlarmVoiceChunkDao = database.alarmVoiceChunkDao()
 }

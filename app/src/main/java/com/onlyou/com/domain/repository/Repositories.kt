@@ -1,6 +1,7 @@
 package com.onlyou.com.domain.repository
 
 import com.onlyou.com.domain.model.AiSchedule
+import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.Memory
 import com.onlyou.com.domain.model.MiyaAlarm
@@ -87,7 +88,7 @@ interface MemoryRepository {
  */
 interface VoiceRepository {
     /**
-     * AI의 멘트를 음성으로 변환하여 반환
+     * AI의 멘트를 음성으로 변환하여 반환 (Voice Design 방식)
      */
     suspend fun synthesizeVoice(
         text: String,
@@ -95,7 +96,39 @@ interface VoiceRepository {
     ): ByteArray?
 
     /**
-     * 기상 알람을 위한 초개인화 스크립트 생성
+     * 저장된 참조 음성을 기반으로 음성 합성 (Voice Clone 방식)
      */
-    suspend fun generateWakeUpScript(persona: Persona): String
+    suspend fun synthesizeVoiceCloned(
+        text: String,
+        personaId: String,
+    ): ByteArray?
+
+    /**
+     * 디자인된 음성을 참조용으로 서버에 저장
+     */
+    suspend fun saveReferenceVoice(
+        personaId: String,
+        audioData: ByteArray,
+        refText: String
+    ): Boolean
+
+    /**
+     * 서버에 저장된 마스터 참조 음성을 가져옴
+     */
+    suspend fun getReferenceVoice(personaId: String): ByteArray?
+
+    /**
+     * 기상 알람을 위한 초개인화 스크립트 생성 (스트리밍)
+     */
+    fun generateWakeUpScriptStream(persona: Persona): Flow<String>
+
+    /**
+     * 알람이 울리기 전 보이스를 미리 생성하여 캐시함
+     */
+    suspend fun preGenerateAlarmVoice(alarmId: Int, persona: Persona): Boolean
+
+    /**
+     * 캐시된 알람 보이스 청크들을 가져옴
+     */
+    suspend fun getCachedAlarmVoiceChunks(alarmId: Int): List<AlarmVoiceChunk>
 }

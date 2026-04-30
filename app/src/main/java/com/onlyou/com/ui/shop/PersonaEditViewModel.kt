@@ -28,6 +28,8 @@ class PersonaEditViewModel @Inject constructor(
     val uiState: StateFlow<PersonaEditUiState> = _uiState
 
     private var mediaPlayer: MediaPlayer? = null
+    private var lastPreviewAudio: ByteArray? = null
+    private var lastPreviewText: String? = null
 
     fun loadPersona(personaId: String?) {
         viewModelScope.launch {
@@ -68,7 +70,20 @@ class PersonaEditViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState is PersonaEditUiState.Success) {
             viewModelScope.launch {
+                // 1. 페르소나 기본 정보 저장
                 personaRepository.upsertPersona(currentState.persona)
+                
+                // 2. 미리보기했던 음성이 있다면 참조 음성으로 서버에 저장
+                lastPreviewAudio?.let { audio ->
+                    lastPreviewText?.let { text ->
+                        voiceRepository.saveReferenceVoice(
+                            personaId = currentState.persona.id,
+                            audioData = audio,
+                            refText = text
+                        )
+                    }
+                }
+                
                 _uiState.value = PersonaEditUiState.Saved
             }
         }
@@ -89,6 +104,20 @@ class PersonaEditViewModel @Inject constructor(
         if (currentState is PersonaEditUiState.Success) {
             viewModelScope.launch {
                 val voiceData = voiceRepository.synthesizeVoice(text, currentState.persona)
+                if (voiceData != null) {
+                    lastPreviewAudio = voiceData
+                    lastPreviewText = text
+                    playVoice(voiceData)
+                }
+            }
+        }
+    }
+
+    fun playSavedVoice() {
+        val currentState = _uiState.value
+        if (currentState is PersonaEditUiState.Success) {
+            viewModelScope.launch {
+                val voiceData = voiceRepository.getReferenceVoice(currentState.persona.id)
                 if (voiceData != null) {
                     playVoice(voiceData)
                 }

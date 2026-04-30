@@ -24,9 +24,31 @@ interface MiyaApiService {
         @Body request: AlarmScriptRequestDto,
     ): AlarmScriptResponseDto
 
+    @Streaming
+    @POST("alarm/script/stream")
+    suspend fun generateAlarmScriptStream(
+        @Body request: AlarmScriptRequestDto,
+    ): Response<ResponseBody>
+
     @POST("voice/synthesize")
     suspend fun synthesizeVoice(
         @Body request: VoiceSynthesizeRequestDto,
+    ): Response<ResponseBody>
+
+    @POST("voice/save_reference/{persona_id}")
+    suspend fun saveVoiceReference(
+        @retrofit2.http.Path("persona_id") personaId: String,
+        @Body request: VoiceSaveReferenceRequestDto
+    ): Response<Unit>
+
+    @POST("voice/clone")
+    suspend fun cloneVoice(
+        @Body request: VoiceCloneRequestDto
+    ): Response<ResponseBody>
+
+    @retrofit2.http.GET("voice/reference/{persona_id}")
+    suspend fun getReferenceVoice(
+        @retrofit2.http.Path("persona_id") personaId: String
     ): Response<ResponseBody>
 
     @DELETE("memory/clear")

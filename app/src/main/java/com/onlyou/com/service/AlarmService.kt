@@ -35,6 +35,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
 
 @AndroidEntryPoint
 class AlarmService :
@@ -53,6 +55,11 @@ class AlarmService :
     private var tts: TextToSpeech? = null
     private var pendingScript: String? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    
+    // 오디오 재생 큐
+    private val audioQueue = Channel<ByteArray>(Channel.UNLIMITED)
+    private var isAIVoicePlaying = false
+    private var fullScript = StringBuilder()
 
     companion object {
         const val CHANNEL_ID = "alarm_channel"
@@ -70,6 +77,13 @@ class AlarmService :
         createNotificationChannel()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
+        
+        // 오디오 재생 루프 시작
+        serviceScope.launch {
+            for (audioBytes in audioQueue) {
+                playNextAudioChunk(audioBytes)
+            }
+        }
     }
 
     override fun onInit(status: Int) {
@@ -145,24 +159,54 @@ class AlarmService :
     ) {
         withContext(Dispatchers.IO) {
             runCatching {
+                // 1. 사전 생성된 캐시가 있는지 확인
+                val cachedChunks = voiceRepository.getCachedAlarmVoiceChunks(alarmId)
+                if (cachedChunks.isNotEmpty()) {
+                    cachedChunks.forEach { chunk ->
+                        fullScript.append(chunk.script)
+                        withContext(Dispatchers.Main) {
+                            launchAlarmActivity(alarmId, alarmTitle, personaId, fullScript.toString())
+                        }
+                        audioQueue.send(chunk.audioBytes)
+                    }
+                    return@runCatching
+                }
+
+                // 2. 캐시가 없으면 실시간 생성 (Fallback)
                 val persona = personaRepository.getAllPersonas().first().find { it.id == personaId }
                     ?: personaRepository.getSelectedPersona().first()
 
                 if (persona != null) {
-                    val script = voiceRepository.generateWakeUpScript(persona)
-                    val voiceBytes = voiceRepository.synthesizeVoice(script, persona)
-
-                    withContext(Dispatchers.Main) {
-                        // 스크립트 완성 → Activity에 업데이트 Intent 전달
-                        launchAlarmActivity(alarmId, alarmTitle, persona.id, script)
-
-                        // 기존 시스템 알람음 중단 후 AI 보이스 재생
-                        if (voiceBytes != null) {
-                            releaseMediaPlayer()
-                            requestAudioFocusAndPlay(voiceBytes)
-                        } else {
-                            speak(script)
+                    var currentSentence = StringBuilder()
+                    
+                    voiceRepository.generateWakeUpScriptStream(persona).collect { chunk ->
+                        fullScript.append(chunk)
+                        currentSentence.append(chunk)
+                        
+                        // 화면 업데이트 (실시간)
+                        withContext(Dispatchers.Main) {
+                            launchAlarmActivity(alarmId, alarmTitle, persona.id, fullScript.toString())
                         }
+
+                        // 문장 단위로 끊기 (., !, ?, \n)
+                        val text = currentSentence.toString()
+                        val terminators = charArrayOf('.', '!', '?', '\n')
+                        val lastTerminatorIndex = text.indexOfLast { it in terminators }
+                        
+                        if (lastTerminatorIndex != -1) {
+                            val sentence = text.substring(0, lastTerminatorIndex + 1).trim()
+                            if (sentence.isNotEmpty()) {
+                                val remaining = text.substring(lastTerminatorIndex + 1)
+                                processSentence(sentence, persona)
+                                currentSentence = StringBuilder(remaining)
+                            }
+                        }
+                    }
+                    
+                    // 남은 텍스트 처리
+                    val remaining = currentSentence.toString().trim()
+                    if (remaining.isNotEmpty()) {
+                        processSentence(remaining, persona)
                     }
                 }
             }.onFailure { e ->
@@ -171,7 +215,67 @@ class AlarmService :
         }
     }
 
-    private fun requestAudioFocusAndPlay(voiceBytes: ByteArray) {
+    private suspend fun processSentence(sentence: String, persona: com.onlyou.com.domain.model.Persona) {
+        // 1. 복제된 음성(Clone) 시도
+        var voiceBytes = voiceRepository.synthesizeVoiceCloned(sentence, persona.id)
+        
+        // 2. 실패 시 디자인(Design) 방식으로 폴백
+        if (voiceBytes == null) {
+            voiceBytes = voiceRepository.synthesizeVoice(sentence, persona)
+        }
+
+        if (voiceBytes != null) {
+            audioQueue.send(voiceBytes)
+        } else {
+            // TTS 폴백 (마지막 수단)
+            withContext(Dispatchers.Main) {
+                speak(sentence)
+            }
+        }
+    }
+
+    private suspend fun playNextAudioChunk(bytes: ByteArray) {
+        // 첫 오디오 청크 시작 시 시스템 알람 중단
+        if (!isAIVoicePlaying) {
+            withContext(Dispatchers.Main) {
+                isAIVoicePlaying = true
+                releaseMediaPlayer()
+                requestAudioFocus()
+            }
+        }
+
+        withContext(Dispatchers.Main) {
+            val completionChannel = Channel<Unit>()
+            mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes
+                        .Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                setDataSource(object : android.media.MediaDataSource() {
+                    override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+                        if (position >= bytes.size) return -1
+                        val len = minOf(size, (bytes.size - position).toInt())
+                        System.arraycopy(bytes, position.toInt(), buffer, offset, len)
+                        return len
+                    }
+                    override fun getSize(): Long = bytes.size.toLong()
+                    override fun close() {}
+                })
+                setOnCompletionListener {
+                    serviceScope.launch { completionChannel.send(Unit) }
+                }
+                prepare()
+                start()
+            }
+            completionChannel.receive()
+            releaseMediaPlayer()
+        }
+    }
+
+    private fun requestAudioFocus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val focusRequest = AudioFocusRequest
                 .Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -184,44 +288,6 @@ class AlarmService :
                 ).build()
             audioFocusRequest = focusRequest
             audioManager?.requestAudioFocus(focusRequest)
-        }
-        playVoiceBytes(voiceBytes)
-    }
-
-    private fun playVoiceBytes(bytes: ByteArray) {
-        releaseMediaPlayer()
-        runCatching {
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build(),
-                )
-                setDataSource(object : android.media.MediaDataSource() {
-                    override fun readAt(
-                        position: Long,
-                        buffer: ByteArray,
-                        offset: Int,
-                        size: Int,
-                    ): Int {
-                        if (position >= bytes.size) return -1
-                        val len = minOf(size, (bytes.size - position).toInt())
-                        System.arraycopy(bytes, position.toInt(), buffer, offset, len)
-                        return len
-                    }
-
-                    override fun getSize(): Long = bytes.size.toLong()
-
-                    override fun close() {}
-                })
-                isLooping = true
-                prepare()
-                start()
-            }
-        }.onFailure {
-            playSystemAlarmSound()
         }
     }
 

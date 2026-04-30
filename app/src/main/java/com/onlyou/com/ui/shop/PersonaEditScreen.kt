@@ -141,14 +141,31 @@ fun PersonaEditScreen(
                                 placeholder = { Text("테스트할 문장을 입력하세요") }
                             )
                             Spacer(Modifier.height(8.dp))
-                            Button(
-                                onClick = { viewModel.previewVoice(previewText) },
-                                modifier = Modifier.align(Alignment.End),
-                                colors = ButtonDefaults.buttonColors(containerColor = MiyaTheme.colors.primary)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("목소리 듣기")
+                                // 기존에 저장된 마스터 음성 듣기
+                                OutlinedButton(
+                                    onClick = { viewModel.playSavedVoice() },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MiyaTheme.colors.primary)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("저장된 음성 듣기", fontSize = 12.sp)
+                                }
+
+                                // 새로 프롬프트로 생성하기
+                                Button(
+                                    onClick = { viewModel.previewVoice(previewText) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MiyaTheme.colors.primary)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("새 목소리 생성", fontSize = 12.sp)
+                                }
                             }
                         }
                     }

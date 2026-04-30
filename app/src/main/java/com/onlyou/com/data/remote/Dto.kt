@@ -34,11 +34,21 @@ data class AlarmScriptRequestDto(
 )
 
 data class AlarmScriptResponseDto(
-    val script: String,
+    val chunks: List<String>,
 )
 
 // Voice
 data class VoiceSynthesizeRequestDto(
     val text: String,
     val instruct: String,
+)
+
+data class VoiceSaveReferenceRequestDto(
+    val audio: String, // Base64 encoded WAV
+    val ref_text: String
+)
+
+data class VoiceCloneRequestDto(
+    val text: String,
+    val persona_id: String
 )

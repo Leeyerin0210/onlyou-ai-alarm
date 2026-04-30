@@ -107,6 +107,18 @@ interface MemoryDao {
     suspend fun clearAll()
 }
 
+@Dao
+interface AlarmVoiceChunkDao {
+    @Query("SELECT * FROM alarm_voice_chunks WHERE alarmId = :alarmId ORDER BY chunkIndex ASC")
+    suspend fun getChunksForAlarm(alarmId: Int): List<AlarmVoiceChunkEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChunk(chunk: AlarmVoiceChunkEntity)
+
+    @Query("DELETE FROM alarm_voice_chunks WHERE alarmId = :alarmId")
+    suspend fun deleteChunksForAlarm(alarmId: Int)
+}
+
 @Database(
     entities = [
         AlarmEntity::class,
@@ -115,8 +127,9 @@ interface MemoryDao {
         PersonaEntity::class,
         MemoryEntity::class,
         ChatMessageEntity::class,
+        AlarmVoiceChunkEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)
@@ -130,4 +143,6 @@ abstract class MiyaDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
     abstract fun memoryDao(): MemoryDao
+
+    abstract fun alarmVoiceChunkDao(): AlarmVoiceChunkDao
 }

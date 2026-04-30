@@ -73,6 +73,15 @@ data class ChatMessageEntity(
     val timestamp: LocalDateTime,
 )
 
+@Entity(tableName = "alarm_voice_chunks")
+data class AlarmVoiceChunkEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val alarmId: Int,
+    val chunkIndex: Int,
+    val script: String,
+    val audioBytes: ByteArray,
+)
+
 class MiyaTypeConverters {
     @TypeConverter
     fun fromDayOfWeekSet(days: Set<DayOfWeek>): String = days.joinToString(",") { it.name }

@@ -121,3 +121,10 @@ data class AiSchedule(
     val description: String? = null,
     val isAlarmEnabled: Boolean = false,
 )
+
+data class AlarmVoiceChunk(
+    val alarmId: Int,
+    val chunkIndex: Int,
+    val script: String,
+    val audioBytes: ByteArray,
+)

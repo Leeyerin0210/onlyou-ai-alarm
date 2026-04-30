@@ -50,6 +50,10 @@
             android:name=".receiver.AlarmReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".receiver.AlarmPreGenReceiver"
+            android:exported="false" />
+
         <!-- 재부팅 시 알람 복구 리시버 -->
         <receiver
             android:name=".receiver.BootReceiver"
