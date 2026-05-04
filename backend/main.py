@@ -147,25 +147,113 @@ async def login(request: LoginRequest):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
     now = datetime.now()
+    current_date_str = now.strftime("%Y-%m-%d %A")
+    timestamp_iso = now.isoformat()
+
+    # 1. 벡터 검색 (ChromaDB)
     results = collection.query(query_texts=[request.message], n_results=3)
-    mem_str = "\n".join(results['documents'][0]) if results['documents'] else ""
-    background_tasks.add_task(process_memory, request.message, now.isoformat())
+
+    # 2. 그래프 검색 (Neo4j)
+    graph_context = ""
+    try:
+        with neo4j_driver.session() as session:
+            graph_results = session.run("""
+                MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                WHERE s.name CONTAINS '유저' OR o.name CONTAINS '유저' OR s.name IN $keywords OR o.name IN $keywords
+                RETURN s.name, r.type, o.name
+                LIMIT 10
+            """, keywords=[request.message])
+            nodes = [f"({record['s.name']}) -[{record['r.type']}]-> ({record['o.name']})" for record in graph_results]
+            if nodes:
+                graph_context = "\n[연관 지식 그래프 정보]\n" + "\n".join(nodes)
+    except Exception as e:
+        print(f"Graph Search Warning (Safe to ignore if DB empty): {e}")
+
+    # 기억 포맷팅
+    formatted_memories = []
+    if results['documents'] and results.get('metadatas') and results['metadatas'][0]:
+        for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
+            recorded_at = (meta.get('timestamp', meta.get('ts', '알 수 없는 시간')) if meta else '알 수 없는 시간')[:10]
+            formatted_memories.append(f"[{recorded_at} 기록]: {doc}")
+
+    relevant_memories = "\n".join(formatted_memories) if formatted_memories else "기록된 정보 없음"
+    relevant_memories += graph_context
+
+    background_tasks.add_task(process_and_save_memory, request.message, current_date_str, timestamp_iso)
+
     async def event_generator():
-        contents = [genai.types.Content(role="user" if m.role == "user" else "model", parts=[genai.types.Part(text=m.text)]) for m in request.history]
-        contents.append(genai.types.Content(role="user", parts=[genai.types.Part(text=f"Memory: {mem_str}\n\nUser: {request.message}")]))
-        stream = client.models.generate_content_stream(model=model_id, contents=contents, config=genai.types.GenerateContentConfig(system_instruction=request.system_prompt))
-        for chunk in stream:
-            if chunk.text: yield f"data: {chunk.text}\n\n"
-        sched_res = client.models.generate_content(model=model_id, contents=f"Extract schedule as JSON from: {request.message}. If none, return None.")
-        if "{" in sched_res.text:
-            s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
-            yield f"data: [SCHEDULE]{sched_res.text[s:e]}\n\n"
+        try:
+            context_prompt = f"""
+            [현재 시간 정보]
+            오늘 날짜: {current_date_str}
+
+            [이전 기억 정보 (기록된 시점을 참고하여 해석하세요)]
+            {relevant_memories}
+            """
+
+            contents = [genai.types.Content(role="user" if m.role == "user" else "model", parts=[genai.types.Part(text=m.text)]) for m in request.history]
+            full_input = f"{context_prompt}\n\nUser: {request.message}"
+            contents.append(genai.types.Content(role="user", parts=[genai.types.Part(text=full_input)]))
+
+            stream = client.models.generate_content_stream(
+                model=model_id,
+                contents=contents,
+                config=genai.types.GenerateContentConfig(system_instruction=request.system_prompt)
+            )
+
+            full_text = ""
+            for chunk in stream:
+                if chunk.text:
+                    full_text += chunk.text
+                    yield f"data: {chunk.text}\n\n"
+
+            print(f"\n[LLM Response]\n{full_text}\n")
+
+            # 일정 추출
+            parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
+            date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
+            sched_prompt = f"오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'. 일정이 있다면 JSON {{\"title\": \"...\", \"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}} 형식으로 추출, 없으면 None."
+            sched_res = client.models.generate_content(model=model_id, contents=sched_prompt)
+            if "{" in sched_res.text:
+                s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
+                yield f"data: [SCHEDULE]{sched_res.text[s:e]}\n\n"
+
+        except Exception as e:
+            print(f"Streaming Error: {str(e)}")
+            yield f"data: [ERROR] {str(e)}\n\n"
+
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-async def process_memory(message: str, timestamp: str):
-    res = client.models.generate_content(model=model_id, contents=f"Extract key fact from: {message}. If none, return None.")
-    if res.text and "None" not in res.text:
-        collection.add(documents=[res.text.strip()], metadatas=[{"ts": timestamp}], ids=[f"m_{os.urandom(4).hex()}"])
+async def process_and_save_memory(message: str, current_date: str, timestamp: str):
+    try:
+        # 1. 벡터 기억 저장 (ChromaDB)
+        fact_prompt = f"기준 날짜: {current_date}. 다음 문장에서 중요한 사실만 추출해 절대 날짜 문장으로 변환: '{message}'. 없으면 None."
+        res = client.models.generate_content(model=model_id, contents=fact_prompt)
+        if res.text and "None" not in res.text:
+            collection.add(
+                documents=[res.text.strip()],
+                metadatas=[{"timestamp": timestamp}],
+                ids=[f"mem_{os.urandom(4).hex()}"]
+            )
+
+        # 2. 그래프 기억 저장 (Neo4j)
+        graph_prompt = f"다음 문장에서 (주체, 관계, 객체) 트리플 추출(JSON 배열): '{message}'. 예: [ {{\"subject\": \"유저\", \"predicate\": \"좋아함\", \"object\": \"민초\"}} ]"
+        graph_res = client.models.generate_content(model=model_id, contents=graph_prompt)
+        if "[" in graph_res.text:
+            start = graph_res.text.find("[")
+            end = graph_res.text.rfind("]") + 1
+            triples = json.loads(graph_res.text[start:end])
+            with neo4j_driver.session() as session:
+                for t in triples:
+                    session.run("""
+                        MERGE (s:Entity {name: $sub})
+                        MERGE (o:Entity {name: $obj})
+                        MERGE (s)-[r:RELATION {type: $pred}]->(o)
+                        SET r.timestamp = $ts
+                    """, sub=t['subject'], obj=t['object'], pred=t['predicate'], ts=timestamp)
+            print(f"[Graph Memory Saved] {len(triples)} triples.")
+    except Exception as e:
+        print(f"Memory Save Error: {e}")
 
 @app.post("/voice/synthesize")
 async def synthesize_voice(request: VoiceSynthesizeRequest):
@@ -242,8 +330,15 @@ async def generate_alarm_script_stream(request: AlarmScriptRequest):
 
 @app.delete("/memory/clear")
 async def clear_memory():
-    collection.delete(ids=collection.get()['ids'])
-    return {"status": "success"}
+    try:
+        ids = collection.get()['ids']
+        if ids:
+            collection.delete(ids=ids)
+        with neo4j_driver.session() as session:
+            session.run("MATCH (n) DETACH DELETE n")
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
