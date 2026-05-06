@@ -97,7 +97,7 @@ dependencies {
     implementation(libs.googleid)
 
     // 루팅 탐지 (상업용 보이스 보호)
-    implementation("com.scottyab:rootbeer-lib:0.1.0")
+    implementation("com.scottyab:rootbeer-lib:0.1.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -8,6 +8,7 @@ import com.onlyou.com.domain.model.StreamerTheme
 import com.onlyou.com.domain.model.ThemeModeColors
 import com.onlyou.com.domain.repository.PersonaRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -25,22 +26,23 @@ class PersonaRepositoryImpl
             personaDao.getPurchasedPersonas().map { entities -> entities.map { it.toDomain() } }
 
         override fun getSelectedPersona(): Flow<Persona?> =
-            personaDao.getSelectedPersona().map { entity ->
-                if (entity == null) {
-                    // 선택된 비서가 없으면 로컬 DB의 첫 번째 비서를 찾아봄
-                    val all = personaDao.getAllPersonasOnce()
-                    if (all.isNotEmpty()) {
-                        val first = all.first()
-                        personaDao.update(first.copy(isSelected = true))
-                        first.toDomain()
+            personaDao
+                .getSelectedPersona()
+                .map { entity ->
+                    if (entity == null) {
+                        // 선택된 비서가 없으면 로컬 DB의 첫 번째 비서를 찾아봄
+                        val all = personaDao.getAllPersonasOnce()
+                        if (all.isNotEmpty()) {
+                            val first = all.first()
+                            personaDao.update(first.copy(isSelected = true))
+                            first.toDomain()
+                        } else {
+                            null
+                        }
                     } else {
-                        null
+                        entity.toDomain()
                     }
-                } else {
-                    entity.toDomain()
-                }
-            }
-
+                }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
         override suspend fun syncPersonas() {
             try {
@@ -87,7 +89,11 @@ class PersonaRepositoryImpl
                     if (uid != null) {
                         val userDoc = try {
                             kotlinx.coroutines.withTimeout(3000L) {
-                                firestore.collection("users").document(uid).get().await()
+                                firestore
+                                    .collection("users")
+                                    .document(uid)
+                                    .get()
+                                    .await()
                             }
                         } catch (e: Exception) {
                             null

@@ -74,13 +74,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val currentLightColors by themeManager.currentLightColors.collectAsState()
-            val currentDarkColors by themeManager.currentDarkColors.collectAsState()
             val currentFontType by themeManager.currentFontType.collectAsState()
 
             MiyaTheme(
-                lightColors = currentLightColors,
-                darkColors = currentDarkColors,
                 fontType = currentFontType,
             ) {
                 val colors = MiyaTheme.colors
@@ -105,11 +101,12 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
-                            (fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.95f))
+                            fadeIn(animationSpec = tween(500))
                                 .togetherWith(fadeOut(animationSpec = tween(400)))
                         },
                         label = "screen_transition",
-                    ) { screen ->
+                    )
+ { screen ->
                         Box(modifier = Modifier.fillMaxSize()) {
                             when {
                                 screen == "splash_check" -> {
@@ -117,10 +114,13 @@ class MainActivity : ComponentActivity() {
                                         CircularProgressIndicator(color = colors.primary)
                                     }
                                     LaunchedEffect(currentUser) {
-                                        try {
-                                            remoteConfig.fetchAndActivate().await()
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
+                                        // Remote Config는 백그라운드에서 업데이트 (화면 전환을 막지 않음)
+                                        scope.launch {
+                                            try {
+                                                remoteConfig.fetchAndActivate()
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
                                         }
 
                                         if (currentUser != null) {
