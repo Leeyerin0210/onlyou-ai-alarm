@@ -15,8 +15,5 @@
 local.properties
 /.agent
 /study
-/backend/.env
-/backend/chroma_db/chroma.sqlite3
-/backend/chroma_db/
 /chroma_db/chroma.sqlite3
 /.superpowers

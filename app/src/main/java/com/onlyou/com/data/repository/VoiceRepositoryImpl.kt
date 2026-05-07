@@ -13,6 +13,7 @@ import com.onlyou.com.data.remote.VoiceSynthesizeRequestDto
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.MemoryRepository
+import com.onlyou.com.domain.repository.ScheduleRepository
 import com.onlyou.com.domain.repository.VoiceRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 class VoiceRepositoryImpl
@@ -28,6 +31,7 @@ class VoiceRepositoryImpl
     constructor(
         @ApplicationContext private val context: Context,
         private val memoryRepository: MemoryRepository,
+        private val scheduleRepository: ScheduleRepository,
         private val apiService: MiyaApiService,
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
     ) : VoiceRepository {
@@ -113,15 +117,38 @@ class VoiceRepositoryImpl
         override fun generateWakeUpScriptStream(persona: Persona): Flow<String> =
             flow {
                 try {
-                    // 최근 메모리 5개 로드
+                    val today = LocalDate.now()
+                    
+                    // 1. 최근 메모리 로드
                     val recentMemories = memoryRepository
                         .getAllMemories()
                         .first()
                         .sortedByDescending { it.createdAt }
                         .take(5)
 
-                    val memoryDtos = recentMemories.map { m ->
+                    // 2. 오늘 일정 로드
+                    val todaySchedules = scheduleRepository
+                        .getAllSchedules()
+                        .first()
+                        .filter { it.date == today }
+                        .sortedBy { it.startTime }
+
+                    val memoryDtos = mutableListOf<MemoryItemDto>()
+                    
+                    // 메모리 추가
+                    memoryDtos.addAll(recentMemories.map { m ->
                         MemoryItemDto(type = m.type.name, content = m.content)
+                    })
+                    
+                    // 일정 추가 (특수한 포맷으로)
+                    todaySchedules.forEach { s ->
+                        val timeStr = s.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        memoryDtos.add(
+                            MemoryItemDto(
+                                type = "SCHEDULE",
+                                content = "[오늘 일정] $timeStr - ${s.title}"
+                            )
+                        )
                     }
 
                     val requestDto = AlarmScriptRequestDto(
@@ -157,18 +184,41 @@ class VoiceRepositoryImpl
         ): Boolean =
             withContext(Dispatchers.IO) {
                 runCatching {
+                    val today = LocalDate.now()
+                    
                     // 1. 최근 메모리 로드
                     val recentMemories = memoryRepository
                         .getAllMemories()
                         .first()
                         .sortedByDescending { it.createdAt }
                         .take(5)
+                        
+                    // 2. 오늘 일정 로드
+                    val todaySchedules = scheduleRepository
+                        .getAllSchedules()
+                        .first()
+                        .filter { it.date == today }
+                        .sortedBy { it.startTime }
 
-                    val memoryDtos = recentMemories.map { m ->
+                    val memoryDtos = mutableListOf<MemoryItemDto>()
+                    
+                    // 메모리 추가
+                    memoryDtos.addAll(recentMemories.map { m ->
                         MemoryItemDto(type = m.type.name, content = m.content)
+                    })
+                    
+                    // 일정 추가
+                    todaySchedules.forEach { s ->
+                        val timeStr = s.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        memoryDtos.add(
+                            MemoryItemDto(
+                                type = "SCHEDULE",
+                                content = "[오늘 일정] $timeStr - ${s.title}"
+                            )
+                        )
                     }
 
-                    // 2. 알람 스크립트 청크 요청
+                    // 3. 알람 스크립트 청크 요청
                     val scriptRequest = AlarmScriptRequestDto(
                         persona_name = persona.name,
                         persona_prompt = persona.prompt ?: "",
@@ -179,10 +229,10 @@ class VoiceRepositoryImpl
                     val scriptResponse = apiService.generateAlarmScript(scriptRequest)
                     val chunks = scriptResponse.chunks
 
-                    // 3. 기존 캐시 삭제
+                    // 4. 기존 캐시 삭제
                     alarmVoiceChunkDao.deleteChunksForAlarm(alarmId)
 
-                    // 4. 각 청크별로 음성 합성 및 저장
+                    // 5. 각 청크별로 음성 합성 및 저장
                     chunks.forEachIndexed { index, text ->
                         var voiceBytes = synthesizeVoiceCloned(text, persona.id)
                         if (voiceBytes == null) {

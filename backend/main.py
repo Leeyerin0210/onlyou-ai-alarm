@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from google import genai
+from huggingface_hub import snapshot_download
 import chromadb
 from chromadb.utils import embedding_functions
 from chromadb.api.types import Documents, Embeddings
@@ -46,13 +47,31 @@ class VoiceEngine:
 
     def load_design_model(self):
         if Qwen3TTSModel and self.design_model is None:
+            if not os.path.exists(self.design_model_path):
+                print(f"--- Model not found. Downloading from Hugging Face: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign ---")
+                try:
+                    snapshot_download(
+                        repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+                        local_dir=self.design_model_path,
+                        local_dir_use_symlinks=False
+                    )
+                except Exception as e:
+                    print(f"Error downloading model: {e}")
+                    return
+
             print(f"--- Loading Design Model (1.7B) ---")
-            self.design_model = Qwen3TTSModel.from_pretrained(self.design_model_path, device_map=self.device, dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation="sdpa")
+            try:
+                self.design_model = Qwen3TTSModel.from_pretrained(self.design_model_path, device_map=self.device, dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation="sdpa")
+            except Exception as e:
+                print(f"Error loading design model: {e}")
 
     def load_clone_model(self):
         if Qwen3TTSModel and self.clone_model is None:
             print(f"--- Loading Clone Model (0.6B) ---")
-            self.clone_model = Qwen3TTSModel.from_pretrained(self.clone_model_path, device_map=self.device, dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation="sdpa")
+            try:
+                self.clone_model = Qwen3TTSModel.from_pretrained(self.clone_model_path, device_map=self.device, dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32, attn_implementation="sdpa")
+            except Exception as e:
+                print(f"Error loading clone model: {e}")
 
     def synthesize_design(self, text: str, instruct: str):
         self.load_design_model()
@@ -264,7 +283,9 @@ async def synthesize_voice(request: VoiceSynthesizeRequest):
             translated = res.text.strip()
         buf = await asyncio.to_thread(voice_engine.synthesize_design, request.text, translated)
         return Response(content=buf.read(), media_type="audio/wav")
-    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"Voice Synthesize Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/voice/save_reference/{persona_id}")
 async def save_voice_reference(persona_id: str, request: Request):
@@ -273,14 +294,18 @@ async def save_voice_reference(persona_id: str, request: Request):
         audio = base64.b64decode(data.get("audio"))
         await asyncio.to_thread(voice_engine.save_master_wav, persona_id, audio, data.get("ref_text", ""))
         return {"status": "success"}
-    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"Save Voice Reference Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/voice/clone")
 async def clone_voice(request: VoiceCloneRequest):
     try:
         buf = await asyncio.to_thread(voice_engine.synthesize_clone, request.text, request.persona_id)
         return Response(content=buf.read(), media_type="audio/wav")
-    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"Voice Clone Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/voice/reference/{persona_id}")
 async def get_voice_reference(persona_id: str):
@@ -297,7 +322,25 @@ async def extract_memory(request: MemoryExtractRequest):
 @app.post("/alarm/script")
 async def generate_alarm_script(request: AlarmScriptRequest):
     mem_str = "\n".join([m.content for m in request.recent_memories])
-    prompt = f"Persona: {request.persona_name}. Prompt: {request.persona_prompt}. User: {request.user_call_sign}. Memories: {mem_str}. Write a warm morning alarm script."
+    prompt = f"""
+    당신은 AI 비서 페르소나 '{request.persona_name}'입니다.
+    다음 지침을 엄격히 따라 아침 기상 알람 스크립트를 작성하세요.
+
+    [페르소나 성격/지침]
+    {request.persona_prompt}
+
+    [사용자 호칭]
+    {request.user_call_sign}
+
+    [제공된 기억 및 오늘 일정 정보]
+    {mem_str}
+
+    [작성 규칙]
+    1. 반드시 제공된 '오늘 일정' 정보가 있다면 이를 언급하세요. 없는 일정을 지어내지 마세요.
+    2. 페르소나의 성격에 맞게 따뜻하고 자연스럽게 대화하듯 작성하세요.
+    3. 너무 길지 않게 3~5문장 정도로 작성하세요.
+    4. '[오늘 일정]' 이라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+    """
     res = client.models.generate_content(model=model_id, contents=prompt)
     full_text = res.text.strip()
     
@@ -322,7 +365,25 @@ async def generate_alarm_script(request: AlarmScriptRequest):
 async def generate_alarm_script_stream(request: AlarmScriptRequest):
     mem_str = "\n".join([m.content for m in request.recent_memories])
     async def event_generator():
-        prompt = f"Persona: {request.persona_name}. Prompt: {request.persona_prompt}. User: {request.user_call_sign}. Memories: {mem_str}. Write a warm morning alarm script."
+        prompt = f"""
+        당신은 AI 비서 페르소나 '{request.persona_name}'입니다.
+        다음 지침을 엄격히 따라 아침 기상 알람 스크립트를 작성하세요.
+
+        [페르소나 성격/지침]
+        {request.persona_prompt}
+
+        [사용자 호칭]
+        {request.user_call_sign}
+
+        [제공된 기억 및 오늘 일정 정보]
+        {mem_str}
+
+        [작성 규칙]
+        1. 반드시 제공된 '오늘 일정' 정보가 있다면 이를 언급하세요. 없는 일정을 지어내지 마세요.
+        2. 페르소나의 성격에 맞게 따뜻하고 자연스럽게 대화하듯 작성하세요.
+        3. 너무 길지 않게 3~5문장 정도로 작성하세요.
+        4. '[오늘 일정]' 이라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+        """
         stream = client.models.generate_content_stream(model=model_id, contents=prompt)
         for chunk in stream:
             if chunk.text: yield f"data: {chunk.text}\n\n"

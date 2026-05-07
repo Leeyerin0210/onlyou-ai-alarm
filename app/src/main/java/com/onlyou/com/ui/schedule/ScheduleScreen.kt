@@ -5,26 +5,55 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,8 +71,36 @@ fun ScheduleScreen(
     onBack: () -> Unit = {},
     onNavigateToAlarm: () -> Unit = {},
 ) {
-    val colors = MiyaTheme.colors
     val uiState by viewModel.uiState.collectAsState()
+
+    ScheduleScreenContent(
+        uiState = uiState,
+        onBack = onBack,
+        onNavigateToAlarm = onNavigateToAlarm,
+        onDeleteSchedule = { viewModel.deleteSchedule(it) },
+        onAddSchedule = { title, time, date ->
+            viewModel.addSchedule(
+                AiSchedule(
+                    id = UUID.randomUUID().toString(),
+                    date = date,
+                    startTime = time,
+                    title = title,
+                    isAlarmEnabled = false,
+                ),
+            )
+        },
+    )
+}
+
+@Composable
+fun ScheduleScreenContent(
+    uiState: ScheduleUiState,
+    onBack: () -> Unit = {},
+    onNavigateToAlarm: () -> Unit = {},
+    onDeleteSchedule: (AiSchedule) -> Unit = {},
+    onAddSchedule: (title: String, time: LocalTime, date: LocalDate) -> Unit = { _, _, _ -> },
+) {
+    val colors = MiyaTheme.colors
 
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -81,7 +138,7 @@ fun ScheduleScreen(
                 modifier = Modifier.padding(start = 4.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
-            
+
             IconButton(onClick = onNavigateToAlarm) {
                 Icon(
                     imageVector = Icons.Default.Alarm,
@@ -92,7 +149,7 @@ fun ScheduleScreen(
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -182,7 +239,7 @@ fun ScheduleScreen(
                 items(schedulesOnDate.sortedBy { it.startTime }, key = { it.id }) { schedule ->
                     ScheduleItemCard(
                         schedule = schedule,
-                        onDelete = { viewModel.deleteSchedule(schedule) },
+                        onDelete = { onDeleteSchedule(schedule) },
                     )
                 }
             }
@@ -195,15 +252,7 @@ fun ScheduleScreen(
             selectedDate = selectedDate,
             onDismiss = { showAddDialog = false },
             onConfirm = { title, time ->
-                viewModel.addSchedule(
-                    AiSchedule(
-                        id = UUID.randomUUID().toString(),
-                        date = selectedDate,
-                        startTime = time,
-                        title = title,
-                        isAlarmEnabled = false,
-                    ),
-                )
+                onAddSchedule(title, time, selectedDate)
                 showAddDialog = false
             },
         )
@@ -472,4 +521,37 @@ private fun AddScheduleDialog(
             }
         },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScheduleScreenPreview() {
+    val sampleSchedules = listOf(
+        AiSchedule(
+            id = "1",
+            date = LocalDate.now(),
+            startTime = LocalTime.of(9, 0),
+            title = "아침 운동",
+            description = "공원에서 조깅하기",
+        ),
+        AiSchedule(
+            id = "2",
+            date = LocalDate.now(),
+            startTime = LocalTime.of(14, 0),
+            title = "점심 약속",
+            description = "강남역 맛집 탐방",
+        ),
+        AiSchedule(
+            id = "3",
+            date = LocalDate.now().plusDays(1),
+            startTime = LocalTime.of(10, 0),
+            title = "프로젝트 회의",
+        )
+    )
+
+    MiyaTheme {
+        ScheduleScreenContent(
+            uiState = ScheduleUiState(schedules = sampleSchedules)
+        )
+    }
 }

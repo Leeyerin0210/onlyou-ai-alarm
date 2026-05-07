@@ -27,11 +27,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -129,7 +131,7 @@ fun AlarmEditPage(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 120.dp)
+                .padding(bottom = 20.dp)
                 .navigationBarsPadding(),
             onClick = {
                 onSave(time, personaId, title.ifEmpty { null }, repeatDays, date)
@@ -277,17 +279,45 @@ fun CustomWheelPicker(
     val itemHeightDp = 44.dp
     val visibleCount = 3
 
+    // 초기 인덱스 보정: 0번 아이템이 중앙에 오려면 스크롤 0이 되어야 함 (contentPadding이 1아이템 높이이므로)
     val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (initialIndex - 1).coerceAtLeast(0),
+        initialFirstVisibleItemIndex = initialIndex,
     )
     val snapBehavior = rememberSnapFlingBehavior(listState)
+    val currentOnItemSelected by rememberUpdatedState(onItemSelected)
 
-    // 현재 중앙 아이템 감지
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        val centerIdx = listState.firstVisibleItemIndex + 1
-        if (centerIdx in items.indices) {
-            onItemSelected(centerIdx)
+    // 중앙 인덱스 계산 로직
+    val centerIdx by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@derivedStateOf initialIndex
+
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+
+            visibleItems.minByOrNull {
+                val itemCenter = it.offset + it.size / 2
+                Math.abs(itemCenter - viewportCenter)
+            }?.index ?: initialIndex
         }
+    }
+
+    // 외부에서 초기값이 바뀔 경우(예: 시를 넘겨서 오전/오후가 바뀜) 스크롤 동기화
+    LaunchedEffect(initialIndex) {
+        if (!listState.isScrollInProgress && centerIdx != initialIndex) {
+            listState.scrollToItem(initialIndex)
+        }
+    }
+
+    // 인덱스가 실제로 변했을 때만 콜백 호출
+    LaunchedEffect(listState) {
+        snapshotFlow { centerIdx }
+            .distinctUntilChanged()
+            .collect { index ->
+                if (index in items.indices) {
+                    currentOnItemSelected(index)
+                }
+            }
     }
 
     Box(
@@ -313,7 +343,11 @@ fun CustomWheelPicker(
             contentPadding = PaddingValues(vertical = itemHeightDp),
         ) {
             itemsIndexed(items) { idx, item ->
-                val isCenterVisible = (idx == listState.firstVisibleItemIndex + 1)
+                // 각 아이템이 중앙인지 여부를 개별적으로 관찰하여 불필요한 전체 리컴포지션 방지
+                val isCentered by remember {
+                    derivedStateOf { centerIdx == idx }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -322,9 +356,9 @@ fun CustomWheelPicker(
                 ) {
                     Text(
                         text = item,
-                        fontSize = if (isCenterVisible) 22.sp else 16.sp,
-                        fontWeight = if (isCenterVisible) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isCenterVisible) colors.onSurfaceA else colors.onSurfaceA.copy(alpha = 0.35f),
+                        fontSize = if (isCentered) 22.sp else 16.sp,
+                        fontWeight = if (isCentered) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isCentered) colors.onSurfaceA else colors.onSurfaceA.copy(alpha = 0.35f),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -825,5 +859,48 @@ private fun DeleteAlarmButton(onClick: () -> Unit) {
         Icon(Icons.Default.Delete, contentDescription = null)
         Spacer(Modifier.width(8.dp))
         Text("알람 삭제")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AlarmEditPagePreview() {
+    val sampleAlarm = MiyaAlarm(
+        id = 1,
+        title = "아침 기상 알람",
+        time = LocalTime.of(8, 0),
+        repeatDays = setOf(
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY
+        )
+    )
+    val samplePersonas = listOf(
+        Persona(
+            id = "1",
+            name = "다정한 루시",
+            prompt = "",
+            description = "다정하게 깨워주는 페르소나",
+            imageUrl = null
+        ),
+        Persona(
+            id = "2",
+            name = "츤데레 메이",
+            prompt = "",
+            description = "조금 까칠하게 깨워주는 페르소나",
+            imageUrl = null
+        )
+    )
+    MiyaTheme {
+        Surface(color = MiyaTheme.colors.background) {
+            AlarmEditPage(
+                alarm = sampleAlarm,
+                personas = samplePersonas,
+                onSave = { _, _, _, _, _ -> },
+                onDelete = {}
+            )
+        }
     }
 }
