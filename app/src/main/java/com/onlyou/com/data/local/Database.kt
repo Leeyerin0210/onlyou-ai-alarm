@@ -55,9 +55,6 @@ interface PersonaDao {
     @Query("SELECT * FROM personas")
     suspend fun getAllPersonasOnce(): List<PersonaEntity>
 
-    @Query("SELECT * FROM personas WHERE isPurchased = 1")
-    fun getPurchasedPersonas(): Flow<List<PersonaEntity>>
-
     @Query("SELECT * FROM personas WHERE isSelected = 1 LIMIT 1")
     fun getSelectedPersona(): Flow<PersonaEntity?>
 
@@ -129,7 +126,7 @@ interface AlarmVoiceChunkDao {
         ChatMessageEntity::class,
         AlarmVoiceChunkEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)

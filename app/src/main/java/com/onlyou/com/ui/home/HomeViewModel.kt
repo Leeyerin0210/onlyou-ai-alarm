@@ -28,13 +28,10 @@ class HomeViewModel
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true) }
 
-                // 구매한 퍼소나와 전체 퍼소나를 동시에 관찰
-                combine(
-                    personaRepository.getPurchasedPersonas(),
-                    personaRepository.getAllPersonas(),
-                ) { purchased, all ->
+                // 전체 퍼소나를 관찰 (이제 모든 퍼소나가 기본적으로 활성 상태)
+                personaRepository.getAllPersonas().map { all ->
                     HomeUiState(
-                        activeChats = purchased,
+                        activeChats = all,
                         allPersonas = all,
                         isLoading = false,
                     )

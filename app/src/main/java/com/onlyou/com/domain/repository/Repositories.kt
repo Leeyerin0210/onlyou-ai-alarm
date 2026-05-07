@@ -41,8 +41,6 @@ interface ScheduleRepository {
 interface PersonaRepository {
     fun getAllPersonas(): Flow<List<Persona>>
 
-    fun getPurchasedPersonas(): Flow<List<Persona>>
-
     fun getSelectedPersona(): Flow<Persona?>
 
     suspend fun syncPersonas() // Firebase와 로컬 DB 동기화

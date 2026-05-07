@@ -51,6 +51,15 @@ class ShopViewModel
                 }
             }
 
+            // 원격 데이터 동기화
+            viewModelScope.launch {
+                try {
+                    personaRepository.syncPersonas()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             viewModelScope.launch {
                 personaRepository.getAllPersonas().collectLatest { allPersonas ->
                     _uiState.update { state ->
@@ -133,12 +142,6 @@ class ShopViewModel
             super.onCleared()
             mediaPlayer?.release()
             mediaPlayer = null
-        }
-
-        fun purchasePersona(persona: Persona) {
-            viewModelScope.launch {
-                personaRepository.updatePersona(persona.copy(isPurchased = true))
-            }
         }
 
         fun clearChatHistory() {

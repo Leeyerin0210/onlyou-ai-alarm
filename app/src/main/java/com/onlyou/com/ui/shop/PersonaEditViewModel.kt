@@ -43,7 +43,6 @@ class PersonaEditViewModel @Inject constructor(
                         description = "",
                         voicePrompt = "다정하고 친절한 어조로",
                         userCallSign = "주인님",
-                        isPurchased = true,
                         isSelected = false
                     )
                 )

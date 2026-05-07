@@ -50,7 +50,7 @@ import java.util.Locale
 @Composable
 fun AlarmEditPage(
     alarm: MiyaAlarm,
-    purchasedPersonas: List<Persona>,
+    personas: List<Persona>,
     onSave: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
@@ -114,7 +114,7 @@ fun AlarmEditPage(
             )
 
             AlarmPersonaSection(
-                purchasedPersonas = purchasedPersonas,
+                personas = personas,
                 selectedPersonaId = personaId,
                 onOpenSelection = { showPersonaSelection = true },
             )
@@ -139,7 +139,7 @@ fun AlarmEditPage(
 
         if (showPersonaSelection) {
             PersonaSelectionPage(
-                purchasedPersonas = purchasedPersonas,
+                personas = personas,
                 selectedPersonaId = personaId,
                 onPersonaSelected = {
                     personaId = it
@@ -612,12 +612,12 @@ private fun CalendarDayCell(
 
 @Composable
 private fun AlarmPersonaSection(
-    purchasedPersonas: List<Persona>,
+    personas: List<Persona>,
     selectedPersonaId: String,
     onOpenSelection: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
-    val selectedPersona = purchasedPersonas.find { it.id == selectedPersonaId }
+    val selectedPersona = personas.find { it.id == selectedPersonaId }
     val selectedName = selectedPersona?.name ?: "페르소나를 선택하세요"
 
     AlarmEditSectionCard(modifier = Modifier.clickable { onOpenSelection() }) {
@@ -658,7 +658,7 @@ private fun AlarmPersonaSection(
 
 @Composable
 fun PersonaSelectionPage(
-    purchasedPersonas: List<Persona>,
+    personas: List<Persona>,
     selectedPersonaId: String,
     onPersonaSelected: (String) -> Unit,
     onClose: () -> Unit,
@@ -692,7 +692,7 @@ fun PersonaSelectionPage(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(purchasedPersonas) { persona ->
+                items(personas) { persona ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier

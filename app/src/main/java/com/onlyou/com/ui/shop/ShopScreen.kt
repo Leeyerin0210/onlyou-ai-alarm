@@ -118,7 +118,6 @@ fun ShopScreen(
                     persona = uiState.selectedPersona!!,
                     isPlaying = uiState.isPlaying,
                     isBuffering = uiState.isBuffering,
-                    onPurchase = { viewModel.purchasePersona(it) },
                     onSetCurrent = {
                         viewModel.setCurrentPersona(it)
                         viewModel.selectPersona(null)
@@ -173,7 +172,6 @@ fun PersonaDetailSheetContent(
     persona: Persona,
     isPlaying: Boolean,
     isBuffering: Boolean,
-    onPurchase: (Persona) -> Unit,
     onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String, String?) -> Unit,
     onDeleteHistory: () -> Unit,
@@ -267,13 +265,13 @@ fun PersonaDetailSheetContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { if (persona.isPurchased) onSetCurrent(persona) else onPurchase(persona) },
+            onClick = { onSetCurrent(persona) },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
             shape = RoundedCornerShape(50),
             enabled = !persona.isSelected,
         ) {
-            Text(text = if (persona.isPurchased) (if (persona.isSelected) "현재 비서" else "비서로 설정") else "구매하기", fontWeight = FontWeight.Bold)
+            Text(text = if (persona.isSelected) "현재 비서" else "비서로 설정", fontWeight = FontWeight.Bold)
         }
     }
 }

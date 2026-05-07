@@ -22,9 +22,6 @@ class PersonaRepositoryImpl
     ) : PersonaRepository {
         override fun getAllPersonas(): Flow<List<Persona>> = personaDao.getAllPersonas().map { entities -> entities.map { it.toDomain() } }
 
-        override fun getPurchasedPersonas(): Flow<List<Persona>> =
-            personaDao.getPurchasedPersonas().map { entities -> entities.map { it.toDomain() } }
-
         override fun getSelectedPersona(): Flow<Persona?> =
             personaDao
                 .getSelectedPersona()
@@ -62,30 +59,39 @@ class PersonaRepositoryImpl
                 }
 
                 val remotePersonas = personaSnapshots.documents.mapNotNull { doc ->
-                    // ... (기존 매핑 로직)
-                    val id = doc.getString("id") ?: return@mapNotNull null
-                    val themeColors = doc.get("themeColors") as? Map<String, String>
+                    // id 필드가 없으면 문서 ID를 기본값으로 사용
+                    val id = doc.getString("id") ?: doc.id
+                    val themeColorsMap = doc.get("themeColors") as? Map<*, *>
 
-                    PersonaEntity(
-                        id = id,
-                        name = doc.getString("name") ?: "Unknown",
-                        prompt = doc.getString("prompt") ?: "",
-                        description = doc.getString("description") ?: "",
-                        voiceTone = (doc.get("voiceTone") as? Number)?.toFloat() ?: 1.0f,
-                        voiceSpeed = (doc.get("voiceSpeed") as? Number)?.toFloat() ?: 1.0f,
-                        voicePrompt = doc.getString("voicePrompt") ?: "다정하고 친절한 어조로",
-                        userCallSign = doc.getString("userCallSign") ?: "주인님",
-                        imageUrl = doc.getString("imageUrl"),
-                        primaryHex = themeColors?.get("primaryHex") ?: doc.getString("primaryHex"),
-                        secondaryHex = themeColors?.get("secondaryHex") ?: doc.getString("secondaryHex"),
-                        isPurchased = false,
-                        isSelected = false,
-                    )
+                    try {
+                        PersonaEntity(
+                            id = id,
+                            name = doc.getString("name") ?: "Unknown",
+                            prompt = doc.getString("prompt") ?: "",
+                            description = doc.getString("description") ?: "",
+                            voiceTone = (doc.get("voiceTone") as? Number)?.toFloat() ?: 1.0f,
+                            voiceSpeed = (doc.get("voiceSpeed") as? Number)?.toFloat() ?: 1.0f,
+                            voicePrompt = doc.getString("voicePrompt") ?: "다정하고 친절한 어조로",
+                            userCallSign = doc.getString("userCallSign") ?: "주인님",
+                            imageUrl = doc.getString("imageUrl"),
+                            primaryHex = (themeColorsMap?.get("primaryHex") as? String) ?: doc.getString("primaryHex"),
+                            secondaryHex = (themeColorsMap?.get("secondaryHex") as? String) ?: doc.getString("secondaryHex"),
+                            isSelected = false,
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        null
+                    }
                 }
 
-                // 2. 유저 정보 (구매/선택) 가져오기
+                if (remotePersonas.isEmpty()) {
+                    insertDefaultPersonas()
+                    return
+                }
+
+                // 2. 유저 정보 (선택된 비서) 가져오기
                 val uid = auth.currentUser?.uid
-                val (purchasedIds, selectedId) =
+                val selectedId =
                     if (uid != null) {
                         val userDoc = try {
                             kotlinx.coroutines.withTimeout(3000L) {
@@ -98,17 +104,14 @@ class PersonaRepositoryImpl
                         } catch (e: Exception) {
                             null
                         }
-                        val purchased = userDoc?.get("purchasedPersonaIds") as? List<String> ?: emptyList()
-                        val selected = userDoc?.getString("selectedPersonaId")
-                        Pair(purchased, selected)
+                        userDoc?.getString("selectedPersonaId")
                     } else {
-                        Pair(emptyList(), null)
+                        null
                     }
 
                 // 3. 로컬 DB 업데이트
                 remotePersonas.forEach { entity ->
                     val updatedEntity = entity.copy(
-                        isPurchased = purchasedIds.contains(entity.id),
                         isSelected = entity.id == selectedId,
                     )
                     personaDao.upsertPersona(updatedEntity)
@@ -131,10 +134,9 @@ class PersonaRepositoryImpl
                     voiceSpeed = 1.0f,
                     voicePrompt = "다정하고 친절한 어조로",
                     userCallSign = "주인님",
-                    imageUrl = "https://example.com/miya_thumb.png", // 실제 사용 가능한 이미지 URL로 대체 가능
+                    imageUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200",
                     primaryHex = "#FFB7C5",
                     secondaryHex = "#FFF0F5",
-                    isPurchased = true,
                     isSelected = true,
                 )
                 personaDao.upsertPersona(defaultMiya)
@@ -182,7 +184,6 @@ class PersonaRepositoryImpl
                 voiceSpeed = voiceSpeed,
                 voicePrompt = voicePrompt,
                 userCallSign = userCallSign,
-                isPurchased = isPurchased,
                 isSelected = isSelected,
                 imageUrl = imageUrl,
                 themeColors = if (primaryHex != null && secondaryHex != null) {
@@ -220,7 +221,6 @@ class PersonaRepositoryImpl
                 voiceSpeed = voiceSpeed,
                 voicePrompt = voicePrompt,
                 userCallSign = userCallSign,
-                isPurchased = isPurchased,
                 isSelected = isSelected,
                 imageUrl = imageUrl,
                 primaryHex = themeColors?.primaryHex,

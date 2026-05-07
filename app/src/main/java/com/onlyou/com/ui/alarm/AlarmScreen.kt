@@ -37,7 +37,7 @@ fun AlarmScreen(
     onBack: () -> Unit = {},
 ) {
     val singleAlarm by viewModel.singleAlarm.collectAsState()
-    val purchasedPersonas by viewModel.purchasedPersonas.collectAsState()
+    val personas by viewModel.personas.collectAsState()
     val colors = MiyaTheme.colors
     val context = LocalContext.current
 
@@ -82,7 +82,7 @@ fun AlarmScreen(
             if (singleAlarm != null) {
                 AlarmEditPage(
                     alarm = singleAlarm!!,
-                    purchasedPersonas = purchasedPersonas,
+                    personas = personas,
                     onSave = { ti, pi, t, rd, d -> viewModel.saveAlarm(ti, pi, t, rd, d) },
                     onDelete = null,
                 )

@@ -71,7 +71,6 @@ data class Persona(
     val voiceSpeed: Float = 1.0f,
     val voicePrompt: String = "다정하고 친절한 어조로",
     val userCallSign: String = "주인님",
-    val isPurchased: Boolean = false,
     val isSelected: Boolean = false,
     val themeColors: StreamerTheme? = null,
     val imageUrl: String? = null,

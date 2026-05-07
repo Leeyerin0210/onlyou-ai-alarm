@@ -30,8 +30,8 @@ class AlarmViewModel
         private val _singleAlarm = MutableStateFlow<MiyaAlarm?>(null)
         val singleAlarm: StateFlow<MiyaAlarm?> = _singleAlarm.asStateFlow()
 
-        val purchasedPersonas: StateFlow<List<Persona>> = personaRepository
-            .getPurchasedPersonas()
+        val personas: StateFlow<List<Persona>> = personaRepository
+            .getAllPersonas()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         init {
