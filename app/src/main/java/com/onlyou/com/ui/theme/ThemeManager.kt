@@ -12,7 +12,7 @@ import javax.inject.Singleton
 
 /**
  * 앱 전체 테마(색상 + 폰트)를 관리하는 싱글톤 매니저.
- * 동적 테마 시스템이 제거되었으며, 고정된 우주 테마(Space Theme)를 제공합니다.
+ * 동적 테마 시스템이 제거되었으며, 고정된 골드 & 화이트 테마(Gold & White Theme)를 제공합니다.
  */
 @Singleton
 class ThemeManager
@@ -20,11 +20,11 @@ class ThemeManager
     constructor(
         @ApplicationContext private val context: Context,
     ) {
-        // 고정된 우주 테마 색상 사용
-        private val _currentLightColors = MutableStateFlow(SpaceColors)
+        // 고정된 골드 & 화이트 테마 색상 사용
+        private val _currentLightColors = MutableStateFlow(GoldColors)
         val currentLightColors: StateFlow<MiyaColors> = _currentLightColors.asStateFlow()
 
-        private val _currentDarkColors = MutableStateFlow(SpaceColors)
+        private val _currentDarkColors = MutableStateFlow(GoldColors)
         val currentDarkColors: StateFlow<MiyaColors> = _currentDarkColors.asStateFlow()
 
         private val _currentFontType = MutableStateFlow(MiyaFontType.DEFAULT)

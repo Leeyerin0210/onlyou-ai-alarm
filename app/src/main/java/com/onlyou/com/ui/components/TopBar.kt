@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyou.com.ui.theme.MiyaTheme
@@ -35,22 +36,13 @@ fun TopBar(
     onSetting: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
-    // 홈 화면일 때는 이미지 위이므로 가독성을 위해 흰색 계열을, 다른 화면은 테마색 사용
-    val contentColor = if (currentScreen == "home") Color.White else colors.primary
+    // 모든 화면에서 테마의 Primary 또는 OnSurface 색상 사용
+    val contentColor = colors.onSurfaceA
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            // 상단 그라데이션 스크림 (가독성 확보)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.4f),
-                        Color.Black.copy(alpha = 0.1f),
-                        Color.Transparent,
-                    ),
-                ),
-            ).statusBarsPadding()
+            .statusBarsPadding()
             .height(90.dp)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
@@ -62,16 +54,17 @@ fun TopBar(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     onClick = onBack,
-                    tint = colors.secondary,
+                    tint = colors.primary,
                 )
             }
         }
 
-        // 2. 중앙 제목
+        // 2. 중앙 제목 (전달된 title 표시)
         Text(
-            text = "",
-            style = MaterialTheme.typography.headlineMedium,
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
             color = contentColor,
+            fontWeight = FontWeight.Bold
         )
 
         Box(modifier = Modifier.align(Alignment.CenterEnd)) {
@@ -79,7 +72,7 @@ fun TopBar(
                 icon = Icons.Default.Settings,
                 contentDescription = "setting",
                 onClick = onSetting,
-                tint = colors.secondary,
+                tint = colors.primary,
             )
         }
     }
@@ -87,6 +80,7 @@ fun TopBar(
 
 /**
  * 배경 동그라미는 크게, 아이콘은 작게 보여주는 커스텀 아이콘 버튼입니다.
+ * 테마에 맞춰 배경색과 테두리를 조정했습니다.
  */
 @Composable
 fun GothicIconButton(
@@ -96,12 +90,13 @@ fun GothicIconButton(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
+    val colors = MiyaTheme.colors
     Box(
         modifier = modifier
-            .size(60.dp)
+            .size(48.dp) // 크기 약간 조정
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.5f))
-            .border(1.dp, Color.White.copy(alpha = 1f), CircleShape)
+            .background(colors.surfaceB)
+            .border(1.dp, colors.primary.copy(alpha = 0.5f), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -109,7 +104,7 @@ fun GothicIconButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(24.dp),
         )
     }
 }
