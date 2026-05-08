@@ -10,8 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,11 +29,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Widgets
@@ -65,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -73,7 +73,6 @@ import com.onlyou.com.domain.model.MessageSender
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
@@ -83,6 +82,30 @@ fun ChatScreen(
     onNavigateToShop: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    ChatScreenContent(
+        uiState = uiState,
+        onNavigateToSettings = onNavigateToSettings,
+        onNavigateToSchedule = onNavigateToSchedule,
+        onNavigateToAlarm = onNavigateToAlarm,
+        onNavigateToShop = onNavigateToShop,
+        onCancelSchedule = viewModel::cancelSchedule,
+        onInputTextChange = viewModel::onInputTextChange,
+        onSendMessage = viewModel::sendMessage
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreenContent(
+    uiState: ChatUiState,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToSchedule: () -> Unit,
+    onNavigateToAlarm: () -> Unit,
+    onNavigateToShop: () -> Unit,
+    onCancelSchedule: () -> Unit,
+    onInputTextChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+) {
     val colors = MiyaTheme.colors
     val persona = uiState.persona
     var menuExpanded by remember { mutableStateOf(false) }
@@ -165,7 +188,13 @@ fun ChatScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = colors.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = colors.background,
+                    scrolledContainerColor = Color.Unspecified,
+                    navigationIconContentColor = Color.Unspecified,
+                    titleContentColor = Color.Unspecified,
+                    actionIconContentColor = Color.Unspecified,
+                ),
             )
         },
         bottomBar = {
@@ -178,14 +207,14 @@ fun ChatScreen(
                     uiState.pendingSchedule?.let { schedule ->
                         ScheduleNotificationBar(
                             scheduleTitle = schedule.title,
-                            onCancel = viewModel::cancelSchedule,
+                            onCancel = onCancelSchedule,
                         )
                     }
                 }
                 ChatInputSection(
                     text = uiState.inputText,
-                    onTextChange = viewModel::onInputTextChange,
-                    onSend = viewModel::sendMessage,
+                    onTextChange = onInputTextChange,
+                    onSend = onSendMessage,
                 )
             }
         },
@@ -364,7 +393,7 @@ fun ChatInputSection(
                     .background(if (text.isNotBlank()) colors.primary else colors.neutral),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send",
                     tint = colors.background,
                 )
@@ -418,5 +447,51 @@ fun ScheduleNotificationBar(
                 fontWeight = FontWeight.Bold,
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScheduleNotificationBarPreview() {
+    MiyaTheme {
+        ScheduleNotificationBar(
+            scheduleTitle = "점심 약속",
+            onCancel = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChatScreenPreview() {
+    val samplePersona = Persona(
+        id = "1",
+        name = "미야",
+        prompt = "",
+        description = "테스트 페르소나",
+        imageUrl = null
+    )
+    val sampleMessages = listOf(
+        ChatMessage(text = "안녕하세요!", sender = MessageSender.AI),
+        ChatMessage(text = "안녕!", sender = MessageSender.USER),
+        ChatMessage(text = "오늘 일정을 확인해드릴까요?", sender = MessageSender.AI),
+    )
+    val uiState = ChatUiState(
+        persona = samplePersona,
+        messages = sampleMessages,
+        inputText = "오늘 날씨 어때?"
+    )
+
+    MiyaTheme {
+        ChatScreenContent(
+            uiState = uiState,
+            onNavigateToSettings = {},
+            onNavigateToSchedule = {},
+            onNavigateToAlarm = {},
+            onNavigateToShop = {},
+            onCancelSchedule = {},
+            onInputTextChange = {},
+            onSendMessage = {}
+        )
     }
 }
