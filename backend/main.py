@@ -231,7 +231,20 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             # 일정 추출
             parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
             date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
-            sched_prompt = f"오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'. 일정이 있다면 JSON {{\"title\": \"...\", \"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}} 형식으로 추출, 없으면 None."
+            sched_prompt = f"""
+            오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'.
+            유저의 메시지가 일정을 생성하거나 반복적인 루틴을 다짐하는 내용이라면 JSON으로 추출하세요.
+            규칙:
+            1. 구체적인 시간이 없으면 "time"은 null로 하세요.
+            2. "오전", "오후", "저녁" 등 대략적인 시간대라면 "timeHint"에 적으세요. 없으면 null.
+            3. "앞으로 계속", "매일", "매주" 등의 반복 일정이라면 "repeatDays"에 반복할 요일을 영문 대문자 3자리 리스트로 적으세요(예: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]). 
+               반복 일정이 아니라면 빈 리스트 []를 적으세요.
+            4. 반복 일정인 경우 "date"는 오늘 날짜({current_date_str})를 기준으로 시작일로 설정하세요.
+
+            포맷:
+            {{"title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" 또는 null, "timeHint": "...", "repeatDays": [...]}}
+            일정이 아니면 None을 반환하세요.
+            """
             sched_res = client.models.generate_content(model=model_id, contents=sched_prompt)
             if "{" in sched_res.text:
                 s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
