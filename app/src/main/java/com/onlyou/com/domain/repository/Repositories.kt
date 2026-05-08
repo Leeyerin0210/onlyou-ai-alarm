@@ -2,6 +2,7 @@ package com.onlyou.com.domain.repository
 
 import com.onlyou.com.domain.model.AiSchedule
 import com.onlyou.com.domain.model.AlarmVoiceChunk
+import com.onlyou.com.domain.model.ChatEvent
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.Memory
 import com.onlyou.com.domain.model.MiyaAlarm
@@ -53,8 +54,6 @@ interface PersonaRepository {
 
     suspend fun upsertPersona(persona: Persona)
 }
-
-import com.onlyou.com.domain.model.ChatEvent
 
 /**
  * AI 채팅 기록 관리
@@ -109,7 +108,7 @@ interface VoiceRepository {
     suspend fun saveReferenceVoice(
         personaId: String,
         audioData: ByteArray,
-        refText: String
+        refText: String,
     ): Boolean
 
     /**
@@ -125,7 +124,10 @@ interface VoiceRepository {
     /**
      * 알람이 울리기 전 보이스를 미리 생성하여 캐시함
      */
-    suspend fun preGenerateAlarmVoice(alarmId: Int, persona: Persona): Boolean
+    suspend fun preGenerateAlarmVoice(
+        alarmId: Int,
+        persona: Persona,
+    ): Boolean
 
     /**
      * 캐시된 알람 보이스 청크들을 가져옴
