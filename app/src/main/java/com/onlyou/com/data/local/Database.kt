@@ -126,7 +126,7 @@ interface AlarmVoiceChunkDao {
         ChatMessageEntity::class,
         AlarmVoiceChunkEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 @TypeConverters(MiyaTypeConverters::class)
