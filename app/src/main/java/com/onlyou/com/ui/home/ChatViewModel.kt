@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.onlyou.com.domain.model.ChatEvent
+import kotlinx.coroutines.delay
+
 data class ChatUiState(
     val persona: Persona? = null,
     val messages: List<ChatMessage> = emptyList(),
@@ -21,6 +24,7 @@ data class ChatUiState(
     val inputText: String = "",
     // 스트리밍 중인 AI 응답 텍스트 (null이면 스트리밍 아님)
     val streamingText: String? = null,
+    val pendingSchedule: com.onlyou.com.domain.model.AiSchedule? = null,
 )
 
 @HiltViewModel
@@ -29,6 +33,7 @@ class ChatViewModel
     constructor(
         private val chatRepository: ChatRepository,
         private val personaRepository: com.onlyou.com.domain.repository.PersonaRepository,
+        private val scheduleRepository: com.onlyou.com.domain.repository.ScheduleRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ChatUiState())
         val uiState: StateFlow<ChatUiState> = _uiState
@@ -66,20 +71,41 @@ class ChatViewModel
             val userMsg = ChatMessage(text = text, sender = MessageSender.USER)
 
             viewModelScope.launch {
-                _uiState.update { it.copy(inputText = "", isAiTyping = true, streamingText = null) }
+                _uiState.update { it.copy(inputText = "", isAiTyping = true, streamingText = null, pendingSchedule = null) }
 
-                chatRepository.sendMessage(userMsg, persona).collect { streamedSoFar ->
-                    // 스트리밍 중: streamingText만 업데이트 (messages는 DB 감시에 맡김)
-                    _uiState.update { state ->
-                        state.copy(
-                            isAiTyping = false,
-                            streamingText = streamedSoFar,
-                        )
+                chatRepository.sendMessage(userMsg, persona).collect { event ->
+                    when (event) {
+                        is ChatEvent.TextChunk -> {
+                            _uiState.update { state ->
+                                state.copy(
+                                    isAiTyping = false,
+                                    streamingText = event.text,
+                                )
+                            }
+                        }
+                        is ChatEvent.ScheduleCreated -> {
+                            _uiState.update { it.copy(pendingSchedule = event.schedule) }
+                            // 5초 후 자동으로 알림 사라짐
+                            viewModelScope.launch {
+                                delay(5000)
+                                if (_uiState.value.pendingSchedule == event.schedule) {
+                                    _uiState.update { it.copy(pendingSchedule = null) }
+                                }
+                            }
+                        }
                     }
                 }
 
                 // 스트리밍 완료: DB에 저장되어 messages에 반영되므로 streamingText 초기화
                 _uiState.update { it.copy(streamingText = null) }
+            }
+        }
+
+        fun cancelSchedule() {
+            val schedule = _uiState.value.pendingSchedule ?: return
+            viewModelScope.launch {
+                scheduleRepository.deleteSchedule(schedule)
+                _uiState.update { it.copy(pendingSchedule = null) }
             }
         }
     }
