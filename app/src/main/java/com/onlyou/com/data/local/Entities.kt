@@ -32,8 +32,10 @@ data class DDayEntity(
 @Entity(tableName = "ai_schedules")
 data class AiScheduleEntity(
     @PrimaryKey val id: String,
-    val date: LocalDate,
-    val startTime: LocalTime,
+    val date: LocalDate?,
+    val startTime: LocalTime?,
+    val timeHint: String?,
+    val repeatDays: Set<DayOfWeek>,
     val title: String,
     val description: String?,
     val isAlarmEnabled: Boolean,
