@@ -5,6 +5,7 @@ import com.onlyou.com.data.local.ChatMessageEntity
 import com.onlyou.com.data.remote.ChatMessageDto
 import com.onlyou.com.data.remote.ChatRequestDto
 import com.onlyou.com.data.remote.MiyaApiService
+import com.onlyou.com.domain.model.ChatEvent
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.MemoryType
 import com.onlyou.com.domain.model.MessageSender
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
@@ -36,8 +38,6 @@ class ChatRepositoryImpl
         override fun getChatMessages(): Flow<List<ChatMessage>> =
             chatDao.getChatMessages().map { entities -> entities.map { it.toDomain() } }
 
-import com.onlyou.com.domain.model.ChatEvent
-...
         override fun sendMessage(
             message: ChatMessage,
             persona: Persona,
@@ -73,7 +73,8 @@ import com.onlyou.com.domain.model.ChatEvent
 
                     try {
                         val shortConstraint = "\n\n[Constraint: 항상 한 문단 이내로 짧게 대화하듯이]"
-                        val systemPrompt = (persona.prompt ?: "당신은 상냥한 AI 파트너입니다.") + userNoteConstraint + shortConstraint
+                        val timeConstraint = "\n\n[Constraint: 사용자가 일정이나 계획을 말할 때 구체적인 시간(몇 시)이나 날짜를 언급하지 않더라도 굳이 정확한 시간을 캐묻지 말고, 대화의 흐름을 자연스럽게 이어가세요.]"
+                        val systemPrompt = (persona.prompt ?: "당신은 상냥한 AI 파트너입니다.") + userNoteConstraint + shortConstraint + timeConstraint
 
                         val historyEntities = chatDao
                             .getChatMessages()
@@ -111,20 +112,29 @@ import com.onlyou.com.domain.model.ChatEvent
                                                 val schedData = gson.fromJson(jsonStr, Map::class.java)
                                                 val title = schedData["title"]?.toString() ?: "새로운 일정"
                                                 val dateStr = schedData["date"]?.toString() ?: ""
-                                                val timeStr = schedData["time"]?.toString() ?: "00:00"
+                                                val timeStr = schedData["time"]?.toString()
+                                                val timeHint = schedData["timeHint"]?.toString()
+                                                
+                                                val repeatDaysRaw = schedData["repeatDays"] as? List<*>
+                                                val repeatDays = repeatDaysRaw?.mapNotNull { 
+                                                    try { DayOfWeek.valueOf(it.toString()) } catch (e: Exception) { null }
+                                                }?.toSet() ?: emptySet()
 
-                                                if (dateStr.isNotBlank()) {
-                                                    val parsedDate = LocalDate.parse(dateStr)
-                                                    val parsedTime = try {
-                                                        LocalTime.parse(timeStr)
-                                                    } catch (e: Exception) {
-                                                        LocalTime.MIDNIGHT
-                                                    }
+                                                val parsedDate = if (dateStr.isNotBlank()) {
+                                                    try { LocalDate.parse(dateStr) } catch(e: Exception) { null }
+                                                } else { null }
 
+                                                val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null") {
+                                                    try { LocalTime.parse(timeStr) } catch (e: Exception) { null }
+                                                } else { null }
+
+                                                if (parsedDate != null || repeatDays.isNotEmpty()) {
                                                     val newSchedule = com.onlyou.com.domain.model.AiSchedule(
                                                         title = title,
                                                         date = parsedDate,
                                                         startTime = parsedTime,
+                                                        timeHint = timeHint,
+                                                        repeatDays = repeatDays,
                                                         description = "AI가 대화 중 자동으로 등록한 일정입니다.",
                                                     )
                                                     scheduleRepository.insertSchedule(newSchedule)
