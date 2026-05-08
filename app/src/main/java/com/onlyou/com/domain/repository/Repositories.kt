@@ -54,6 +54,8 @@ interface PersonaRepository {
     suspend fun upsertPersona(persona: Persona)
 }
 
+import com.onlyou.com.domain.model.ChatEvent
+
 /**
  * AI 채팅 기록 관리
  */
@@ -63,7 +65,7 @@ interface ChatRepository {
     fun sendMessage(
         message: ChatMessage,
         persona: Persona,
-    ): Flow<String>
+    ): Flow<ChatEvent>
 
     suspend fun clearHistory()
 }

@@ -36,10 +36,12 @@ class ChatRepositoryImpl
         override fun getChatMessages(): Flow<List<ChatMessage>> =
             chatDao.getChatMessages().map { entities -> entities.map { it.toDomain() } }
 
+import com.onlyou.com.domain.model.ChatEvent
+...
         override fun sendMessage(
             message: ChatMessage,
             persona: Persona,
-        ): Flow<String> =
+        ): Flow<ChatEvent> =
             kotlinx.coroutines.flow
                 .flow {
                     // 1. 유저 메시지 저장
@@ -119,14 +121,14 @@ class ChatRepositoryImpl
                                                         LocalTime.MIDNIGHT
                                                     }
 
-                                                    scheduleRepository.insertSchedule(
-                                                        com.onlyou.com.domain.model.AiSchedule(
-                                                            title = title,
-                                                            date = parsedDate,
-                                                            startTime = parsedTime,
-                                                            description = "AI가 대화 중 자동으로 등록한 일정입니다.",
-                                                        ),
+                                                    val newSchedule = com.onlyou.com.domain.model.AiSchedule(
+                                                        title = title,
+                                                        date = parsedDate,
+                                                        startTime = parsedTime,
+                                                        description = "AI가 대화 중 자동으로 등록한 일정입니다.",
                                                     )
+                                                    scheduleRepository.insertSchedule(newSchedule)
+                                                    emit(ChatEvent.ScheduleCreated(newSchedule))
                                                 }
                                             } catch (e: Exception) {
                                                 android.util.Log.e("ChatRepo", "Schedule parsing or insertion error", e)
@@ -140,7 +142,7 @@ class ChatRepositoryImpl
                                         }
 
                                         fullAiText += dataStr
-                                        emit(fullAiText)
+                                        emit(ChatEvent.TextChunk(fullAiText))
                                     }
                                 }
                             }
@@ -160,7 +162,7 @@ class ChatRepositoryImpl
                             e.message?.contains("API_KEY_INVALID") == true -> "API 키가 유효하지 않습니다."
                             else -> "연결이 원활하지 않아요. 인터넷 상태를 확인하거나 잠시 후 다시 시도해 주세요."
                         }
-                        emit(errorMessage)
+                        emit(ChatEvent.TextChunk(errorMessage))
                         chatDao.insertMessage(
                             ChatMessage(text = errorMessage, sender = MessageSender.AI).toEntity(),
                         )
