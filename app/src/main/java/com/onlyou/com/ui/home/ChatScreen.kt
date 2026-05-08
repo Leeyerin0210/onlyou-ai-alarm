@@ -1,5 +1,11 @@
 package com.onlyou.com.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
@@ -162,11 +169,25 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            ChatInputSection(
-                text = uiState.inputText,
-                onTextChange = viewModel::onInputTextChange,
-                onSend = viewModel::sendMessage,
-            )
+            Column {
+                AnimatedVisibility(
+                    visible = uiState.pendingSchedule != null,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                ) {
+                    uiState.pendingSchedule?.let { schedule ->
+                        ScheduleNotificationBar(
+                            scheduleTitle = schedule.title,
+                            onCancel = viewModel::cancelSchedule,
+                        )
+                    }
+                }
+                ChatInputSection(
+                    text = uiState.inputText,
+                    onTextChange = viewModel::onInputTextChange,
+                    onSend = viewModel::sendMessage,
+                )
+            }
         },
         containerColor = colors.background,
     ) { paddingValues ->
@@ -348,6 +369,54 @@ fun ChatInputSection(
                     tint = colors.background,
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun ScheduleNotificationBar(
+    scheduleTitle: String,
+    onCancel: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        color = colors.surfaceA.copy(alpha = 0.9f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.2f)),
+        tonalElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Icon(
+                    imageVector = Icons.Default.CalendarToday,
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "일정이 등록되었습니다: $scheduleTitle",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceA,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            Text(
+                text = "취소",
+                modifier = Modifier
+                    .clickable(onClick = onCancel)
+                    .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                color = colors.primary,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
