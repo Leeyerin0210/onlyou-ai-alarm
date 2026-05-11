@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity() {
                                 screen == "shop" -> {
                                     // 페르소나를 교체하는 '상점/에이전트 선택' 화면
                                     ShopScreen(
-                                        onBack = { currentScreen = "settings" },
+                                        onBack = { currentScreen = "chat" },
                                         onNavigateToEdit = { id ->
                                             currentScreen = "persona_edit/$id"
                                         }
@@ -185,22 +185,8 @@ class MainActivity : ComponentActivity() {
                                     val scope = rememberCoroutineScope()
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("Settings", style = typography.labelLarge, color = colors.primary)
-                                            Spacer(modifier = Modifier.height(32.dp))
-
-                                            // 상점 가기 버튼
-                                            Button(
-                                                onClick = { currentScreen = "shop" },
-                                                modifier = Modifier.fillMaxWidth(0.7f).height(56.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceA),
-                                                shape = RoundedCornerShape(16.dp),
-                                            ) {
-                                                Icon(Icons.Default.Storefront, contentDescription = null, tint = colors.primary)
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("비서 상점 (Persona Shop)", color = colors.onSurfaceA)
-                                            }
-
-                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text("설정 (Settings)", style = typography.titleLarge, color = colors.primary)
+                                            Spacer(modifier = Modifier.height(48.dp))
 
                                             Button(
                                                 onClick = {
@@ -213,13 +199,13 @@ class MainActivity : ComponentActivity() {
                                                 colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                                                 shape = RoundedCornerShape(16.dp),
                                             ) {
-                                                Text("Sign Out", color = colors.onSurfaceB)
+                                                Text("로그아웃 (Sign Out)", color = colors.onSurfaceB)
                                             }
 
-                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Spacer(modifier = Modifier.height(24.dp))
 
                                             TextButton(onClick = { currentScreen = "chat" }) {
-                                                Text("Back to Chat", color = colors.neutral)
+                                                Text("대화로 돌아가기", color = colors.neutral)
                                             }
                                         }
                                     }

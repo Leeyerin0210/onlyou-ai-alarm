@@ -10,8 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,7 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.MessageSender
 import com.onlyou.com.domain.model.Persona
@@ -90,7 +90,7 @@ fun ChatScreen(
         onNavigateToShop = onNavigateToShop,
         onCancelSchedule = viewModel::cancelSchedule,
         onInputTextChange = viewModel::onInputTextChange,
-        onSendMessage = viewModel::sendMessage
+        onSendMessage = viewModel::sendMessage,
     )
 }
 
@@ -176,14 +176,28 @@ fun ChatScreenContent(
                                     onNavigateToAlarm()
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text("설정 (Settings)", color = colors.onSurfaceA) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = null,
+                                        tint = colors.primary,
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onNavigateToSettings()
+                                },
+                            )
                         }
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(onClick = onNavigateToShop) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            imageVector = Icons.Default.Storefront,
+                            contentDescription = "Shop",
                             tint = colors.primary,
                         )
                     }
@@ -456,7 +470,7 @@ fun ScheduleNotificationBarPreview() {
     MiyaTheme {
         ScheduleNotificationBar(
             scheduleTitle = "점심 약속",
-            onCancel = {}
+            onCancel = {},
         )
     }
 }
@@ -469,7 +483,7 @@ fun ChatScreenPreview() {
         name = "미야",
         prompt = "",
         description = "테스트 페르소나",
-        imageUrl = null
+        imageUrl = null,
     )
     val sampleMessages = listOf(
         ChatMessage(text = "안녕하세요!", sender = MessageSender.AI),
@@ -479,7 +493,7 @@ fun ChatScreenPreview() {
     val uiState = ChatUiState(
         persona = samplePersona,
         messages = sampleMessages,
-        inputText = "오늘 날씨 어때?"
+        inputText = "오늘 날씨 어때?",
     )
 
     MiyaTheme {
@@ -491,7 +505,7 @@ fun ChatScreenPreview() {
             onNavigateToShop = {},
             onCancelSchedule = {},
             onInputTextChange = {},
-            onSendMessage = {}
+            onSendMessage = {},
         )
     }
 }

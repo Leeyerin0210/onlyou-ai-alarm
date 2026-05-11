@@ -171,7 +171,29 @@ class PersonaRepositoryImpl
         }
 
         override suspend fun upsertPersona(persona: Persona) {
-            personaDao.upsertPersona(persona.toEntity())
+            val entity = persona.toEntity()
+            // 1. 로컬 DB 저장
+            personaDao.upsertPersona(entity)
+
+            // 2. Firebase Firestore 저장
+            try {
+                val personaMap = hashMapOf(
+                    "id" to persona.id,
+                    "name" to persona.name,
+                    "prompt" to persona.prompt,
+                    "description" to persona.description,
+                    "voiceTone" to persona.voiceTone,
+                    "voiceSpeed" to persona.voiceSpeed,
+                    "voicePrompt" to persona.voicePrompt,
+                    "userCallSign" to persona.userCallSign,
+                    "imageUrl" to persona.imageUrl,
+                    "primaryHex" to (persona.themeColors?.primaryHex ?: "#FFB7C5"),
+                    "secondaryHex" to (persona.themeColors?.secondaryHex ?: "#FFF0F5")
+                )
+                firestore.collection("personas").document(persona.id).set(personaMap).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         private fun PersonaEntity.toDomain() =

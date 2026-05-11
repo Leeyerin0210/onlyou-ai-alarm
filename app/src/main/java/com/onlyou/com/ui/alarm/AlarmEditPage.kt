@@ -32,8 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import coil.compose.AsyncImage
-import kotlinx.coroutines.flow.distinctUntilChanged
+import coil3.compose.AsyncImage
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -42,6 +41,7 @@ import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -295,10 +295,11 @@ fun CustomWheelPicker(
 
             val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
 
-            visibleItems.minByOrNull {
-                val itemCenter = it.offset + it.size / 2
-                Math.abs(itemCenter - viewportCenter)
-            }?.index ?: initialIndex
+            visibleItems
+                .minByOrNull {
+                    val itemCenter = it.offset + it.size / 2
+                    Math.abs(itemCenter - viewportCenter)
+                }?.index ?: initialIndex
         }
     }
 
@@ -874,8 +875,8 @@ fun AlarmEditPagePreview() {
             DayOfWeek.TUESDAY,
             DayOfWeek.WEDNESDAY,
             DayOfWeek.THURSDAY,
-            DayOfWeek.FRIDAY
-        )
+            DayOfWeek.FRIDAY,
+        ),
     )
     val samplePersonas = listOf(
         Persona(
@@ -883,15 +884,15 @@ fun AlarmEditPagePreview() {
             name = "다정한 루시",
             prompt = "",
             description = "다정하게 깨워주는 페르소나",
-            imageUrl = null
+            imageUrl = null,
         ),
         Persona(
             id = "2",
             name = "츤데레 메이",
             prompt = "",
             description = "조금 까칠하게 깨워주는 페르소나",
-            imageUrl = null
-        )
+            imageUrl = null,
+        ),
     )
     MiyaTheme {
         Surface(color = MiyaTheme.colors.background) {
@@ -899,7 +900,7 @@ fun AlarmEditPagePreview() {
                 alarm = sampleAlarm,
                 personas = samplePersonas,
                 onSave = { _, _, _, _, _ -> },
-                onDelete = {}
+                onDelete = {},
             )
         }
     }
