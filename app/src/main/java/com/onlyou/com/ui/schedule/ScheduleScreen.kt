@@ -107,7 +107,7 @@ fun ScheduleScreenContent(
     var showAddDialog by remember { mutableStateOf(false) }
 
     val schedulesOnDate = uiState.schedules.filter { it.date == selectedDate }
-    val scheduleDates = uiState.schedules.map { it.date }.toSet()
+    val scheduleDates = uiState.schedules.mapNotNull { it.date }.toSet()
 
     Column(
         modifier = Modifier
@@ -127,7 +127,7 @@ fun ScheduleScreenContent(
                     imageVector = Icons.Default.ChevronLeft,
                     contentDescription = "Back",
                     tint = colors.onSurfaceA,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
                 )
             }
             Text(
@@ -135,7 +135,7 @@ fun ScheduleScreenContent(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = colors.onSurfaceA,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.padding(start = 4.dp),
             )
             Spacer(modifier = Modifier.weight(1f))
 
@@ -144,7 +144,7 @@ fun ScheduleScreenContent(
                     imageVector = Icons.Default.Alarm,
                     contentDescription = "Alarm",
                     tint = colors.primary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
             }
 
@@ -153,7 +153,7 @@ fun ScheduleScreenContent(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(end = 12.dp)
+                modifier = Modifier.padding(end = 12.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.SmartToy,
@@ -386,11 +386,7 @@ private fun ScheduleItemCard(
     onDelete: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
-    val timeText = if (schedule.startTime == LocalTime.of(0, 0)) {
-        "시간 미정"
-    } else {
-        schedule.startTime.format(DateTimeFormatter.ofPattern("a h:mm", java.util.Locale.KOREAN))
-    }
+    val timeText = schedule.startTime?.format(DateTimeFormatter.ofPattern("a h:mm", java.util.Locale.KOREAN)) ?: "시간미정"
 
     Surface(
         color = colors.surfaceA,
@@ -546,12 +542,12 @@ fun ScheduleScreenPreview() {
             date = LocalDate.now().plusDays(1),
             startTime = LocalTime.of(10, 0),
             title = "프로젝트 회의",
-        )
+        ),
     )
 
     MiyaTheme {
         ScheduleScreenContent(
-            uiState = ScheduleUiState(schedules = sampleSchedules)
+            uiState = ScheduleUiState(schedules = sampleSchedules),
         )
     }
 }

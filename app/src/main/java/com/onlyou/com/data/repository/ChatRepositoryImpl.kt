@@ -124,7 +124,7 @@ class ChatRepositoryImpl
                                                     try { LocalDate.parse(dateStr) } catch(e: Exception) { null }
                                                 } else { null }
 
-                                                val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null") {
+                                                val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null" && timeStr != "None") {
                                                     try { LocalTime.parse(timeStr) } catch (e: Exception) { null }
                                                 } else { null }
 

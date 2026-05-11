@@ -118,7 +118,7 @@ class VoiceRepositoryImpl
             flow {
                 try {
                     val today = LocalDate.now()
-                    
+
                     // 1. 최근 메모리 로드
                     val recentMemories = memoryRepository
                         .getAllMemories()
@@ -134,20 +134,22 @@ class VoiceRepositoryImpl
                         .sortedBy { it.startTime }
 
                     val memoryDtos = mutableListOf<MemoryItemDto>()
-                    
+
                     // 메모리 추가
-                    memoryDtos.addAll(recentMemories.map { m ->
-                        MemoryItemDto(type = m.type.name, content = m.content)
-                    })
-                    
+                    memoryDtos.addAll(
+                        recentMemories.map { m ->
+                            MemoryItemDto(type = m.type.name, content = m.content)
+                        },
+                    )
+
                     // 일정 추가 (특수한 포맷으로)
                     todaySchedules.forEach { s ->
-                        val timeStr = s.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
                         memoryDtos.add(
                             MemoryItemDto(
                                 type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}"
-                            )
+                                content = "[오늘 일정] $timeStr - ${s.title}",
+                            ),
                         )
                     }
 
@@ -185,14 +187,14 @@ class VoiceRepositoryImpl
             withContext(Dispatchers.IO) {
                 runCatching {
                     val today = LocalDate.now()
-                    
+
                     // 1. 최근 메모리 로드
                     val recentMemories = memoryRepository
                         .getAllMemories()
                         .first()
                         .sortedByDescending { it.createdAt }
                         .take(5)
-                        
+
                     // 2. 오늘 일정 로드
                     val todaySchedules = scheduleRepository
                         .getAllSchedules()
@@ -201,20 +203,22 @@ class VoiceRepositoryImpl
                         .sortedBy { it.startTime }
 
                     val memoryDtos = mutableListOf<MemoryItemDto>()
-                    
+
                     // 메모리 추가
-                    memoryDtos.addAll(recentMemories.map { m ->
-                        MemoryItemDto(type = m.type.name, content = m.content)
-                    })
-                    
+                    memoryDtos.addAll(
+                        recentMemories.map { m ->
+                            MemoryItemDto(type = m.type.name, content = m.content)
+                        },
+                    )
+
                     // 일정 추가
                     todaySchedules.forEach { s ->
-                        val timeStr = s.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
                         memoryDtos.add(
                             MemoryItemDto(
                                 type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}"
-                            )
+                                content = "[오늘 일정] $timeStr - ${s.title}",
+                            ),
                         )
                     }
 

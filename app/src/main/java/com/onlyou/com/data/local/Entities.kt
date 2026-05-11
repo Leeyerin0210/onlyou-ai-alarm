@@ -85,33 +85,53 @@ data class AlarmVoiceChunkEntity(
 
 class MiyaTypeConverters {
     @TypeConverter
-    fun fromDayOfWeekSet(days: Set<DayOfWeek>): String = days.joinToString(",") { it.name }
+    fun fromDayOfWeekSet(days: Set<DayOfWeek>?): String = days?.joinToString(",") { it.name } ?: ""
 
     @TypeConverter
-    fun toDayOfWeekSet(data: String): Set<DayOfWeek> =
-        if (data.isEmpty()) emptySet() else data.split(",").map { DayOfWeek.valueOf(it) }.toSet()
+    fun toDayOfWeekSet(data: String?): Set<DayOfWeek> =
+        if (data.isNullOrEmpty() || data == "null") emptySet() else {
+            try {
+                data.split(",").mapNotNull { 
+                    try { DayOfWeek.valueOf(it) } catch (e: Exception) { null }
+                }.toSet()
+            } catch (e: Exception) {
+                emptySet()
+            }
+        }
 
     @TypeConverter
-    fun fromDayOfWeek(day: DayOfWeek): String = day.name
+    fun fromDayOfWeek(day: DayOfWeek?): String? = day?.name
 
     @TypeConverter
-    fun toDayOfWeek(data: String): DayOfWeek = DayOfWeek.valueOf(data)
+    fun toDayOfWeek(data: String?): DayOfWeek? = 
+        if (data.isNullOrEmpty() || data == "null") null else {
+            try { DayOfWeek.valueOf(data) } catch (e: Exception) { null }
+        }
 
     @TypeConverter
-    fun fromLocalDate(date: LocalDate): String = date.toString()
+    fun fromLocalDate(date: LocalDate?): String? = date?.toString()
 
     @TypeConverter
-    fun toLocalDate(data: String): LocalDate = LocalDate.parse(data)
+    fun toLocalDate(data: String?): LocalDate? = 
+        if (data.isNullOrEmpty() || data == "null") null else {
+            try { LocalDate.parse(data) } catch (e: Exception) { null }
+        }
 
     @TypeConverter
-    fun fromLocalTime(time: LocalTime): String = time.toString()
+    fun fromLocalTime(time: LocalTime?): String? = time?.toString()
 
     @TypeConverter
-    fun toLocalTime(data: String): LocalTime = LocalTime.parse(data)
+    fun toLocalTime(data: String?): LocalTime? = 
+        if (data.isNullOrEmpty() || data == "null") null else {
+            try { LocalTime.parse(data) } catch (e: Exception) { null }
+        }
 
     @TypeConverter
-    fun fromLocalDateTime(dateTime: LocalDateTime): String = dateTime.toString()
+    fun fromLocalDateTime(dateTime: LocalDateTime?): String? = dateTime?.toString()
 
     @TypeConverter
-    fun toLocalDateTime(data: String): LocalDateTime = LocalDateTime.parse(data)
+    fun toLocalDateTime(data: String?): LocalDateTime? = 
+        if (data.isNullOrEmpty() || data == "null") null else {
+            try { LocalDateTime.parse(data) } catch (e: Exception) { null }
+        }
 }
