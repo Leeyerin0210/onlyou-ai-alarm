@@ -51,6 +51,11 @@ interface MiyaApiService {
         @retrofit2.http.Path("persona_id") personaId: String
     ): Response<ResponseBody>
 
+    @DELETE("voice/reference/{persona_id}")
+    suspend fun deleteVoiceReference(
+        @retrofit2.http.Path("persona_id") personaId: String
+    ): Response<Unit>
+
     @DELETE("memory/clear")
     suspend fun clearMemory(): Response<Unit>
 }

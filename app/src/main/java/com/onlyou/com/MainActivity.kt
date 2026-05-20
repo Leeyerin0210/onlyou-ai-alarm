@@ -169,6 +169,16 @@ class MainActivity : ComponentActivity() {
                                         onBack = { currentScreen = "chat" },
                                         onNavigateToEdit = { id ->
                                             currentScreen = "persona_edit/$id"
+                                        },
+                                        onNavigateToMyPersonas = { currentScreen = "my_personas" }
+                                    )
+                                }
+
+                                screen == "my_personas" -> {
+                                    com.onlyou.com.ui.shop.MyPersonasScreen(
+                                        onBack = { currentScreen = "shop" },
+                                        onNavigateToEdit = { id ->
+                                            currentScreen = "persona_edit/$id"
                                         }
                                     )
                                 }

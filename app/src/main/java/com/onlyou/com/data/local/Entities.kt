@@ -55,6 +55,8 @@ data class PersonaEntity(
     val imageUrl: String?,
     val primaryHex: String?,
     val secondaryHex: String?,
+    val creatorId: String? = null,
+    val usageCount: Int = 0,
 )
 
 @Entity(tableName = "memories")

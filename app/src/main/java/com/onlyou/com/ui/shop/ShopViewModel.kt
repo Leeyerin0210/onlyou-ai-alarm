@@ -16,6 +16,7 @@ import javax.inject.Inject
 
 data class ShopUiState(
     val personas: List<Persona> = emptyList(),
+    val trendingPersonas: List<Persona> = emptyList(),
     val filteredPersonas: List<Persona> = emptyList(),
     val searchQuery: String = "",
     val selectedPersona: Persona? = null,
@@ -66,8 +67,13 @@ class ShopViewModel
                         val updatedSelected = state.selectedPersona?.let { currentSelected ->
                             allPersonas.find { it.id == currentSelected.id }
                         }
+                        
+                        // 사용 횟수가 높은 순으로 정렬하여 상위 5개를 화제인 페르소나로 선정
+                        val trending = allPersonas.sortedByDescending { it.usageCount }.take(5)
+
                         state.copy(
                             personas = allPersonas,
+                            trendingPersonas = trending,
                             filteredPersonas = filterPersonas(allPersonas, state.searchQuery),
                             selectedPersona = updatedSelected ?: state.selectedPersona,
                         )

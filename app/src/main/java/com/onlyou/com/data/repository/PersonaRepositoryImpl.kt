@@ -8,6 +8,7 @@ import com.onlyou.com.domain.model.StreamerTheme
 import com.onlyou.com.domain.model.ThemeModeColors
 import com.onlyou.com.domain.repository.PersonaRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
@@ -77,6 +78,8 @@ class PersonaRepositoryImpl
                             primaryHex = (themeColorsMap?.get("primaryHex") as? String) ?: doc.getString("primaryHex"),
                             secondaryHex = (themeColorsMap?.get("secondaryHex") as? String) ?: doc.getString("secondaryHex"),
                             isSelected = false,
+                            creatorId = doc.getString("creatorId"),
+                            usageCount = (doc.get("usageCount") as? Number)?.toInt() ?: 0,
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -144,11 +147,24 @@ class PersonaRepositoryImpl
         }
 
         override suspend fun deletePersona(personaId: String) {
+            if (personaId == "miya_default") return // 기본 비서는 삭제 불가
+
+            val uid = auth.currentUser?.uid ?: return
+
+            // 1. 만약 삭제하려는 비서가 현재 선택된 비서라면, 기본 비서로 변경
+            val currentSelected = getSelectedPersona().first()
+            if (currentSelected?.id == personaId) {
+                setSelectedPersona("miya_default")
+            }
+
+            // 2. 로컬 DB 삭제
             personaDao.deletePersona(personaId)
-            // Firebase에서도 삭제 시도
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
-                firestore.collection("personas").document(personaId).delete()
+
+            // 3. Firebase Firestore 삭제 (비동기 완료 대기)
+            try {
+                firestore.collection("personas").document(personaId).delete().await()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
@@ -156,7 +172,24 @@ class PersonaRepositoryImpl
             personaDao.deselectAll()
             personaDao.selectPersona(personaId)
 
-            // 원격 서버에도 반영 (비동기)
+            // 인기도(usageCount) 증가 로직 추가
+            val persona = personaDao.getAllPersonasOnce().find { it.id == personaId }
+            if (persona != null) {
+                val updatedPersona = persona.copy(usageCount = persona.usageCount + 1)
+                personaDao.update(updatedPersona)
+                
+                // 원격에도 반영
+                val uid = auth.currentUser?.uid
+                if (uid != null) {
+                    try {
+                        firestore.collection("personas").document(personaId).update("usageCount", updatedPersona.usageCount)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            // 원격 서버에도 반영 (선택 정보)
             val uid = auth.currentUser?.uid
             if (uid != null) {
                 firestore
@@ -171,26 +204,35 @@ class PersonaRepositoryImpl
         }
 
         override suspend fun upsertPersona(persona: Persona) {
-            val entity = persona.toEntity()
+            val uid = auth.currentUser?.uid
+            val updatedPersona = if (persona.creatorId == null && uid != null) {
+                persona.copy(creatorId = uid)
+            } else {
+                persona
+            }
+            
+            val entity = updatedPersona.toEntity()
             // 1. 로컬 DB 저장
             personaDao.upsertPersona(entity)
 
             // 2. Firebase Firestore 저장
             try {
                 val personaMap = hashMapOf(
-                    "id" to persona.id,
-                    "name" to persona.name,
-                    "prompt" to persona.prompt,
-                    "description" to persona.description,
-                    "voiceTone" to persona.voiceTone,
-                    "voiceSpeed" to persona.voiceSpeed,
-                    "voicePrompt" to persona.voicePrompt,
-                    "userCallSign" to persona.userCallSign,
-                    "imageUrl" to persona.imageUrl,
-                    "primaryHex" to (persona.themeColors?.primaryHex ?: "#FFB7C5"),
-                    "secondaryHex" to (persona.themeColors?.secondaryHex ?: "#FFF0F5")
+                    "id" to updatedPersona.id,
+                    "name" to updatedPersona.name,
+                    "prompt" to updatedPersona.prompt,
+                    "description" to updatedPersona.description,
+                    "voiceTone" to updatedPersona.voiceTone,
+                    "voiceSpeed" to updatedPersona.voiceSpeed,
+                    "voicePrompt" to updatedPersona.voicePrompt,
+                    "userCallSign" to updatedPersona.userCallSign,
+                    "imageUrl" to updatedPersona.imageUrl,
+                    "primaryHex" to (updatedPersona.themeColors?.primaryHex ?: "#FFB7C5"),
+                    "secondaryHex" to (updatedPersona.themeColors?.secondaryHex ?: "#FFF0F5"),
+                    "creatorId" to updatedPersona.creatorId,
+                    "usageCount" to updatedPersona.usageCount
                 )
-                firestore.collection("personas").document(persona.id).set(personaMap).await()
+                firestore.collection("personas").document(updatedPersona.id).set(personaMap).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -208,6 +250,8 @@ class PersonaRepositoryImpl
                 userCallSign = userCallSign,
                 isSelected = isSelected,
                 imageUrl = imageUrl,
+                creatorId = creatorId,
+                usageCount = usageCount,
                 themeColors = if (primaryHex != null && secondaryHex != null) {
                     StreamerTheme(
                         primaryHex = primaryHex,
@@ -247,5 +291,7 @@ class PersonaRepositoryImpl
                 imageUrl = imageUrl,
                 primaryHex = themeColors?.primaryHex,
                 secondaryHex = themeColors?.secondaryHex,
+                creatorId = creatorId,
+                usageCount = usageCount,
             )
     }

@@ -117,6 +117,11 @@ interface VoiceRepository {
     suspend fun getReferenceVoice(personaId: String): ByteArray?
 
     /**
+     * 서버에 저장된 참조 음성을 삭제함
+     */
+    suspend fun deleteReferenceVoice(personaId: String): Boolean
+
+    /**
      * 기상 알람을 위한 초개인화 스크립트 생성 (스트리밍)
      */
     fun generateWakeUpScriptStream(persona: Persona): Flow<String>

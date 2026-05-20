@@ -74,6 +74,8 @@ data class Persona(
     val isSelected: Boolean = false,
     val themeColors: StreamerTheme? = null,
     val imageUrl: String? = null,
+    val creatorId: String? = null,
+    val usageCount: Int = 0,
 )
 
 /**

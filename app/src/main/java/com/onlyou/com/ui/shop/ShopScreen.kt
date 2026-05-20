@@ -31,16 +31,31 @@ import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.material.icons.filled.AccountCircle
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.draw.rotate
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShopScreen(
     viewModel: ShopViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToEdit: (String?) -> Unit,
+    onNavigateToMyPersonas: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    var isFabExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -55,12 +70,90 @@ fun ShopScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToEdit(null) },
-                containerColor = colors.primary,
-                contentColor = Color.White,
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+                // 확장되는 메뉴 버튼들
+                AnimatedVisibility(
+                    visible = isFabExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // 1. 내 페르소나 관리 버튼
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceB.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    "내 페르소나 관리",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 12.sp,
+                                    color = colors.onSurfaceB
+                                )
+                            }
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    isFabExpanded = false
+                                    onNavigateToMyPersonas()
+                                },
+                                containerColor = colors.secondary,
+                                contentColor = Color.White,
+                                shape = CircleShape
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = "Manage")
+                            }
+                        }
+
+                        // 2. 새 페르소나 생성 버튼
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceB.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    "새 페르소나 생성",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 12.sp,
+                                    color = colors.onSurfaceB
+                                )
+                            }
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    isFabExpanded = false
+                                    onNavigateToEdit(null)
+                                },
+                                containerColor = colors.primary,
+                                contentColor = Color.White,
+                                shape = CircleShape
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Create")
+                            }
+                        }
+                    }
+                }
+
+                // 메인 FAB 버튼
+                val rotation by animateFloatAsState(if (isFabExpanded) 45f else 0f, label = "fab_rotation")
+                FloatingActionButton(
+                    onClick = { isFabExpanded = !isFabExpanded },
+                    containerColor = colors.primary,
+                    contentColor = Color.White,
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Menu",
+                        modifier = Modifier.rotate(rotation)
+                    )
+                }
             }
         },
         containerColor = colors.background,
@@ -68,42 +161,60 @@ fun ShopScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(paddingValues),
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "최애 파트너 선택", style = MaterialTheme.typography.headlineSmall, color = colors.primary, fontWeight = FontWeight.Bold)
-            Text(text = "당신을 깨워줄 파트너를 고용하세요.", style = MaterialTheme.typography.bodyMedium, color = colors.primary.copy(alpha = 0.7f))
+            
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Text(text = "현재 화제인 페르소나", style = MaterialTheme.typography.titleLarge, color = colors.primary, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = viewModel::onSearchQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("페르소나 이름 검색...", color = colors.primary.copy(alpha = 0.5f)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = colors.primary) },
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = colors.primary,
-                    unfocusedBorderColor = colors.primary.copy(alpha = 0.3f),
-                    focusedTextColor = colors.primary,
-                    unfocusedTextColor = colors.primary,
-                ),
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize(),
+            // 가로 스크롤 Trending Section
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().height(220.dp)
             ) {
-                items(uiState.filteredPersonas) { persona ->
-                    ShopPersonaCard(persona = persona, onClick = { viewModel.selectPersona(persona) })
+                lazyRowItems(uiState.trendingPersonas) { persona ->
+                    TrendingPersonaCard(persona = persona, onClick = { viewModel.selectPersona(persona) })
                 }
-                item { Spacer(modifier = Modifier.height(100.dp)) }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = viewModel::onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("페르소나 이름 검색...", color = colors.primary.copy(alpha = 0.5f)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = colors.primary) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.primary.copy(alpha = 0.3f),
+                        focusedTextColor = colors.primary,
+                        unfocusedTextColor = colors.primary,
+                    ),
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(text = "모든 페르소나", style = MaterialTheme.typography.titleMedium, color = colors.primary, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(uiState.filteredPersonas) { persona ->
+                        ShopPersonaCard(persona = persona, onClick = { viewModel.selectPersona(persona) })
+                    }
+                    item { Spacer(modifier = Modifier.height(100.dp)) }
+                }
             }
         }
 
@@ -123,12 +234,45 @@ fun ShopScreen(
                         viewModel.selectPersona(null)
                     },
                     onPlayPreview = { id, url -> viewModel.playPreview(id, url) },
-                    onDeleteHistory = { viewModel.clearChatHistory() },
-                    onEdit = {
-                        onNavigateToEdit(it)
-                        viewModel.selectPersona(null)
-                    },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun TrendingPersonaCard(
+    persona: Persona,
+    onClick: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    Card(
+        modifier = Modifier
+            .width(160.dp)
+            .fillMaxHeight()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceB)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (persona.imageUrl != null) {
+                AsyncImage(
+                    model = persona.imageUrl,
+                    contentDescription = persona.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)), startY = 150f),
+                ),
+            )
+            Column(
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
+            ) {
+                Text(text = persona.name, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(text = "인기 #${persona.usageCount}", style = MaterialTheme.typography.labelSmall, color = colors.primary)
             }
         }
     }
@@ -174,28 +318,8 @@ fun PersonaDetailSheetContent(
     isBuffering: Boolean,
     onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String, String?) -> Unit,
-    onDeleteHistory: () -> Unit,
-    onEdit: (String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("대화 기록 삭제") },
-            text = { Text("이 페르소나와의 모든 대화 기록을 삭제하시겠습니까?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteHistory()
-                    showDeleteConfirm = false
-                }) { Text("삭제", color = Color.Red) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") }
-            },
-        )
-    }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 48.dp),
@@ -239,26 +363,6 @@ fun PersonaDetailSheetContent(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = if (isPlaying) "재생 중" else "보이스 듣기", color = colors.secondary, fontWeight = FontWeight.Bold)
                 }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // 수정 버튼 추가
-            IconButton(
-                onClick = { onEdit(persona.id) },
-                modifier = Modifier.size(56.dp).background(colors.surfaceB, CircleShape),
-            ) {
-                Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Edit", tint = colors.primary)
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // 삭제 버튼 (오른쪽 끝)
-            IconButton(
-                onClick = { showDeleteConfirm = true },
-                modifier = Modifier.size(56.dp).background(colors.surfaceB, CircleShape),
-            ) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete History", tint = Color.Red)
             }
         }
 

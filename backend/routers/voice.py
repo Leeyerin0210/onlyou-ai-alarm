@@ -48,3 +48,24 @@ async def get_voice_reference(persona_id: str):
         raise HTTPException(status_code=404, detail="Not found")
     with open(audio_path, "rb") as f: 
         return Response(content=f.read(), media_type="audio/wav")
+
+@router.delete("/reference/{persona_id}")
+async def delete_voice_reference(persona_id: str):
+    import os
+    try:
+        audio_path = os.path.join(voice_engine.reference_dir, f"{persona_id}.wav")
+        meta_path = os.path.join(voice_engine.reference_dir, f"{persona_id}.json")
+        
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+        if os.path.exists(meta_path):
+            os.remove(meta_path)
+            
+        # 캐시에서도 삭제
+        if persona_id in voice_engine.prompt_cache:
+            del voice_engine.prompt_cache[persona_id]
+            
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Delete Voice Reference Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

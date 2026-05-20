@@ -150,7 +150,12 @@ class PersonaEditViewModel
             val currentState = _uiState.value
             if (currentState is PersonaEditUiState.Success) {
                 viewModelScope.launch {
-                    personaRepository.deletePersona(currentState.persona.id)
+                    val personaId = currentState.persona.id
+                    // 1. 페르소나 정보 삭제
+                    personaRepository.deletePersona(personaId)
+                    // 2. 서버의 참조 음성 데이터도 삭제
+                    voiceRepository.deleteReferenceVoice(personaId)
+                    
                     _uiState.value = PersonaEditUiState.Saved
                 }
             }

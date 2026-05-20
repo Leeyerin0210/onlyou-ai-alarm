@@ -114,6 +114,17 @@ class VoiceRepositoryImpl
                 }
             }
 
+        override suspend fun deleteReferenceVoice(personaId: String): Boolean =
+            withContext(Dispatchers.IO) {
+                try {
+                    val response = apiService.deleteVoiceReference(personaId)
+                    response.isSuccessful
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    false
+                }
+            }
+
         override fun generateWakeUpScriptStream(persona: Persona): Flow<String> =
             flow {
                 try {
