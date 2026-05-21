@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,16 +34,14 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +50,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -94,7 +92,6 @@ fun ChatScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreenContent(
     uiState: ChatUiState,
@@ -112,36 +109,16 @@ fun ChatScreenContent(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (persona?.imageUrl != null) {
-                            AsyncImage(
-                                model = persona.imageUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.surfaceA),
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                        }
-                        Text(
-                            text = persona?.name ?: "비서 연결 중...",
-                            fontWeight = FontWeight.Bold,
-                            color = colors.primary,
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                    }
-                },
-                navigationIcon = {
+            // 이미지 레이아웃: 좌측 메뉴 | 아바타+이름/부제목 | 우측 설정
+            Surface(color = colors.background, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 햄버거 메뉴
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Widgets,
-                                contentDescription = "Navigation Menu",
-                                tint = colors.primary,
-                            )
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = colors.onSurfaceA)
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -149,42 +126,24 @@ fun ChatScreenContent(
                             modifier = Modifier.background(colors.surfaceA),
                         ) {
                             DropdownMenuItem(
-                                text = { Text("일정 (Calendar)", color = colors.onSurfaceA) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.CalendarMonth,
-                                        contentDescription = null,
-                                        tint = colors.primary,
-                                    )
-                                },
+                                text = { Text("일정", color = colors.onSurfaceA) },
+                                leadingIcon = { Icon(Icons.Default.CalendarMonth, null, tint = colors.primary) },
                                 onClick = {
                                     menuExpanded = false
                                     onNavigateToSchedule()
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("알람 (Alarm)", color = colors.onSurfaceA) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Alarm,
-                                        contentDescription = null,
-                                        tint = colors.primary,
-                                    )
-                                },
+                                text = { Text("알람", color = colors.onSurfaceA) },
+                                leadingIcon = { Icon(Icons.Default.Alarm, null, tint = colors.primary) },
                                 onClick = {
                                     menuExpanded = false
                                     onNavigateToAlarm()
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("설정 (Settings)", color = colors.onSurfaceA) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = null,
-                                        tint = colors.primary,
-                                    )
-                                },
+                                text = { Text("설정", color = colors.onSurfaceA) },
+                                leadingIcon = { Icon(Icons.Default.Settings, null, tint = colors.primary) },
                                 onClick = {
                                     menuExpanded = false
                                     onNavigateToSettings()
@@ -192,24 +151,36 @@ fun ChatScreenContent(
                             )
                         }
                     }
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToShop) {
-                        Icon(
-                            imageVector = Icons.Default.Storefront,
-                            contentDescription = "Shop",
-                            tint = colors.primary,
+                    // 아바타 + 이름/부제목
+                    if (persona?.imageUrl != null) {
+                        AsyncImage(
+                            model = persona.imageUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(38.dp).clip(CircleShape).background(colors.surfaceA),
                         )
+                        Spacer(Modifier.width(10.dp))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = colors.background,
-                    scrolledContainerColor = Color.Unspecified,
-                    navigationIconContentColor = Color.Unspecified,
-                    titleContentColor = Color.Unspecified,
-                    actionIconContentColor = Color.Unspecified,
-                ),
-            )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = persona?.name ?: "비서 연결 중...",
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurfaceA,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        if (persona != null) {
+                            Text(
+                                text = "삼성한 비서",
+                                color = colors.neutral,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                    // 우측 설정 아이콘
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = colors.onSurfaceA)
+                    }
+                }
+            }
         },
         bottomBar = {
             Column {

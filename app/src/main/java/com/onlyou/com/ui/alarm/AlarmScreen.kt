@@ -8,25 +8,24 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.onlyou.com.domain.model.MiyaAlarm
-import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,60 +35,193 @@ fun AlarmScreen(
     backTrigger: Int = 0,
     onBack: () -> Unit = {},
 ) {
-    val singleAlarm by viewModel.singleAlarm.collectAsState()
-    val personas by viewModel.personas.collectAsState()
     val colors = MiyaTheme.colors
     val context = LocalContext.current
 
-    // ... (기존 Effect 로직 동일)
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (!nm.canUseFullScreenIntent()) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
-                    Uri.parse("package:${context.packageName}"),
-                )
+                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}"))
                 context.startActivity(intent)
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        onEditingStateChange(false)
+    LaunchedEffect(Unit) { onEditingStateChange(false) }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .statusBarsPadding(),
+    ) {
+        // Top Bar
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(12.dp))
+                    Text("AI 브리핑 알람", fontSize = 10.sp, color = colors.primary, fontWeight = FontWeight.Medium)
+                }
+                Text("알람", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+            }
+            var masterEnabled by remember { mutableStateOf(true) }
+            Switch(
+                checked = masterEnabled,
+                onCheckedChange = { masterEnabled = it },
+                colors = SwitchDefaults.colors(checkedThumbColor = colors.background, checkedTrackColor = colors.primary, uncheckedTrackColor = colors.neutral.copy(0.3f)),
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
+
+        // 스크롤 가능한 콘텐츠 영역 (단일 verticalScroll — 중첩 없음)
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Spacer(Modifier.height(4.dp))
+            AiBriefingHeroCard()
+            BriefingTimeSectionCard()
+            BriefingStyleSectionCard()
+            BriefingCategorySectionCard()
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+
+@Composable
+private fun AiBriefingHeroCard() {
+    val colors = MiyaTheme.colors
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.verticalGradient(listOf(colors.primary.copy(0.9f), colors.surfaceB))),
+    ) {
+        Row(
+            Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // AI 아이콘 (파형 시각화 대체)
+            Box(
+                Modifier.size(64.dp).clip(CircleShape).background(colors.background.copy(0.2f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.SmartToy, null, tint = colors.background, modifier = Modifier.size(36.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("내일 오후 2시 팀 회의의", fontSize = 13.sp, color = colors.background.copy(0.85f))
+                Text("일지를 작성해요!", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.background)
+                Spacer(Modifier.height(4.dp))
+                Text("AI가 당신의 일정을 분석해\n꼭 필요한 알림을 브리핑해드려요.", fontSize = 11.sp, color = colors.background.copy(0.7f), lineHeight = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BriefingTimeSectionCard() {
+    val colors = MiyaTheme.colors
+    data class BriefingSlot(val label: String, val time: String, var enabled: Boolean)
+    val slots = remember {
+        mutableStateListOf(
+            BriefingSlot("아침 브리핑", "오전 8:00", true),
+            BriefingSlot("점심 브리핑", "오후 12:30", true),
+            BriefingSlot("저녁 브리핑", "오후 7:00", false),
+        )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("알람 설정", fontWeight = FontWeight.Bold, color = colors.onSurfaceA) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ChevronLeft,
-                            contentDescription = "Back",
-                            tint = colors.onSurfaceA,
-                            modifier = Modifier.size(32.dp),
-                        )
+    Surface(color = colors.surfaceA, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("브리핑 시간", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+            Spacer(Modifier.height(8.dp))
+            slots.forEachIndexed { idx, slot ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Column {
+                        Text(slot.label, fontSize = 14.sp, color = colors.onSurfaceA, fontWeight = FontWeight.Medium)
+                        Text(slot.time, fontSize = 12.sp, color = colors.neutral)
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = colors.background),
-            )
-        },
-        containerColor = colors.background,
-    ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            if (singleAlarm != null) {
-                AlarmEditPage(
-                    alarm = singleAlarm!!,
-                    personas = personas,
-                    onSave = { ti, pi, t, rd, d -> viewModel.saveAlarm(ti, pi, t, rd, d) },
-                    onDelete = null,
-                )
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.primary)
+                    Switch(
+                        checked = slot.enabled,
+                        onCheckedChange = { slots[idx] = slot.copy(enabled = it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = colors.background, checkedTrackColor = colors.primary, uncheckedTrackColor = colors.neutral.copy(0.3f)),
+                    )
                 }
+                if (idx < slots.size - 1) HorizontalDivider(color = colors.surfaceB.copy(0.5f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BriefingStyleSectionCard() {
+    val colors = MiyaTheme.colors
+    val styles = listOf("친절한 말투", "간결한 말투", "에너지 넘치는 말투")
+    var selectedStyle by remember { mutableStateOf(0) }
+
+    Surface(color = colors.surfaceA, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("브리핑 스타일", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+            styles.forEachIndexed { idx, style ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedStyle == idx) colors.primary.copy(0.15f) else colors.surfaceB.copy(0.5f))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    Arrangement.SpaceBetween, Alignment.CenterVertically,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(if (selectedStyle == idx) Icons.Default.CheckCircle else Icons.Default.Circle, null, tint = if (selectedStyle == idx) colors.primary else colors.neutral, modifier = Modifier.size(18.dp))
+                        Text(style, fontSize = 13.sp, color = if (selectedStyle == idx) colors.primary else colors.onSurfaceA, fontWeight = if (selectedStyle == idx) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BriefingCategorySectionCard() {
+    val colors = MiyaTheme.colors
+    data class AlarmCategory(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, var enabled: Boolean)
+    val categories = remember {
+        mutableStateListOf(
+            AlarmCategory(Icons.Default.Event, "일정 알림", true),
+            AlarmCategory(Icons.Default.TaskAlt, "할 일 / 미션", true),
+            AlarmCategory(Icons.Default.WbSunny, "날씨 / 교통", false),
+        )
+    }
+
+    Surface(color = colors.surfaceA, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("알림 받을 항목", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+            Spacer(Modifier.height(8.dp))
+            categories.forEachIndexed { idx, cat ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(colors.primary.copy(0.15f)), contentAlignment = Alignment.Center) {
+                            Icon(cat.icon, null, tint = colors.primary, modifier = Modifier.size(18.dp))
+                        }
+                        Text(cat.label, fontSize = 14.sp, color = colors.onSurfaceA, fontWeight = FontWeight.Medium)
+                    }
+                    Switch(
+                        checked = cat.enabled,
+                        onCheckedChange = { categories[idx] = cat.copy(enabled = it) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = colors.background, checkedTrackColor = colors.primary, uncheckedTrackColor = colors.neutral.copy(0.3f)),
+                    )
+                }
+                if (idx < categories.size - 1) HorizontalDivider(color = colors.surfaceB.copy(0.5f))
             }
         }
     }

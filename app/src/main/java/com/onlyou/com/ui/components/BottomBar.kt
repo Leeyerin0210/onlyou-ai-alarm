@@ -52,36 +52,35 @@ fun MiyaBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val items = listOf("chat", "list", "schedule", "alarm")
-    val labels = listOf("채팅", "상점", "일정", "알람")
+    // 이미지 탭 순서: 채팅 | 일정 | 상점 | 알람
+    val items = listOf("chat", "schedule", "shop", "alarm")
+    val labels = listOf("채팅", "일정", "상점", "알람")
     val icons = listOf(
         Icons.Default.Chat,
-        Icons.Default.ShoppingCart,
         Icons.Default.DateRange,
+        Icons.Default.ShoppingCart,
         Icons.Default.Notifications,
     )
 
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         tonalElevation = 8.dp,
         shadowElevation = 16.dp,
         modifier = modifier
             .navigationBarsPadding()
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 20.dp),
-        color = colors.surfaceA.copy(alpha = 0.95f),
+            .fillMaxWidth(),
+        color = colors.surfaceA.copy(alpha = 0.97f),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .height(80.dp),
+                .height(84.dp), // 높이를 64dp에서 84dp로 증가
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             items.forEachIndexed { index, screen ->
                 val isSelected = currentScreen == screen
-
                 MiyaBottomNavItem(
                     label = labels[index],
                     icon = icons[index],
@@ -106,17 +105,16 @@ private fun MiyaBottomNavItem(
 ) {
     val colors = MiyaTheme.colors
     val contentColor by animateColorAsState(
-        targetValue = colors.onSurfaceA,
+        targetValue = if (isSelected) colors.primary else colors.neutral,
         label = "color",
     )
 
-    // 클릭 시 내용물 전체(아이콘+텍스트)를 포함하는 둥근 배경을 보여줍니다.
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .padding(vertical = 12.dp, horizontal = 4.dp) // 버튼 간격
+            .padding(vertical = 8.dp, horizontal = 4.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (isSelected) colors.secondary.copy(alpha = 0.3f) else Color.Transparent)
+            .background(if (isSelected) colors.primary.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

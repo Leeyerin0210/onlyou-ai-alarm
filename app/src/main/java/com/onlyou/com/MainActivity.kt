@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -101,20 +102,24 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
-                            fadeIn(animationSpec = tween(500))
-                                .togetherWith(fadeOut(animationSpec = tween(400)))
+                            fadeIn(animationSpec = tween(300))
+                                .togetherWith(fadeOut(animationSpec = tween(250)))
                         },
                         label = "screen_transition",
-                    )
- { screen ->
-                        Box(modifier = Modifier.fillMaxSize()) {
+                    ) { screen ->
+                        // 바텀 탭 화면들은 하단 패딩을 고려
+                        val isMainTab = screen in listOf("chat", "schedule", "shop", "alarm")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(if (isMainTab) Modifier.padding(bottom = 96.dp) else Modifier),
+                        ) {
                             when {
                                 screen == "splash_check" -> {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         CircularProgressIndicator(color = colors.primary)
                                     }
                                     LaunchedEffect(currentUser) {
-                                        // Remote Config는 백그라운드에서 업데이트 (화면 전환을 막지 않음)
                                         scope.launch {
                                             try {
                                                 remoteConfig.fetchAndActivate()
@@ -122,7 +127,6 @@ class MainActivity : ComponentActivity() {
                                                 e.printStackTrace()
                                             }
                                         }
-
                                         if (currentUser != null) {
                                             scope.launch {
                                                 try {
@@ -139,7 +143,6 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 screen == "chat" -> {
-                                    // 단일 비서 채팅 화면으로 통합
                                     ChatScreen(
                                         onNavigateToSchedule = { currentScreen = "schedule" },
                                         onNavigateToAlarm = { currentScreen = "alarm" },
@@ -159,27 +162,22 @@ class MainActivity : ComponentActivity() {
                                     AlarmScreen(
                                         onEditingStateChange = { isEditingAlarm = it },
                                         backTrigger = 0,
-                                        onBack = { currentScreen = "schedule" },
+                                        onBack = { currentScreen = "chat" },
                                     )
                                 }
 
                                 screen == "shop" -> {
-                                    // 페르소나를 교체하는 '상점/에이전트 선택' 화면
                                     ShopScreen(
                                         onBack = { currentScreen = "chat" },
-                                        onNavigateToEdit = { id ->
-                                            currentScreen = "persona_edit/$id"
-                                        },
-                                        onNavigateToMyPersonas = { currentScreen = "my_personas" }
+                                        onNavigateToEdit = { id -> currentScreen = "persona_edit/$id" },
+                                        onNavigateToMyPersonas = { currentScreen = "my_personas" },
                                     )
                                 }
 
                                 screen == "my_personas" -> {
                                     com.onlyou.com.ui.shop.MyPersonasScreen(
                                         onBack = { currentScreen = "shop" },
-                                        onNavigateToEdit = { id ->
-                                            currentScreen = "persona_edit/$id"
-                                        }
+                                        onNavigateToEdit = { id -> currentScreen = "persona_edit/$id" },
                                     )
                                 }
 
@@ -187,17 +185,15 @@ class MainActivity : ComponentActivity() {
                                     val id = screen.split("/").getOrNull(1)?.takeIf { it != "null" }
                                     com.onlyou.com.ui.shop.PersonaEditScreen(
                                         personaId = id,
-                                        onBack = { currentScreen = "shop" }
+                                        onBack = { currentScreen = "shop" },
                                     )
                                 }
 
                                 screen == "settings" -> {
-                                    val scope = rememberCoroutineScope()
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("설정 (Settings)", style = typography.titleLarge, color = colors.primary)
+                                            Text("설정", style = typography.titleLarge, color = colors.primary)
                                             Spacer(modifier = Modifier.height(48.dp))
-
                                             Button(
                                                 onClick = {
                                                     scope.launch {
@@ -208,12 +204,8 @@ class MainActivity : ComponentActivity() {
                                                 modifier = Modifier.fillMaxWidth(0.7f).height(56.dp),
                                                 colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
                                                 shape = RoundedCornerShape(16.dp),
-                                            ) {
-                                                Text("로그아웃 (Sign Out)", color = colors.onSurfaceB)
-                                            }
-
+                                            ) { Text("로그아웃", color = colors.onSurfaceB) }
                                             Spacer(modifier = Modifier.height(24.dp))
-
                                             TextButton(onClick = { currentScreen = "chat" }) {
                                                 Text("대화로 돌아가기", color = colors.neutral)
                                             }
@@ -232,6 +224,21 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // ─── 바텀 네비게이션 바 (메인 4탭에서만 표시) ───
+                    val mainTabs = listOf("chat", "schedule", "shop", "alarm")
+                    if (currentScreen in mainTabs) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth(),
+                        ) {
+                            MiyaBottomNavigationBar(
+                                currentScreen = currentScreen,
+                                onNavigate = { currentScreen = it },
+                            )
+                        }
+                    }
+
                     if (showPermissionDialog) {
                         val lifecycleOwner = LocalLifecycleOwner.current
                         DisposableEffect(lifecycleOwner) {
@@ -244,7 +251,6 @@ class MainActivity : ComponentActivity() {
                             lifecycleOwner.lifecycle.addObserver(observer)
                             onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                         }
-
                         AlarmPermissionDialog(
                             onDismiss = {
                                 showPermissionDialog = false

@@ -50,8 +50,8 @@ fun MiyaTheme(
     fontType: MiyaFontType = MiyaFontType.DEFAULT,
     content: @Composable () -> Unit,
 ) {
-    // 동적 테마 애니메이션을 제거하여 성능 최적화 (골드 & 화이트 테마 적용)
-    val colors = GoldColors
+    // 이미지 디자인 기반 다크 퍼플 스페이스 테마 적용
+    val colors = SpaceColors
 
     val typography = when (fontType) {
         MiyaFontType.GOTHIC -> HeirTypography // GOTHIC 요청시에도 조금 더 깔끔한 HeirTypography 사용
