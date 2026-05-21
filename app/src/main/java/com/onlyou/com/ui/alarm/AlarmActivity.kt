@@ -8,9 +8,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,6 +96,10 @@ class AlarmActivity : ComponentActivity() {
                     script = aiScript,
                     schedules = todaySchedules,
                     onDismiss = { stopAlarmAndFinish() },
+                    onSnooze = {
+                        val id = intent.getIntExtra(AlarmService.EXTRA_ALARM_ID, -1)
+                        snoozeAlarmAndFinish(id, alarmTitle, personaId)
+                    },
                 )
             }
         }
@@ -110,6 +119,44 @@ class AlarmActivity : ComponentActivity() {
         startService(stopIntent)
         finish()
     }
+
+    private fun snoozeAlarmAndFinish(
+        alarmId: Int,
+        title: String,
+        personaId: String,
+    ) {
+        stopAlarmAndFinish()
+
+        if (alarmId == -1) return
+
+        val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+        val broadcastIntent = Intent(this, com.onlyou.com.receiver.AlarmReceiver::class.java).apply {
+            putExtra(AlarmService.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmService.EXTRA_ALARM_TITLE, title)
+            putExtra(AlarmService.EXTRA_PERSONA_ID, personaId)
+        }
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            this,
+            alarmId + 5000,
+            broadcastIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val snoozeTime = System.currentTimeMillis() + 5 * 60 * 1000
+        val showIntent = Intent(this, com.onlyou.com.MainActivity::class.java)
+        val showPendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            showIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val alarmClockInfo = android.app.AlarmManager.AlarmClockInfo(snoozeTime, showPendingIntent)
+        alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+
+        android.widget.Toast
+            .makeText(this, "5분 후 다시 알림이 설정되었습니다.", android.widget.Toast.LENGTH_SHORT)
+            .show()
+    }
 }
 
 @Composable
@@ -119,182 +166,156 @@ fun MorningBriefingContent(
     script: String?,
     schedules: List<com.onlyou.com.domain.model.AiSchedule>,
     onDismiss: () -> Unit,
+    onSnooze: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
-    val currentTime = java.time.LocalTime.now()
-    val formatter = java.time.format.DateTimeFormatter
-        .ofPattern("HH:mm")
 
-    Box(modifier = Modifier.fillMaxSize().background(colors.background)) {
-        // Persona Visual Background
-        if (persona?.imageUrl != null) {
-            AsyncImage(
-                model = persona.imageUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.4f,
-            )
+    // Greeting logic: AI 스크립트가 있으면 그대로 표시, 없으면 기본 인사말
+    // 첫 번째 문장만 메인 타이틀로 사용 (너무 길면 잘림 방지)
+    val greetingText = if (script != null && script.isNotBlank()) {
+        val firstSentenceEnd = script.indexOfFirst { it == '.' || it == '!' || it == '?' }
+        if (firstSentenceEnd != -1 && firstSentenceEnd < script.length - 1) {
+            script.substring(0, firstSentenceEnd + 1).trim()
+        } else if (script.length <= 40) {
+            script
+        } else {
+            "좋은 아침이에요, 마스터님!"
         }
+    } else {
+        "좋은 아침이에요, 마스터님!"
+    }
 
-        // Dark Gradient Overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            colors.background.copy(alpha = 0.7f),
-                            colors.background.copy(alpha = 0.95f),
-                        ),
-                    ),
-                ),
-        )
-
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7F7FA)), // Soft light background
+        contentAlignment = Alignment.TopCenter,
+    ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(24.dp),
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 1. Top Section: Time & Weather
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+        // Main Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight()
+                .padding(top = 40.dp), // Space for overlapping icon
+        ) {
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 8.dp,
             ) {
-                com.onlyou.com.ui.components.GhanaText(
-                    text = currentTime.format(formatter),
-                    fontSize = 80.sp,
-                    color = colors.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(top = 8.dp),
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
                 ) {
-                    Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.WbSunny,
-                        contentDescription = null,
-                        tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(24.dp)) // Space for icon
+
                     Text(
-                        text = "맑음 · 24°C",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = persona?.name?.let { "${it}가 알려드려요" } ?: "루나가 알려드려요",
+                        color = colors.primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = greetingText,
                         color = colors.onSurfaceA,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "오늘 중요한 일정 ${schedules.size}개가 있어요.",
+                        color = colors.neutral,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                     )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(40.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Middle Section: Today's Schedule (Animated)
-            Column(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    text = "오늘의 일정",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-
-                if (schedules.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "오늘 예정된 일정이 없습니다.",
-                            color = colors.onSurfaceA.copy(alpha = 0.5f),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                } else {
-                    schedules.forEachIndexed { index, schedule ->
-                        var visible by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            kotlinx.coroutines.delay(100L * (index + 1))
-                            visible = true
-                        }
-
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = visible,
-                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInHorizontally(),
+                    // Schedule List
+                    if (schedules.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, colors.surfaceB, RoundedCornerShape(16.dp)),
                         ) {
-                            ScheduleBriefingItem(schedule)
+                            schedules.forEachIndexed { index, schedule ->
+                                ScheduleBriefingItem(schedule)
+                                if (index < schedules.size - 1) {
+                                    HorizontalDivider(color = colors.surfaceB, thickness = 1.dp)
+                                }
+                            }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                }
-            }
 
-            // 3. Bottom Section: AI Briefing Script
-            Surface(
-                color = colors.surfaceA.copy(alpha = 0.85f),
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.3f)),
-            ) {
-                Box(modifier = Modifier.padding(24.dp)) {
-                    if (script != null) {
+                    // AI 스크립트 전체 표시 (일정 유무와 관계없이 항상 표시)
+                    if (script != null && script.isNotBlank()) {
                         Text(
                             text = script,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colors.onSurfaceA,
+                            color = colors.onSurfaceA.copy(alpha = 0.8f),
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Center,
-                            lineHeight = 28.sp,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.padding(bottom = 16.dp),
                         )
                     } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = colors.primary,
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = "Miya가 브리핑을 준비 중입니다...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.onSurfaceA.copy(alpha = 0.7f),
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Action Buttons
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text("확인", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextButton(onClick = onSnooze) {
+                        Text("5분 후 다시 알림", color = colors.neutral, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
 
-            // 4. Dismiss Button
-            Button(
-                onClick = onDismiss,
+            // Overlapping Bell Icon
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = colors.background,
-                ),
-                shape = RoundedCornerShape(32.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-32).dp)
+                    .size(64.dp)
+                    .background(Color.White, CircleShape)
+                    .padding(8.dp)
+                    .background(Color(0xFFF0F0FF), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "브리핑 종료",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(28.dp),
                 )
             }
         }
+        } // verticalScroll Column 닫기
     }
 }
 
@@ -304,33 +325,44 @@ fun ScheduleBriefingItem(schedule: com.onlyou.com.domain.model.AiSchedule) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.surfaceA.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-            .padding(16.dp),
+            .background(Color.White)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(colors.primary, CircleShape),
-        )
-        Spacer(Modifier.width(16.dp))
-        Column {
+        if (schedule.startTime != null) {
+            Text(
+                text = schedule.startTime.format(
+                    java.time.format.DateTimeFormatter
+                        .ofPattern("HH:mm"),
+                ),
+                color = colors.primary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(50.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = schedule.title,
-                style = MaterialTheme.typography.bodyLarge,
                 color = colors.onSurfaceA,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
             )
-            if (schedule.startTime != null) {
-                Text(
-                    text = schedule.startTime.format(
-                        java.time.format.DateTimeFormatter
-                            .ofPattern("HH:mm"),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.primary.copy(alpha = 0.8f),
-                )
-            }
+            val subText = schedule.description?.takeIf { it.isNotBlank() } ?: "일정"
+            Text(
+                text = subText,
+                color = colors.neutral,
+                fontSize = 13.sp,
+            )
         }
+
+        Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = colors.neutral,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }

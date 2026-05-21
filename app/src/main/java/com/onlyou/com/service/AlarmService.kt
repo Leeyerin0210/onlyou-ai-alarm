@@ -118,15 +118,17 @@ class AlarmService :
         val alarmTitle = intent?.getStringExtra(EXTRA_ALARM_TITLE) ?: "알람"
         val personaId = intent?.getStringExtra(EXTRA_PERSONA_ID) ?: ""
 
-        // ① AlarmActivity를 즉시 실행 (AI 스크립트 완성을 기다리지 않음)
-        launchAlarmActivity(alarmId, alarmTitle, personaId, script = null)
-
-        // ② Foreground 알림 + 소리/진동 즉시 시작
+        // ① Foreground Service를 먼저 시작 (Android 14+에서 백그라운드 Activity 실행 허용 전제조건)
         startForeground(NOTIFICATION_ID, buildNotification(alarmTitle, alarmId))
+
+        // ② 소리/진동 즉시 시작
         startVibration()
         playSystemAlarmSound()
 
-        // ③ AI 스크립트 생성 후 Activity에 추가 업데이트
+        // ③ AlarmActivity를 즉시 실행 (Foreground Service 시작 후에 호출해야 Android 14+에서 동작)
+        launchAlarmActivity(alarmId, alarmTitle, personaId, script = null)
+
+        // ④ AI 스크립트 생성 후 Activity에 추가 업데이트
         serviceScope.launch {
             generateScriptAndUpdate(personaId, alarmTitle, alarmId)
         }

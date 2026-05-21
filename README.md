@@ -13,7 +13,7 @@
 - **Single Module (Package-based Separation)**: 현재 프로젝트는 빠른 초기 개발을 위해 단일 모듈 구조를 채택하고 있으나, 패키지 단위로 레이어를 명확히 분리하여 추후 기능별 **Multi-module**로의 확장이 용이하도록 설계되었습니다.
 
 ### 2. Package Structure
-```text
+```
 com.onlyou.com
 ├── domain             # 순수 비즈니스 로직 (Android 의존성 없음)
 │   ├── model          # 엔티티 (Alarm, DDay 등)

@@ -127,8 +127,38 @@ fun AlarmEditPage(
                 .padding(bottom = 20.dp)
                 .navigationBarsPadding(),
             onClick = {
-                onSave(time, personaId, title.ifEmpty { null }, repeatDays, date)
-                Toast.makeText(context, "알람이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                val now = java.time.LocalDateTime.now()
+                
+                val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                val minMinutes = if (isDebug) 1L else 60L
+                if (date != null) {
+                    // 특정 날짜가 지정된 경우
+                    val scheduledDateTime = java.time.LocalDateTime.of(date, time)
+                    val minutesUntil = java.time.Duration.between(now, scheduledDateTime).toMinutes()
+                    if (minutesUntil < minMinutes) {
+                        val msg = if (isDebug) "테스트 모드: 최소 1분 이상 남아야 합니다." else "해당 날짜와 시간까지 1시간 이상 남아야 저장할 수 있어요."
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        return@SaveAlarmButton
+                    }
+                    onSave(time, personaId, title.ifEmpty { null }, repeatDays, date)
+                } else {
+                    // 날짜가 지정되지 않은 경우 (반복 요일이 있거나, 없으면 1회성)
+                    var scheduledDateTime = java.time.LocalDateTime.of(now.toLocalDate(), time)
+                    var targetDate: java.time.LocalDate? = null
+                    
+                    // 반복 요일이 없는 1회성 알람일 때만 검사
+                    if (repeatDays.isEmpty()) {
+                        // 현재부터 지정된 최소 시간(상용 60분, 개발 1분) 미만 남았거나 이미 지났다면, 내일로 간주
+                        if (java.time.Duration.between(now, scheduledDateTime).toMinutes() < minMinutes) {
+                            targetDate = now.toLocalDate().plusDays(1)
+                        }
+                    }
+                    
+                    // 조건 통과 처리
+                    onSave(time, personaId, title.ifEmpty { null }, repeatDays, targetDate)
+                }
+                
+                Toast.makeText(context, "브리핑 일정이 저장되었습니다.", Toast.LENGTH_SHORT).show()
             },
         )
     }
@@ -160,7 +190,7 @@ fun MiyaTimePicker(
 
     AlarmEditSectionCard(modifier = modifier) {
         Text(
-            text = "알람 시간",
+            text = "브리핑 시간",
             fontWeight = FontWeight.Bold,
             color = colors.primary,
         )
@@ -431,11 +461,11 @@ private fun AlarmScheduleSection(
         // 반복 요약 문구
         val summaryText = when {
             repeatDays.isEmpty() && date == null -> {
-                "반복 없음 (오늘 1회)"
+                "오늘/내일 1회만 울림"
             }
 
             repeatDays.isEmpty() && date != null -> {
-                "1회만 울림"
+                "해당 날짜 1회만 울림"
             }
 
             repeatDays.size == 7 -> {
@@ -623,133 +653,8 @@ private fun CalendarDayCell(
 }
 
 // ─────────────────────────────────────────────
-// 나머지 섹션 & 공통 컴포넌트
+// 나머지 컴포넌트
 // ─────────────────────────────────────────────
-
-@Composable
-private fun AlarmPersonaSection(
-    personas: List<Persona>,
-    selectedPersonaId: String,
-    onOpenSelection: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    val selectedPersona = personas.find { it.id == selectedPersonaId }
-    val selectedName = selectedPersona?.name ?: "페르소나를 선택하세요"
-
-    AlarmEditSectionCard(modifier = Modifier.clickable { onOpenSelection() }) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Text(
-                    text = "Partner (Persona)",
-                    fontWeight = FontWeight.Bold,
-                    color = colors.primary,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = selectedName,
-                    color = colors.onSurfaceA,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            if (selectedPersona?.imageUrl != null) {
-                AsyncImage(
-                    model = selectedPersona.imageUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun PersonaSelectionPage(
-    personas: List<Persona>,
-    selectedPersonaId: String,
-    onPersonaSelected: (String) -> Unit,
-    onClose: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.background)
-                .statusBarsPadding()
-                .navigationBarsPadding(),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = colors.onSurfaceA)
-                }
-                Text("파트너 선택", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.primary)
-            }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                items(personas) { persona ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPersonaSelected(persona.id) }
-                            .padding(vertical = 8.dp),
-                    ) {
-                        RadioButton(
-                            selected = selectedPersonaId == persona.id,
-                            onClick = { onPersonaSelected(persona.id) },
-                            colors = RadioButtonDefaults.colors(selectedColor = colors.primary),
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        if (persona.imageUrl != null) {
-                            AsyncImage(
-                                model = persona.imageUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.surfaceA),
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(text = persona.name, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
-                            Text(text = persona.name, style = MaterialTheme.typography.labelSmall, color = colors.primary)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun AlarmEditSectionCard(
@@ -776,13 +681,13 @@ private fun AlarmTitleSection(
 ) {
     val colors = MiyaTheme.colors
     AlarmEditSectionCard {
-        Text(text = "제목", fontWeight = FontWeight.Bold, color = colors.primary)
+        Text(text = "브리핑 제목", fontWeight = FontWeight.Bold, color = colors.primary)
         TextField(
             value = title,
             onValueChange = onTitleChange,
             maxLines = 1,
             singleLine = true,
-            placeholder = { Text("알람 제목을 입력하세요", color = colors.onSurfaceA.copy(0.4f)) },
+            placeholder = { Text("브리핑 제목을 입력하세요", color = colors.onSurfaceA.copy(0.4f)) },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
