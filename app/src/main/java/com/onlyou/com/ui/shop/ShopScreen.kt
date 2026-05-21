@@ -37,6 +37,7 @@ fun ShopScreen(
     onBack: () -> Unit,
     onNavigateToEdit: (String?) -> Unit,
     onNavigateToMyPersonas: () -> Unit,
+    onOpenDrawer: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
@@ -58,7 +59,7 @@ fun ShopScreen(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
+            IconButton(onClick = onOpenDrawer) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
             Column(Modifier.weight(1f).padding(start = 4.dp)) {
                 Text("에이전트 상점", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
             }

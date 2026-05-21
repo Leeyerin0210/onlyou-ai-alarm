@@ -1,0 +1,154 @@
+package com.onlyou.com.ui.settings
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.onlyou.com.ui.theme.MiyaTheme
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onNavigateTo: (String) -> Unit,
+) {
+    val colors = MiyaTheme.colors
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .statusBarsPadding(),
+    ) {
+        // Top Bar
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = colors.onSurfaceA) }
+            Text(
+                "설정",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.onSurfaceA,
+                modifier = Modifier.padding(start = 16.dp),
+            )
+        }
+
+        LazyColumn(
+            contentPadding = PaddingValues(bottom = 32.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            item { SettingsSectionTitle("계정") }
+            item { SettingsRowItem(Icons.Default.PersonOutline, "프로필 관리", onClick = { onNavigateTo("drawer_profile") }) }
+            item { SettingsRowItem(Icons.Default.Lock, "계정 및 보안", onClick = { /* TODO */ }) }
+            item { Spacer(Modifier.height(16.dp)) }
+
+            item { SettingsSectionTitle("알림 설정") }
+            item { SettingsRowItem(Icons.Default.NotificationsNone, "푸시 알림", onClick = { /* TODO */ }) }
+            item { SettingsRowItem(Icons.Default.Campaign, "브리핑 알림", onClick = { onNavigateTo("settings_briefing") }) }
+            item { SettingsRowItem(Icons.Default.DoNotDisturb, "방해 금지 시간", onClick = { onNavigateTo("settings_dnd") }) }
+            item { Spacer(Modifier.height(16.dp)) }
+
+            item { SettingsSectionTitle("테마 설정") }
+            item { ThemeSelectionRow() }
+            item { Spacer(Modifier.height(16.dp)) }
+
+            item { SettingsSectionTitle("기타") }
+            item { SettingsRowItem(Icons.Default.CloudUpload, "백업 및 동기화", onClick = { onNavigateTo("settings_backup") }) }
+            item { SettingsRowItem(Icons.Default.Language, "언어 설정", "한국어 >", onClick = { /* TODO */ }) }
+            item { SettingsRowItem(Icons.Default.Info, "앱 정보", "v1.2.0 >", onClick = { onNavigateTo("settings_app_info") }) }
+        }
+    }
+}
+
+@Composable
+fun SettingsSectionTitle(title: String) {
+    val colors = MiyaTheme.colors
+    Text(
+        text = title,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Bold,
+        color = colors.neutral,
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+    )
+}
+
+@Composable
+fun SettingsRowItem(
+    icon: ImageVector,
+    title: String,
+    trailingText: String? = null,
+    onClick: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(title, fontSize = 16.sp, color = colors.onSurfaceA, modifier = Modifier.weight(1f))
+        if (trailingText != null) {
+            Text(trailingText, fontSize = 14.sp, color = colors.neutral)
+        } else {
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+fun ThemeSelectionRow() {
+    val colors = MiyaTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ThemeCard("라이트", Icons.Default.LightMode, isSelected = false, modifier = Modifier.weight(1f))
+        ThemeCard("다크", Icons.Default.DarkMode, isSelected = true, modifier = Modifier.weight(1f))
+        ThemeCard("시스템", Icons.Default.SettingsBrightness, isSelected = false, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+fun ThemeCard(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MiyaTheme.colors
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) colors.surfaceB else colors.surfaceA)
+            .clickable { /* TODO */ }
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, tint = if (isSelected) colors.primary else colors.neutral, modifier = Modifier.size(16.dp))
+            Text(
+                label,
+                fontSize = 13.sp,
+                color = if (isSelected) colors.primary else colors.neutral,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            )
+        }
+    }
+}

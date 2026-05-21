@@ -78,6 +78,7 @@ fun ChatScreen(
     onNavigateToSchedule: () -> Unit,
     onNavigateToAlarm: () -> Unit,
     onNavigateToShop: () -> Unit,
+    onOpenDrawer: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     ChatScreenContent(
@@ -86,6 +87,7 @@ fun ChatScreen(
         onNavigateToSchedule = onNavigateToSchedule,
         onNavigateToAlarm = onNavigateToAlarm,
         onNavigateToShop = onNavigateToShop,
+        onOpenDrawer = onOpenDrawer,
         onCancelSchedule = viewModel::cancelSchedule,
         onInputTextChange = viewModel::onInputTextChange,
         onSendMessage = viewModel::sendMessage,
@@ -99,6 +101,7 @@ fun ChatScreenContent(
     onNavigateToSchedule: () -> Unit,
     onNavigateToAlarm: () -> Unit,
     onNavigateToShop: () -> Unit,
+    onOpenDrawer: () -> Unit,
     onCancelSchedule: () -> Unit,
     onInputTextChange: (String) -> Unit,
     onSendMessage: () -> Unit,
@@ -117,7 +120,7 @@ fun ChatScreenContent(
                 ) {
                     // 햄버거 메뉴
                     Box {
-                        IconButton(onClick = { menuExpanded = true }) {
+                        IconButton(onClick = onOpenDrawer) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu", tint = colors.onSurfaceA)
                         }
                         DropdownMenu(
@@ -193,6 +196,7 @@ fun ChatScreenContent(
                         ScheduleNotificationBar(
                             scheduleTitle = schedule.title,
                             onCancel = onCancelSchedule,
+                            onOpenDrawer = onOpenDrawer
                         )
                     }
                 }
@@ -391,6 +395,7 @@ fun ChatInputSection(
 fun ScheduleNotificationBar(
     scheduleTitle: String,
     onCancel: () -> Unit,
+    onOpenDrawer: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
     Surface(
@@ -407,6 +412,7 @@ fun ScheduleNotificationBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            IconButton(onClick = onOpenDrawer) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(
                     imageVector = Icons.Default.CalendarToday,
@@ -442,6 +448,7 @@ fun ScheduleNotificationBarPreview() {
         ScheduleNotificationBar(
             scheduleTitle = "점심 약속",
             onCancel = {},
+            onOpenDrawer = {}
         )
     }
 }
@@ -477,6 +484,8 @@ fun ChatScreenPreview() {
             onCancelSchedule = {},
             onInputTextChange = {},
             onSendMessage = {},
+            onOpenDrawer = {}
+
         )
     }
 }

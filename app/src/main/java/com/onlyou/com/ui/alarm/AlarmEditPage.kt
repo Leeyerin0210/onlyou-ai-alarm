@@ -63,7 +63,6 @@ fun AlarmEditPage(
     var date by remember(alarm.id, alarm.date) { mutableStateOf(alarm.date) }
 
     var showCalendar by remember(alarm.id) { mutableStateOf(false) }
-    var showPersonaSelection by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     if (showCalendar) {
@@ -115,12 +114,6 @@ fun AlarmEditPage(
                 },
             )
 
-            AlarmPersonaSection(
-                personas = personas,
-                selectedPersonaId = personaId,
-                onOpenSelection = { showPersonaSelection = true },
-            )
-
             if (onDelete != null && alarm.id != 0) {
                 DeleteAlarmButton(onClick = onDelete)
             }
@@ -138,18 +131,6 @@ fun AlarmEditPage(
                 Toast.makeText(context, "알람이 저장되었습니다.", Toast.LENGTH_SHORT).show()
             },
         )
-
-        if (showPersonaSelection) {
-            PersonaSelectionPage(
-                personas = personas,
-                selectedPersonaId = personaId,
-                onPersonaSelected = {
-                    personaId = it
-                    showPersonaSelection = false
-                },
-                onClose = { showPersonaSelection = false },
-            )
-        }
     }
 }
 

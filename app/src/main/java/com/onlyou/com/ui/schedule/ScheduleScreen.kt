@@ -38,12 +38,14 @@ fun ScheduleScreen(
     viewModel: ScheduleViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToAlarm: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     ScheduleScreenContent(
         uiState = uiState,
         onBack = onBack,
         onNavigateToAlarm = onNavigateToAlarm,
+        onOpenDrawer = onOpenDrawer,
         onDeleteSchedule = { viewModel.deleteSchedule(it) },
         onAddSchedule = { title, time, date ->
             viewModel.addSchedule(
@@ -64,6 +66,7 @@ fun ScheduleScreenContent(
     uiState: ScheduleUiState,
     onBack: () -> Unit = {},
     onNavigateToAlarm: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
     onDeleteSchedule: (AiSchedule) -> Unit = {},
     onAddSchedule: (title: String, time: LocalTime?, date: LocalDate) -> Unit = { _, _, _ -> },
 ) {
@@ -97,7 +100,7 @@ fun ScheduleScreenContent(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onOpenDrawer) {
                 Icon(
                     Icons.Default.Menu,
                     null,

@@ -34,6 +34,7 @@ fun AlarmScreen(
     onEditingStateChange: (Boolean) -> Unit = {},
     backTrigger: Int = 0,
     onBack: () -> Unit = {},
+    onOpenDrawer: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
     val context = LocalContext.current
@@ -61,7 +62,7 @@ fun AlarmScreen(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
+            IconButton(onClick = onOpenDrawer) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
             Column(Modifier.weight(1f).padding(start = 4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(12.dp))
