@@ -20,11 +20,11 @@ class ThemeManager
     constructor(
         @ApplicationContext private val context: Context,
     ) {
-        // 고정된 골드 & 화이트 테마 색상 사용
-        private val _currentLightColors = MutableStateFlow(GoldColors)
+        // 고정된 테마 색상 사용
+        private val _currentLightColors = MutableStateFlow(LightSpaceColors)
         val currentLightColors: StateFlow<MiyaColors> = _currentLightColors.asStateFlow()
 
-        private val _currentDarkColors = MutableStateFlow(GoldColors)
+        private val _currentDarkColors = MutableStateFlow(SpaceColors)
         val currentDarkColors: StateFlow<MiyaColors> = _currentDarkColors.asStateFlow()
 
         private val _currentFontType = MutableStateFlow(MiyaFontType.DEFAULT)

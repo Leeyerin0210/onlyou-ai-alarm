@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.onlyou.com.domain.repository.ThemeMode
 import com.onlyou.com.ui.theme.MiyaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,8 +25,10 @@ import com.onlyou.com.ui.theme.MiyaTheme
 fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateTo: (String) -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val colors = MiyaTheme.colors
+    val currentThemeMode by viewModel.themeMode.collectAsState()
 
     Column(
         Modifier
@@ -63,7 +67,12 @@ fun SettingsScreen(
             item { Spacer(Modifier.height(16.dp)) }
 
             item { SettingsSectionTitle("테마 설정") }
-            item { ThemeSelectionRow() }
+            item { 
+                ThemeSelectionRow(
+                    selectedMode = currentThemeMode,
+                    onThemeSelect = { viewModel.setThemeMode(it) }
+                ) 
+            }
             item { Spacer(Modifier.height(16.dp)) }
 
             item { SettingsSectionTitle("기타") }
@@ -113,15 +122,18 @@ fun SettingsRowItem(
 }
 
 @Composable
-fun ThemeSelectionRow() {
+fun ThemeSelectionRow(
+    selectedMode: ThemeMode,
+    onThemeSelect: (ThemeMode) -> Unit
+) {
     val colors = MiyaTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ThemeCard("라이트", Icons.Default.LightMode, isSelected = false, modifier = Modifier.weight(1f))
-        ThemeCard("다크", Icons.Default.DarkMode, isSelected = true, modifier = Modifier.weight(1f))
-        ThemeCard("시스템", Icons.Default.SettingsBrightness, isSelected = false, modifier = Modifier.weight(1f))
+        ThemeCard("라이트", Icons.Default.LightMode, isSelected = selectedMode == ThemeMode.LIGHT, onClick = { onThemeSelect(ThemeMode.LIGHT) }, modifier = Modifier.weight(1f))
+        ThemeCard("다크", Icons.Default.DarkMode, isSelected = selectedMode == ThemeMode.DARK, onClick = { onThemeSelect(ThemeMode.DARK) }, modifier = Modifier.weight(1f))
+        ThemeCard("시스템", Icons.Default.SettingsBrightness, isSelected = selectedMode == ThemeMode.SYSTEM, onClick = { onThemeSelect(ThemeMode.SYSTEM) }, modifier = Modifier.weight(1f))
     }
 }
 
@@ -130,6 +142,7 @@ fun ThemeCard(
     label: String,
     icon: ImageVector,
     isSelected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
@@ -137,7 +150,7 @@ fun ThemeCard(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) colors.surfaceB else colors.surfaceA)
-            .clickable { /* TODO */ }
+            .clickable { onClick() }
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {

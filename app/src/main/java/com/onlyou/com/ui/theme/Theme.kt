@@ -32,26 +32,26 @@ val SpaceColors = MiyaColors(
     neutral = SpaceNeutral,
 )
 
-val GoldColors = MiyaColors(
-    background = Color.White,
-    surfaceA = Color(0xFFFDFDFD),
-    onSurfaceA = Color(0xFF1A1A1A),
-    surfaceB = Color(0xFFFFF9E6),
-    onSurfaceB = Color(0xFFB8860B),
-    primary = Color(0xFFC5A059), // GoldMedium
-    secondary = Color(0xFFFFD700), // GoldLight
-    neutral = Color(0xFF9A9A9A),
+val LightSpaceColors = MiyaColors(
+    background = LightSpaceBackground,
+    surfaceA = LightSpaceSurfaceA,
+    onSurfaceA = LightSpaceOnSurfaceA,
+    surfaceB = LightSpaceSurfaceB,
+    onSurfaceB = LightSpaceOnSurfaceB,
+    primary = SpacePrimary,
+    secondary = SpaceSecondary,
+    neutral = SpaceNeutral,
 )
 
-val LocalMiyaColors = staticCompositionLocalOf { GoldColors }
+val LocalMiyaColors = staticCompositionLocalOf { LightSpaceColors }
 
 @Composable
 fun MiyaTheme(
     fontType: MiyaFontType = MiyaFontType.DEFAULT,
+    isDarkTheme: Boolean = androidx.compose.foundation.isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    // 이미지 디자인 기반 다크 퍼플 스페이스 테마 적용
-    val colors = SpaceColors
+    val colors = if (isDarkTheme) SpaceColors else LightSpaceColors
 
     val typography = when (fontType) {
         MiyaFontType.GOTHIC -> HeirTypography // GOTHIC 요청시에도 조금 더 깔끔한 HeirTypography 사용

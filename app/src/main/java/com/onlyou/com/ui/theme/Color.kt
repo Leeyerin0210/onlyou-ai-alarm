@@ -2,18 +2,12 @@ package com.onlyou.com.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val GoldLight = Color(0xFFFFD700)
-val GoldMedium = Color(0xFFC5A059)
-val GoldDark = Color(0xFF8B7500)
-
-val GothicBlack = Color(0xFF0D0D0D)
-
-val GothicRed = Color(0xFF800101)
-val GothicGrey = Color(0xFF1A1A1A)
-
-val EmptyGrey = Color(0xFF9A9A9A)
-
-val VintageWhite = Color(0xFFF5F5DC)
+// Light Theme Colors (Inverted Space Theme)
+val LightSpaceBackground = Color(0xFFFFFFFF)
+val LightSpaceSurfaceA = Color(0xFFF3F4F6)     // 약간의 회색을 띈 카드 배경
+val LightSpaceOnSurfaceA = Color(0xFF161B22)   // 메인 텍스트 (다크)
+val LightSpaceSurfaceB = Color(0xFFE5E7EB)     // 강조 카드 배경
+val LightSpaceOnSurfaceB = Color(0xFF374151)   // 서브 텍스트
 
 val AccentRed = Color(0xFF8B0000) // 고딕풍의 딥 레드
 

@@ -83,6 +83,9 @@ class MainActivity : ComponentActivity() {
     lateinit var themeManager: ThemeManager
 
     @Inject
+    lateinit var themeRepository: com.onlyou.com.domain.repository.ThemeRepository
+
+    @Inject
     lateinit var personaRepository: PersonaRepository
 
     @Inject
@@ -97,9 +100,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val currentFontType by themeManager.currentFontType.collectAsState()
+            val themeMode by themeRepository.themeMode.collectAsState()
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDarkTheme = when (themeMode) {
+                com.onlyou.com.domain.repository.ThemeMode.SYSTEM -> isSystemDark
+                com.onlyou.com.domain.repository.ThemeMode.LIGHT -> false
+                com.onlyou.com.domain.repository.ThemeMode.DARK -> true
+            }
 
             MiyaTheme(
                 fontType = currentFontType,
+                isDarkTheme = isDarkTheme,
             ) {
                 val colors = MiyaTheme.colors
                 val scope = rememberCoroutineScope()
