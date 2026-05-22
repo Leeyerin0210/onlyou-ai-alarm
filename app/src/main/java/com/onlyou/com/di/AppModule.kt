@@ -68,6 +68,12 @@ abstract class RepositoryModule {
     abstract fun bindThemeRepository(
         themeRepositoryImpl: com.onlyou.com.data.repository.ThemeRepositoryImpl,
     ): com.onlyou.com.domain.repository.ThemeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(
+        backupRepositoryImpl: com.onlyou.com.data.repository.BackupRepositoryImpl,
+    ): com.onlyou.com.domain.repository.BackupRepository
 }
 
 @Module

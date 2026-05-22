@@ -37,6 +37,9 @@ interface AiScheduleDao {
     @Query("SELECT * FROM ai_schedules")
     fun getAllSchedules(): Flow<List<AiScheduleEntity>>
 
+    @Query("SELECT * FROM ai_schedules")
+    suspend fun getAllSchedulesOnce(): List<AiScheduleEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: AiScheduleEntity)
 
@@ -82,6 +85,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
     fun getChatMessages(): Flow<List<ChatMessageEntity>>
 
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
+    suspend fun getChatMessagesOnce(): List<ChatMessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessageEntity)
 
@@ -93,6 +99,9 @@ interface ChatDao {
 interface MemoryDao {
     @Query("SELECT * FROM memories")
     fun getAllMemories(): Flow<List<MemoryEntity>>
+
+    @Query("SELECT * FROM memories")
+    suspend fun getAllMemoriesOnce(): List<MemoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMemory(memory: MemoryEntity)

@@ -19,6 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import android.content.Intent
+import android.app.Activity
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.onlyou.com.domain.repository.BackupState
 import com.onlyou.com.ui.theme.MiyaTheme
 
 @Composable
@@ -212,8 +218,40 @@ fun PremiumPlanScreen(onBack: () -> Unit) {
 
 // 5. 백업 및 동기화
 @Composable
-fun BackupSyncScreen(onBack: () -> Unit) {
+fun BackupSyncScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
     val colors = MiyaTheme.colors
+    val context = LocalContext.current
+    val lastBackupTime by viewModel.lastBackupTime.collectAsState()
+    val backupState by viewModel.backupState.collectAsState()
+    val restoreState by viewModel.restoreState.collectAsState()
+
+    LaunchedEffect(backupState) {
+        when (backupState) {
+            is BackupState.Success -> Toast.makeText(context, "백업이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+            is BackupState.Error -> Toast.makeText(context, (backupState as BackupState.Error).message, Toast.LENGTH_LONG).show()
+            else -> {}
+        }
+    }
+
+    LaunchedEffect(restoreState) {
+        when (restoreState) {
+            is BackupState.Success -> {
+                Toast.makeText(context, "복원이 완료되었습니다. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
+                val packageManager = context.packageManager
+                val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                val componentName = intent?.component
+                val mainIntent = Intent.makeRestartActivityTask(componentName)
+                context.startActivity(mainIntent)
+                Runtime.getRuntime().exit(0)
+            }
+            is BackupState.Error -> Toast.makeText(context, (restoreState as BackupState.Error).message, Toast.LENGTH_LONG).show()
+            else -> {}
+        }
+    }
+
     Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
         SimpleTopBar("백업 및 동기화", onBack)
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
@@ -221,23 +259,41 @@ fun BackupSyncScreen(onBack: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CloudQueue, null, tint = colors.primary, modifier = Modifier.size(40.dp))
                     Spacer(Modifier.width(16.dp))
-                    Text("모든 대화, 일정, 설정을\n안전하게 백업하고 동기화해요.", color = colors.onSurfaceA, fontSize = 14.sp)
+                    Text("모든 대화, 일정, 설정을\n안전하게 클라우드에 백업해요.", color = colors.onSurfaceA, fontSize = 14.sp)
                 }
             }
             Spacer(Modifier.height(32.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("마지막 백업", fontSize = 16.sp, color = colors.onSurfaceA); Text("2024.05.27 오후 11:30", fontSize = 12.sp, color = colors.neutral) }
-                OutlinedButton(onClick = {}) { Text("지금 백업하기", color = colors.primary) }
+                Column { 
+                    Text("마지막 백업", fontSize = 16.sp, color = colors.onSurfaceA)
+                    Text(lastBackupTime ?: "기록 없음", fontSize = 12.sp, color = colors.neutral) 
+                }
+                Button(
+                    onClick = { viewModel.backupData() },
+                    enabled = backupState != BackupState.Loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                ) { 
+                    if (backupState == BackupState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("지금 백업하기", color = Color.White) 
+                    }
+                }
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = colors.surfaceB)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("자동 백업", fontSize = 16.sp, color = colors.onSurfaceA); Text("매일 밤 11:30", fontSize = 12.sp, color = colors.neutral) }
-                Switch(checked = true, onCheckedChange = {}, colors = SwitchDefaults.colors(checkedTrackColor = colors.primary))
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = colors.surfaceB)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("Google Drive 동기화", fontSize = 16.sp, color = colors.onSurfaceA); Text("luna.user@gmail.com", fontSize = 12.sp, color = colors.neutral) }
-                Switch(checked = true, onCheckedChange = {}, colors = SwitchDefaults.colors(checkedTrackColor = colors.primary))
+                Column { Text("데이터 복원", fontSize = 16.sp, color = colors.onSurfaceA); Text("클라우드에서 최신 백업 데이터를 불러옵니다.", fontSize = 12.sp, color = colors.neutral) }
+                OutlinedButton(
+                    onClick = { viewModel.restoreData() },
+                    enabled = restoreState != BackupState.Loading,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary)
+                ) { 
+                    if (restoreState == BackupState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colors.primary, strokeWidth = 2.dp)
+                    } else {
+                        Text("불러오기")
+                    }
+                }
             }
         }
     }
