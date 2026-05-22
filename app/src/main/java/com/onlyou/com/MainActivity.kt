@@ -55,9 +55,19 @@ import com.onlyou.com.ui.alarm.AlarmScreen
 import com.onlyou.com.ui.components.MiyaBottomNavigationBar
 import com.onlyou.com.ui.components.MiyaDrawerSheet
 import com.onlyou.com.ui.home.ChatScreen
+import com.onlyou.com.ui.onboarding.OnboardingPagerScreen
+import com.onlyou.com.ui.onboarding.OnboardingScreen
 import com.onlyou.com.ui.permission.AlarmPermissionDialog
 import com.onlyou.com.ui.schedule.ScheduleScreen
-import com.onlyou.com.ui.settings.*
+import com.onlyou.com.ui.settings.AppInfoScreen
+import com.onlyou.com.ui.settings.AiMemoryScreen
+import com.onlyou.com.ui.settings.BackupSyncScreen
+import com.onlyou.com.ui.settings.BriefingPreviewScreen
+import com.onlyou.com.ui.settings.DndTimeScreen
+import com.onlyou.com.ui.settings.ProfileEditScreen
+import com.onlyou.com.ui.settings.SettingsScreen
+import com.onlyou.com.ui.settings.ToneAndPersonalityScreen
+import com.onlyou.com.ui.settings.PremiumPlanScreen
 import com.onlyou.com.ui.shop.MyPersonasScreen
 import com.onlyou.com.ui.shop.PersonaEditScreen
 import com.onlyou.com.ui.shop.ShopScreen
@@ -174,11 +184,31 @@ class MainActivity : ComponentActivity() {
                                                         e.printStackTrace()
                                                     }
                                                 }
-                                                currentScreen = "chat"
+                                                // 온보딩 완료 여부 확인
+                                                val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
                                             } else {
                                                 currentScreen = "login"
                                             }
                                         }
+                                    }
+
+                                    screen == "onboarding_pager" -> {
+                                        OnboardingPagerScreen(
+                                            onFinish = { currentScreen = "onboarding" },
+                                            onSkip = { currentScreen = "onboarding" },
+                                        )
+                                    }
+
+                                    screen == "onboarding" -> {
+                                        OnboardingScreen(
+                                            onOnboardingComplete = {
+                                                prefs.edit()
+                                                    .putBoolean("onboarding_complete", true)
+                                                    .apply()
+                                                currentScreen = "chat"
+                                            },
+                                        )
                                     }
 
                                     screen == "chat" -> {
@@ -294,7 +324,11 @@ class MainActivity : ComponentActivity() {
 
                                     screen == "login" -> {
                                         com.onlyou.com.ui.login.LoginScreen(
-                                            onLoginSuccess = { currentScreen = "chat" },
+                                            onLoginSuccess = {
+                                                // 로그인 성공 후 온보딩 여부 확인
+                                                val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
+                                            },
                                         )
                                     }
 

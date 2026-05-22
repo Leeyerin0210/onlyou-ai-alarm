@@ -30,6 +30,14 @@ class OnboardingViewModel
 
         init {
             viewModelScope.launch {
+                // 비서 목록 동기화 수행
+                try {
+                    personaRepository.syncPersonas()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            viewModelScope.launch {
                 personaRepository.getAllPersonas().collectLatest { personas ->
                     val count = personas.count { it.isSelected }
                     _uiState.update { state ->

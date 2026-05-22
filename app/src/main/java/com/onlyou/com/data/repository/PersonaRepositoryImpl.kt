@@ -113,9 +113,17 @@ class PersonaRepositoryImpl
                     }
 
                 // 3. 로컬 DB 업데이트
+                // 동기화 중(네트워크 지연 등) 유저가 화면에서 먼저 비서를 선택했을 수 있으므로 최신 로컬 선택 상태를 우선 확인
+                val currentLocalSelectedId = personaDao.getAllPersonasOnce().find { it.isSelected }?.id
+                // 로컬에 선택된 게 있으면 유지, 없으면 원격에서 가져온 selectedId 사용
+                val finalSelectedId = currentLocalSelectedId ?: selectedId
+
                 remotePersonas.forEach { entity ->
+                    // 로컬 DB에 이미 존재하는 엔티티인지 확인 (기존 usageCount 유지용)
+                    val existing = personaDao.getAllPersonasOnce().find { it.id == entity.id }
                     val updatedEntity = entity.copy(
-                        isSelected = entity.id == selectedId,
+                        isSelected = entity.id == finalSelectedId,
+                        usageCount = existing?.usageCount ?: entity.usageCount
                     )
                     personaDao.upsertPersona(updatedEntity)
                 }
@@ -169,33 +177,35 @@ class PersonaRepositoryImpl
         }
 
         override suspend fun setSelectedPersona(personaId: String) {
-            personaDao.deselectAll()
-            personaDao.selectPersona(personaId)
+            val allPersonas = personaDao.getAllPersonasOnce()
 
-            // 인기도(usageCount) 증가 로직 추가
-            val persona = personaDao.getAllPersonasOnce().find { it.id == personaId }
-            if (persona != null) {
-                val updatedPersona = persona.copy(usageCount = persona.usageCount + 1)
-                personaDao.update(updatedPersona)
-                
+            // 1. 새로운 비서 먼저 선택 (isSelected = true) 및 인기도 증가
+            // 이 작업을 먼저 해야 DB에 선택된 비서가 0명이 되는 '빈 틈'이 생기지 않아
+            // getSelectedPersona()의 fallback(자동으로 1번 비서 강제 선택) 로직이 발동하는 것을 막을 수 있음
+            val targetPersona = allPersonas.find { it.id == personaId }
+            if (targetPersona != null) {
+                val updatedTarget = targetPersona.copy(
+                    isSelected = true,
+                    usageCount = targetPersona.usageCount + 1
+                )
+                personaDao.update(updatedTarget)
+
                 // 원격에도 반영
                 val uid = auth.currentUser?.uid
                 if (uid != null) {
                     try {
-                        firestore.collection("personas").document(personaId).update("usageCount", updatedPersona.usageCount)
+                        firestore.collection("personas").document(personaId).update("usageCount", updatedTarget.usageCount)
+                        firestore.collection("users").document(uid).update("selectedPersonaId", personaId)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 }
             }
 
-            // 원격 서버에도 반영 (선택 정보)
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
-                firestore
-                    .collection("users")
-                    .document(uid)
-                    .update("selectedPersonaId", personaId)
+            // 2. 현재 선택되어 있던 나머지 비서들을 해제
+            val toDeselect = allPersonas.filter { it.isSelected && it.id != personaId }
+            toDeselect.forEach {
+                personaDao.update(it.copy(isSelected = false))
             }
         }
 
