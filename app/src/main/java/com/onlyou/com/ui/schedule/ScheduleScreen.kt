@@ -410,13 +410,13 @@ private fun AiBriefingCard(
                 Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(colors.background.copy(alpha = 0.2f)),
+                    .background(Color.White.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Default.SmartToy,
                     null,
-                    tint = colors.background,
+                    tint = Color.White,
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -424,7 +424,7 @@ private fun AiBriefingCard(
                 Text(
                     "이번 주 일정 브리핑",
                     fontSize = 11.sp,
-                    color = colors.background.copy(alpha = 0.8f),
+                    color = Color.White.copy(alpha = 0.8f),
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
@@ -434,7 +434,7 @@ private fun AiBriefingCard(
                         "이번 주 ${weekCount}개의 일정이 있고,\n오늘은 일정이 없어요."
                     },
                     fontSize = 13.sp,
-                    color = colors.background,
+                    color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     lineHeight = 19.sp,
                 )

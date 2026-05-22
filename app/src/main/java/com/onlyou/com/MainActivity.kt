@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -164,12 +167,14 @@ class MainActivity : ComponentActivity() {
                             },
                             label = "screen_transition",
                         ) { screen ->
-                            // 바텀 탭 화면들은 하단 패딩을 고려
+                            // 바텀 탭 화면들은 하단 패딩을 고려 (바텀바 84dp + 네비게이션바 패딩)
                             val isMainTab = screen in listOf("chat", "schedule", "shop", "alarm")
+                            val bottomPadding = if (isMainTab) WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 84.dp else 0.dp
+                            
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .then(if (isMainTab) Modifier.padding(bottom = 96.dp) else Modifier),
+                                    .padding(bottom = bottomPadding),
                             ) {
                                 when {
                                     screen == "splash_check" -> {
