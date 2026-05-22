@@ -66,16 +66,15 @@ fun MiyaBottomNavigationBar(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         tonalElevation = 8.dp,
         shadowElevation = 16.dp,
-        modifier = modifier
-            .navigationBarsPadding()
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = colors.surfaceA.copy(alpha = 0.97f),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .height(84.dp), // 높이를 64dp에서 84dp로 증가
+                .navigationBarsPadding() // 내부 요소가 네비게이션 바에 가리지 않도록 안쪽으로 이동
+                .height(84.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {

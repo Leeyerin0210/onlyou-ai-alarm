@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -131,7 +132,7 @@ private fun AiBriefingHeroCard() {
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.verticalGradient(listOf(colors.primary.copy(0.9f), colors.surfaceB))),
+            .background(Brush.verticalGradient(listOf(colors.primary, colors.secondary))),
     ) {
         Row(
             Modifier.padding(20.dp),
@@ -139,16 +140,16 @@ private fun AiBriefingHeroCard() {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(
-                Modifier.size(64.dp).clip(CircleShape).background(colors.background.copy(0.2f)),
+                Modifier.size(64.dp).clip(CircleShape).background(Color.White.copy(0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.SmartToy, null, tint = colors.background, modifier = Modifier.size(36.dp))
+                Icon(Icons.Default.SmartToy, null, tint = Color.White, modifier = Modifier.size(36.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("오늘 중요한 일정", fontSize = 13.sp, color = colors.background.copy(0.85f))
-                Text("놓치지 않게 알려드릴게요!", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.background)
+                Text("오늘 중요한 일정", fontSize = 13.sp, color = Color.White.copy(0.85f))
+                Text("놓치지 않게 알려드릴게요!", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(Modifier.height(4.dp))
-                Text("AI가 당신의 일정을 분석해\n꼭 필요한 알림을 브리핑해드려요.", fontSize = 11.sp, color = colors.background.copy(0.7f), lineHeight = 16.sp)
+                Text("AI가 당신의 일정을 분석해\n꼭 필요한 알림을 브리핑해드려요.", fontSize = 11.sp, color = Color.White.copy(0.7f), lineHeight = 16.sp)
             }
         }
     }

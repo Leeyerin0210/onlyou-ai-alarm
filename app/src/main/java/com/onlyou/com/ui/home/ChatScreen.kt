@@ -347,14 +347,17 @@ fun ChatInputSection(
     val colors = MiyaTheme.colors
     Surface(
         color = colors.surfaceA,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+            .navigationBarsPadding()
+            .imePadding(),
+        shape = RoundedCornerShape(28.dp),
         tonalElevation = 4.dp,
+        shadowElevation = 1.dp,
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .navigationBarsPadding()
-                .imePadding(),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextField(
