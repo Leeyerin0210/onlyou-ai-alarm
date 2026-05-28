@@ -39,6 +39,7 @@ class ScheduleRepositoryImpl
                 repeatDays = repeatDays,
                 title = title,
                 description = description,
+                location = location,
                 isAlarmEnabled = isAlarmEnabled,
             )
 
@@ -51,6 +52,7 @@ class ScheduleRepositoryImpl
                 repeatDays = repeatDays,
                 title = title,
                 description = description,
+                location = location,
                 isAlarmEnabled = isAlarmEnabled,
             )
     }

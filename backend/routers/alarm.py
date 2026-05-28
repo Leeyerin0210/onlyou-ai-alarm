@@ -30,7 +30,8 @@ async def generate_alarm_script(request: AlarmScriptRequest):
     1. 반드시 제공된 '오늘 일정' 정보가 있다면 이를 언급하세요. 없는 일정을 지어내지 마세요.
     2. 페르소나의 성격에 맞게 따뜻하고 자연스럽게 대화하듯 작성하세요.
     3. 너무 길지 않게 3~5문장 정도로 작성하세요.
-    4. '[오늘 일정]' 이라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+    4. '[오늘 일정]', '[날씨]' 라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+    5. 날씨 정보가 주어졌다면, 단순히 나열하지 말고 "대구 여행 예정이신데 비가 올 예정이에요. 우산 챙겨가세요."처럼 사용자의 일정과 날씨를 유기적으로 엮어서(스토리텔링) 브리핑하세요.
     """
     res = client.models.generate_content(model=model_id, contents=prompt)
     full_text = res.text.strip()
@@ -73,7 +74,8 @@ async def generate_alarm_script_stream(request: AlarmScriptRequest):
         1. 반드시 제공된 '오늘 일정' 정보가 있다면 이를 언급하세요. 없는 일정을 지어내지 마세요.
         2. 페르소나의 성격에 맞게 따뜻하고 자연스럽게 대화하듯 작성하세요.
         3. 너무 길지 않게 3~5문장 정도로 작성하세요.
-        4. '[오늘 일정]' 이라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+        4. '[오늘 일정]', '[날씨]' 라는 문구는 그대로 노출하지 말고 자연스럽게 문장에 녹여내세요.
+        5. 날씨 정보가 주어졌다면, 단순히 나열하지 말고 "대구 여행 예정이신데 비가 올 예정이에요. 우산 챙겨가세요."처럼 사용자의 일정과 날씨를 유기적으로 엮어서(스토리텔링) 브리핑하세요.
         """
         stream = client.models.generate_content_stream(model=model_id, contents=prompt)
         for chunk in stream:

@@ -13,10 +13,19 @@ class ChatMessage(BaseModel):
     role: str
     text: str
 
+class ScheduleItem(BaseModel):
+    id: str
+    title: str
+    date: Optional[str] = None
+    time: Optional[str] = None
+    timeHint: Optional[str] = None
+    location: Optional[str] = None
+
 class ChatRequest(BaseModel):
     system_prompt: str
     history: List[ChatMessage]
     message: str
+    schedules: Optional[List[ScheduleItem]] = None
 
 class VoiceSynthesizeRequest(BaseModel):
     text: str

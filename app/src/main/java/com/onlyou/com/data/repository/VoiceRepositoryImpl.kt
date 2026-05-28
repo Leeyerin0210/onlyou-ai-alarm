@@ -15,6 +15,7 @@ import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.MemoryRepository
 import com.onlyou.com.domain.repository.ScheduleRepository
 import com.onlyou.com.domain.repository.VoiceRepository
+import com.onlyou.com.domain.repository.WeatherRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +35,7 @@ class VoiceRepositoryImpl
         private val scheduleRepository: ScheduleRepository,
         private val apiService: MiyaApiService,
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
+        private val weatherRepository: WeatherRepository,
     ) : VoiceRepository {
         override suspend fun synthesizeVoice(
             text: String,
@@ -154,14 +156,37 @@ class VoiceRepositoryImpl
                     )
 
                     // 일정 추가 (특수한 포맷으로)
+                    val uniqueLocations = mutableSetOf<String>()
                     todaySchedules.forEach { s ->
                         val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
                         memoryDtos.add(
                             MemoryItemDto(
                                 type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}",
+                                content = "[오늘 일정] $timeStr - ${s.title}" + (if (s.location != null) " (장소: ${s.location})" else ""),
                             ),
                         )
+                        if (!s.location.isNullOrBlank()) {
+                            uniqueLocations.add(s.location)
+                        }
+                    }
+
+                    // 날씨 조회하여 전달
+                    for (loc in uniqueLocations) {
+                        val geoResult = weatherRepository.getCoordinatesFromName(loc)
+                        if (geoResult.isSuccess) {
+                            val coords = geoResult.getOrNull()!!
+                            val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
+                            if (weatherRes.isSuccess) {
+                                val w = weatherRes.getOrNull()!!
+                                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
+                                memoryDtos.add(
+                                    MemoryItemDto(
+                                        type = "WEATHER",
+                                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, 강수확률 ${w.precipitationProbability}%"
+                                    )
+                                )
+                            }
+                        }
                     }
 
                     val requestDto = AlarmScriptRequestDto(
@@ -223,14 +248,37 @@ class VoiceRepositoryImpl
                     )
 
                     // 일정 추가
+                    val uniqueLocations = mutableSetOf<String>()
                     todaySchedules.forEach { s ->
                         val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
                         memoryDtos.add(
                             MemoryItemDto(
                                 type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}",
+                                content = "[오늘 일정] $timeStr - ${s.title}" + (if (s.location != null) " (장소: ${s.location})" else ""),
                             ),
                         )
+                        if (!s.location.isNullOrBlank()) {
+                            uniqueLocations.add(s.location)
+                        }
+                    }
+
+                    // 날씨 추가
+                    for (loc in uniqueLocations) {
+                        val geoResult = weatherRepository.getCoordinatesFromName(loc)
+                        if (geoResult.isSuccess) {
+                            val coords = geoResult.getOrNull()!!
+                            val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
+                            if (weatherRes.isSuccess) {
+                                val w = weatherRes.getOrNull()!!
+                                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
+                                memoryDtos.add(
+                                    MemoryItemDto(
+                                        type = "WEATHER",
+                                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, 강수확률 ${w.precipitationProbability}%"
+                                    )
+                                )
+                            }
+                        }
                     }
 
                     // 3. 알람 스크립트 청크 요청

@@ -122,6 +122,7 @@ data class AiSchedule(
     val repeatDays: Set<DayOfWeek> = emptySet(),
     val title: String,
     val description: String? = null,
+    val location: String? = null,
     val isAlarmEnabled: Boolean = false,
 )
 

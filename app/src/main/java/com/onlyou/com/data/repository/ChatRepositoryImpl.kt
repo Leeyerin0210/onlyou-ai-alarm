@@ -88,10 +88,23 @@ class ChatRepositoryImpl
                             )
                         }
 
+                        val currentSchedules = scheduleRepository.getAllSchedules().first()
+                        val scheduleDtos = currentSchedules.map { s ->
+                            com.onlyou.com.data.remote.ScheduleItemDto(
+                                id = s.id,
+                                title = s.title,
+                                date = s.date?.toString(),
+                                time = s.startTime?.toString(),
+                                timeHint = s.timeHint,
+                                location = s.location
+                            )
+                        }
+
                         val requestDto = ChatRequestDto(
                             system_prompt = systemPrompt,
                             history = historyDto,
                             message = message.text,
+                            schedules = scheduleDtos,
                         )
 
                         val response = apiService.chatStream(requestDto)
@@ -119,6 +132,9 @@ class ChatRepositoryImpl
                                                 val repeatDays = repeatDaysRaw?.mapNotNull { 
                                                     try { DayOfWeek.valueOf(it.toString()) } catch (e: Exception) { null }
                                                 }?.toSet() ?: emptySet()
+                                                
+                                                val locationStr = schedData["location"]?.toString()
+                                                val parsedLocation = if (!locationStr.isNullOrBlank() && locationStr != "null" && locationStr != "None") locationStr else null
 
                                                 val parsedDate = if (dateStr.isNotBlank()) {
                                                     try { LocalDate.parse(dateStr) } catch(e: Exception) { null }
@@ -135,6 +151,7 @@ class ChatRepositoryImpl
                                                         startTime = parsedTime,
                                                         timeHint = timeHint,
                                                         repeatDays = repeatDays,
+                                                        location = parsedLocation,
                                                         description = "AI가 대화 중 자동으로 등록한 일정입니다.",
                                                     )
                                                     scheduleRepository.insertSchedule(newSchedule)
@@ -144,6 +161,52 @@ class ChatRepositoryImpl
                                                 android.util.Log.e("ChatRepo", "Schedule parsing or insertion error", e)
                                             }
                                             continue // 텍스트 출력에서는 제외
+                                        }
+
+                                        // 일정 업데이트인 경우
+                                        if (dataStr.startsWith("[UPDATE_SCHEDULE]")) {
+                                            try {
+                                                val jsonStr = dataStr.substring(17)
+                                                val schedData = gson.fromJson(jsonStr, Map::class.java)
+                                                val scheduleId = schedData["id"]?.toString()
+
+                                                if (scheduleId != null) {
+                                                    // 기존 일정 찾기
+                                                    val existingSchedules = scheduleRepository.getAllSchedules().first()
+                                                    val targetSchedule = existingSchedules.find { it.id == scheduleId }
+                                                    
+                                                    if (targetSchedule != null) {
+                                                        // 업데이트할 필드 파싱
+                                                        val title = schedData["title"]?.toString() ?: targetSchedule.title
+                                                        val dateStr = schedData["date"]?.toString()
+                                                        val timeStr = schedData["time"]?.toString()
+                                                        val timeHint = schedData["timeHint"]?.toString() ?: targetSchedule.timeHint
+                                                        val locationStr = schedData["location"]?.toString()
+                                                        val parsedLocation = if (!locationStr.isNullOrBlank() && locationStr != "null" && locationStr != "None") locationStr else targetSchedule.location
+
+                                                        val parsedDate = if (!dateStr.isNullOrBlank() && dateStr != "null" && dateStr != "None") {
+                                                            try { LocalDate.parse(dateStr) } catch(e: Exception) { targetSchedule.date }
+                                                        } else { targetSchedule.date }
+
+                                                        val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null" && timeStr != "None") {
+                                                            try { LocalTime.parse(timeStr) } catch (e: Exception) { targetSchedule.startTime }
+                                                        } else { targetSchedule.startTime }
+
+                                                        val updatedSchedule = targetSchedule.copy(
+                                                            title = title,
+                                                            date = parsedDate,
+                                                            startTime = parsedTime,
+                                                            timeHint = timeHint,
+                                                            location = parsedLocation,
+                                                            description = "AI가 대화 중 변경한 일정입니다."
+                                                        )
+                                                        scheduleRepository.updateSchedule(updatedSchedule)
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("ChatRepo", "Schedule update parsing error", e)
+                                            }
+                                            continue
                                         }
 
                                         // 에러인 경우

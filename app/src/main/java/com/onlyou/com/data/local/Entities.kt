@@ -38,6 +38,7 @@ data class AiScheduleEntity(
     val repeatDays: Set<DayOfWeek>,
     val title: String,
     val description: String?,
+    val location: String?,
     val isAlarmEnabled: Boolean,
 )
 

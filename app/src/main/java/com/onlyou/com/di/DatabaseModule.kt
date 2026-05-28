@@ -10,12 +10,20 @@ import com.onlyou.com.data.local.ChatDao
 import com.onlyou.com.data.local.MemoryDao
 import com.onlyou.com.data.local.MiyaDatabase
 import com.onlyou.com.data.local.PersonaDao
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE ai_schedules ADD COLUMN location TEXT")
+    }
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -34,7 +42,9 @@ object DatabaseModule {
                 context,
                 MiyaDatabase::class.java,
                 "miya_database",
-            ).fallbackToDestructiveMigration()
+            )
+            .addMigrations(MIGRATION_13_14)
+            .fallbackToDestructiveMigration()
             .build()
 
     @Provides

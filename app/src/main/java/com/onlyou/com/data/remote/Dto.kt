@@ -6,10 +6,20 @@ data class ChatMessageDto(
     val text: String,
 )
 
+data class ScheduleItemDto(
+    val id: String,
+    val title: String,
+    val date: String? = null,
+    val time: String? = null,
+    val timeHint: String? = null,
+    val location: String? = null
+)
+
 data class ChatRequestDto(
     val system_prompt: String,
     val history: List<ChatMessageDto>,
     val message: String,
+    val schedules: List<ScheduleItemDto>? = null,
 )
 
 // Memory

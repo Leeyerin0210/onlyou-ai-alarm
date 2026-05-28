@@ -101,6 +101,9 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
+    // Location
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
     // 루팅 탐지 (상업용 보이스 보호)
     implementation("com.scottyab:rootbeer-lib:0.1.2")
 

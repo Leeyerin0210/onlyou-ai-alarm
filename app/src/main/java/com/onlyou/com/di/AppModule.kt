@@ -74,6 +74,12 @@ abstract class RepositoryModule {
     abstract fun bindBackupRepository(
         backupRepositoryImpl: com.onlyou.com.data.repository.BackupRepositoryImpl,
     ): com.onlyou.com.domain.repository.BackupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWeatherRepository(
+        weatherRepositoryImpl: com.onlyou.com.data.repository.WeatherRepositoryImpl,
+    ): com.onlyou.com.domain.repository.WeatherRepository
 }
 
 @Module

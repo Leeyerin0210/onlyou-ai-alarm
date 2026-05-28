@@ -49,12 +49,20 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
 
     async def event_generator():
         try:
+            existing_schedules_str = ""
+            if hasattr(request, 'schedules') and request.schedules:
+                scheds = []
+                for s in request.schedules:
+                    scheds.append(f"- ID: {s.id}, 제목: {s.title}, 날짜: {s.date}, 시간: {s.time}, 장소: {s.location}")
+                existing_schedules_str = "\n[현재 유저의 기존 일정 목록]\n" + "\n".join(scheds)
+
             context_prompt = f"""
             [현재 시간 정보]
             오늘 날짜: {current_date_str}
 
             [이전 기억 정보 (기록된 시점을 참고하여 해석하세요)]
             {relevant_memories}
+            {existing_schedules_str}
             """
 
             contents = [genai.types.Content(role="user" if m.role == "user" else "model", parts=[genai.types.Part(text=m.text)]) for m in request.history]
@@ -86,22 +94,36 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
             # 원본 main.py의 규칙을 그대로 유지해야 하므로 생략하지 않고 채웁니다.
             sched_prompt = f"""
             오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'.
-            유저의 메시지가 일정을 생성하거나 반복적인 루틴을 다짐하는 내용이라면 JSON으로 추출하세요.
+            {existing_schedules_str}
+            
+            유저의 메시지가 일정을 생성하거나, 혹은 기존 일정에 장소나 시간을 추가/수정하는 내용이라면 JSON으로 추출하세요.
             규칙:
             1. 구체적인 시간이 없으면 "time"은 null로 하세요.
             2. "오전", "오후", "저녁" 등 대략적인 시간대라면 "timeHint"에 적으세요. 없으면 null.
             3. "앞으로 계속", "매일", "매주" 등의 반복 일정이라면 "repeatDays"에 반복할 요일을 영문 대문자 3자리 리스트로 적으세요(예: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]). 
                반복 일정이 아니라면 빈 리스트 []를 적으세요.
             4. 반복 일정인 경우 "date"는 오늘 날짜({current_date_str})를 기준으로 시작일로 설정하세요.
+            5. "대구 여행", "밀양 학교"처럼 장소가 명확히 언급된 경우에만 "location" 필드에 지역명을 적어주세요. 장소가 불분명하거나 필요 없는 일정(예: "8시에 공부할게")은 "location"을 null로 설정하세요. 장소를 묻는 텍스트를 생성하지 마세요.
+            6. **매우 중요**: 유저가 말한 내용이 [현재 유저의 기존 일정 목록] 중 하나를 수정하거나 구체화(예: 장소 추가)하는 것이 명백하다면, 해당 일정의 ID를 "id" 필드에 넣고 "action": "UPDATE"로 설정하세요. 
+               만약 기존 일정 중 어떤 것을 수정해야 할지 애매하다면(여러 개라 구분이 안 됨), 함부로 업데이트나 생성하지 말고 None을 반환하세요.
+            7. 기존 일정과 무관한 완전한 새 일정이라면 "action": "CREATE" 로 설정하세요.
 
-            포맷:
-            {{"title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" 또는 null, "timeHint": "...", "repeatDays": [...]}}
-            일정이 아니면 None을 반환하세요.
+            포맷 (새 일정):
+            {{"action": "CREATE", "title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" 또는 null, "timeHint": "...", "repeatDays": [...], "location": "..." 또는 null}}
+            
+            포맷 (기존 일정 수정):
+            {{"action": "UPDATE", "id": 123, "title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" 또는 null, "timeHint": "...", "repeatDays": [...], "location": "..." 또는 null}}
+            
+            일정이 아니거나 수정 대상이 애매하면 None을 반환하세요.
             """
             sched_res = client.models.generate_content(model=model_id, contents=sched_prompt)
             if "{" in sched_res.text:
                 s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
-                yield f"data: [SCHEDULE]{sched_res.text[s:e]}\n\n"
+                json_str = sched_res.text[s:e]
+                if '"action": "UPDATE"' in json_str or '"action":"UPDATE"' in json_str:
+                    yield f"data: [UPDATE_SCHEDULE]{json_str}\n\n"
+                else:
+                    yield f"data: [SCHEDULE]{json_str}\n\n"
 
         except Exception as e:
             yield f"data: [ERROR] {str(e)}\n\n"
