@@ -195,8 +195,8 @@ fun ChatScreenContent(
                     uiState.pendingSchedule?.let { schedule ->
                         ScheduleNotificationBar(
                             scheduleTitle = schedule.title,
-                            onCancel = onCancelSchedule,
-                            onOpenDrawer = onOpenDrawer
+                            isUpdated = uiState.isPendingScheduleUpdated,
+                            onCancel = onCancelSchedule
                         )
                     }
                 }
@@ -397,8 +397,8 @@ fun ChatInputSection(
 @Composable
 fun ScheduleNotificationBar(
     scheduleTitle: String,
+    isUpdated: Boolean = false,
     onCancel: () -> Unit,
-    onOpenDrawer: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
     Surface(
@@ -415,7 +415,6 @@ fun ScheduleNotificationBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            IconButton(onClick = onOpenDrawer) { Icon(Icons.Default.Menu, null, tint = colors.onSurfaceA) }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(
                     imageVector = Icons.Default.CalendarToday,
@@ -425,7 +424,7 @@ fun ScheduleNotificationBar(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "일정이 등록되었습니다: $scheduleTitle",
+                    text = if (isUpdated) "일정이 수정되었습니다: $scheduleTitle" else "일정이 등록되었습니다: $scheduleTitle",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceA,
                     fontWeight = FontWeight.Medium,
@@ -450,8 +449,7 @@ fun ScheduleNotificationBarPreview() {
     MiyaTheme {
         ScheduleNotificationBar(
             scheduleTitle = "점심 약속",
-            onCancel = {},
-            onOpenDrawer = {}
+            onCancel = {}
         )
     }
 }

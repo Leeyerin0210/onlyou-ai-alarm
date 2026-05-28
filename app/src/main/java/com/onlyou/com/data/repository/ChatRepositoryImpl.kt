@@ -201,6 +201,7 @@ class ChatRepositoryImpl
                                                             description = "AI가 대화 중 변경한 일정입니다."
                                                         )
                                                         scheduleRepository.updateSchedule(updatedSchedule)
+                                                        emit(ChatEvent.ScheduleUpdated(updatedSchedule))
                                                     }
                                                 }
                                             } catch (e: Exception) {

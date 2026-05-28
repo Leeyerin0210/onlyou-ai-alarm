@@ -25,6 +25,7 @@ data class ChatUiState(
     // 스트리밍 중인 AI 응답 텍스트 (null이면 스트리밍 아님)
     val streamingText: String? = null,
     val pendingSchedule: com.onlyou.com.domain.model.AiSchedule? = null,
+    val isPendingScheduleUpdated: Boolean = false,
 )
 
 @HiltViewModel
@@ -84,8 +85,17 @@ class ChatViewModel
                             }
                         }
                         is ChatEvent.ScheduleCreated -> {
-                            _uiState.update { it.copy(pendingSchedule = event.schedule) }
+                            _uiState.update { it.copy(pendingSchedule = event.schedule, isPendingScheduleUpdated = false) }
                             // 5초 후 자동으로 알림 사라짐
+                            viewModelScope.launch {
+                                delay(5000)
+                                if (_uiState.value.pendingSchedule == event.schedule) {
+                                    _uiState.update { it.copy(pendingSchedule = null) }
+                                }
+                            }
+                        }
+                        is ChatEvent.ScheduleUpdated -> {
+                            _uiState.update { it.copy(pendingSchedule = event.schedule, isPendingScheduleUpdated = true) }
                             viewModelScope.launch {
                                 delay(5000)
                                 if (_uiState.value.pendingSchedule == event.schedule) {

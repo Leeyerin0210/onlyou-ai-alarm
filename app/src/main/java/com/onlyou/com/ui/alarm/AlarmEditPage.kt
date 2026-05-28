@@ -80,6 +80,7 @@ fun AlarmEditPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(top = 8.dp),
     ) {
         Column(

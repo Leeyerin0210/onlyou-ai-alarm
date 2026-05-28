@@ -513,6 +513,25 @@ private fun TimelineItem(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    if (!schedule.location.isNullOrBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                null,
+                                tint = colors.neutral,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                schedule.location,
+                                color = colors.neutral,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                     Icon(

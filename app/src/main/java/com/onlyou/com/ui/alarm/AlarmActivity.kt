@@ -302,7 +302,7 @@ fun MorningBriefingContent(
                         Surface(
                             shape = RoundedCornerShape(24.dp),
                             color = Color.White,
-                            modifier = Modifier.width(300.dp) // Fixed width for horizontal scrolling
+                            modifier = Modifier.fillParentMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(20.dp)) {
                                 Text("오늘의 날씨", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF333333))
