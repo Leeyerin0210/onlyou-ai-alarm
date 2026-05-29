@@ -16,4 +16,5 @@ local.properties
 /.agent
 /study
 /chroma_db/chroma.sqlite3
+/backend/serviceAccountKey.json
 /.superpowers
