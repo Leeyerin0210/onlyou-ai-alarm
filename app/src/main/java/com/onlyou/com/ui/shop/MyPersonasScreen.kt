@@ -33,17 +33,9 @@ fun MyPersonasScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("내 페르소나 관리") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MiyaTheme.colors.background,
-                    titleContentColor = MiyaTheme.colors.onSurfaceA
-                )
+            com.onlyou.com.ui.components.MiyaTopAppBar(
+                title = "내 페르소나 관리",
+                onNavigationClick = onBack
             )
         },
         floatingActionButton = {

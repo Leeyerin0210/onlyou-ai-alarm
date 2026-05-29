@@ -8,11 +8,7 @@ sse-starlette
 firebase-admin
 dateparser
 neo4j
-torch
-torchaudio
-soundfile
-qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS.git
 av>=11.0.0
 ctranslate2>=4.0,<5.0
 google-genai
-huggingface-hub
+elevenlabs

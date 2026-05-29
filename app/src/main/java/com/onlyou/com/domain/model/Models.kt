@@ -76,6 +76,7 @@ data class Persona(
     val imageUrl: String? = null,
     val creatorId: String? = null,
     val usageCount: Int = 0,
+    val isPrivate: Boolean = false,
 )
 
 /**

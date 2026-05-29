@@ -62,6 +62,14 @@ class PersonaRepositoryImpl
                 val remotePersonas = personaSnapshots.documents.mapNotNull { doc ->
                     // id 필드가 없으면 문서 ID를 기본값으로 사용
                     val id = doc.getString("id") ?: doc.id
+                    val creatorId = doc.getString("creatorId")
+                    val isPrivate = doc.getBoolean("isPrivate") ?: false
+                    val uid = auth.currentUser?.uid
+                    
+                    if (isPrivate && creatorId != uid) {
+                        return@mapNotNull null
+                    }
+                    
                     val themeColorsMap = doc.get("themeColors") as? Map<*, *>
 
                     try {
@@ -78,8 +86,9 @@ class PersonaRepositoryImpl
                             primaryHex = (themeColorsMap?.get("primaryHex") as? String) ?: doc.getString("primaryHex"),
                             secondaryHex = (themeColorsMap?.get("secondaryHex") as? String) ?: doc.getString("secondaryHex"),
                             isSelected = false,
-                            creatorId = doc.getString("creatorId"),
+                            creatorId = creatorId,
                             usageCount = (doc.get("usageCount") as? Number)?.toInt() ?: 0,
+                            isPrivate = isPrivate,
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -149,6 +158,7 @@ class PersonaRepositoryImpl
                     primaryHex = "#FFB7C5",
                     secondaryHex = "#FFF0F5",
                     isSelected = true,
+                    isPrivate = false,
                 )
                 personaDao.upsertPersona(defaultMiya)
             }
@@ -240,7 +250,8 @@ class PersonaRepositoryImpl
                     "primaryHex" to (updatedPersona.themeColors?.primaryHex ?: "#FFB7C5"),
                     "secondaryHex" to (updatedPersona.themeColors?.secondaryHex ?: "#FFF0F5"),
                     "creatorId" to updatedPersona.creatorId,
-                    "usageCount" to updatedPersona.usageCount
+                    "usageCount" to updatedPersona.usageCount,
+                    "isPrivate" to updatedPersona.isPrivate
                 )
                 firestore.collection("personas").document(updatedPersona.id).set(personaMap).await()
             } catch (e: Exception) {
@@ -262,6 +273,7 @@ class PersonaRepositoryImpl
                 imageUrl = imageUrl,
                 creatorId = creatorId,
                 usageCount = usageCount,
+                isPrivate = isPrivate,
                 themeColors = if (primaryHex != null && secondaryHex != null) {
                     StreamerTheme(
                         primaryHex = primaryHex,
@@ -303,5 +315,6 @@ class PersonaRepositoryImpl
                 secondaryHex = themeColors?.secondaryHex,
                 creatorId = creatorId,
                 usageCount = usageCount,
+                isPrivate = isPrivate,
             )
     }

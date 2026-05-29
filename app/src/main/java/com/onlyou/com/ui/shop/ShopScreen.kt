@@ -43,10 +43,13 @@ fun ShopScreen(
     val colors = MiyaTheme.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-    val categories = listOf("전체", "비서형", "전문가형", "친구형", "유쾌형")
+    val categories = listOf("전체", "내 페르소나", "전문가형", "친구형", "유쾌형")
     var selectedCategory by remember { mutableStateOf("전체") }
 
-    val filteredByCategory = if (selectedCategory == "전체") uiState.filteredPersonas else uiState.filteredPersonas
+    val filteredByCategory = when (selectedCategory) {
+        "내 페르소나" -> uiState.filteredPersonas.filter { it.creatorId == uiState.currentUserId }
+        else -> uiState.filteredPersonas
+    }
 
     Column(
         Modifier
@@ -97,7 +100,9 @@ fun ShopScreen(
                     Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(bg)
-                        .clickable(remember { MutableInteractionSource() }, null) { selectedCategory = cat }
+                        .clickable(remember { MutableInteractionSource() }, null) {
+                            selectedCategory = cat
+                        }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     Text(cat, fontSize = 13.sp, color = if (isSelected) colors.background else colors.onSurfaceA, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
@@ -114,7 +119,9 @@ fun ShopScreen(
             items(filteredByCategory) { persona ->
                 AgentListCard(
                     persona = persona,
+                    currentUserId = uiState.currentUserId,
                     onClick = { viewModel.selectPersona(persona) },
+                    onEditClick = { onNavigateToEdit(persona.id) }
                 )
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -153,7 +160,7 @@ fun ShopScreen(
 }
 
 @Composable
-fun AgentListCard(persona: Persona, onClick: () -> Unit) {
+fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit, onEditClick: () -> Unit) {
     val colors = MiyaTheme.colors
     Surface(
         color = colors.surfaceA,
@@ -185,15 +192,34 @@ fun AgentListCard(persona: Persona, onClick: () -> Unit) {
             }
 
             // 액션 버튼
-            Box(
-                Modifier.clip(RoundedCornerShape(12.dp)).background(if (persona.isSelected) colors.primary else colors.primary.copy(alpha = 0.15f)).padding(horizontal = 12.dp, vertical = 8.dp),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.End
             ) {
-                Text(
-                    if (persona.isSelected) "사용 중" else "사용하기",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (persona.isSelected) colors.background else colors.primary,
-                )
+                Box(
+                    Modifier.clip(RoundedCornerShape(12.dp)).background(if (persona.isSelected) colors.primary else colors.primary.copy(alpha = 0.15f)).padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        if (persona.isSelected) "사용 중" else "사용하기",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (persona.isSelected) colors.background else colors.primary,
+                    )
+                }
+                
+                if (currentUserId != null && persona.creatorId == currentUserId) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onEditClick() }
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = colors.neutral, modifier = Modifier.size(14.dp))
+                        Text("수정", fontSize = 12.sp, color = colors.neutral, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }

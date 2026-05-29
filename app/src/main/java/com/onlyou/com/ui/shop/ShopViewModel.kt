@@ -23,6 +23,7 @@ data class ShopUiState(
     val currentlyPlayingPersonaId: String? = null,
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
+    val currentUserId: String? = null,
 )
 
 @HiltViewModel
@@ -31,8 +32,9 @@ class ShopViewModel
     constructor(
         private val personaRepository: PersonaRepository,
         private val chatRepository: ChatRepository,
+        private val auth: com.google.firebase.auth.FirebaseAuth,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(ShopUiState())
+        private val _uiState = MutableStateFlow(ShopUiState(currentUserId = auth.currentUser?.uid))
         val uiState: StateFlow<ShopUiState> = _uiState
 
         private var mediaPlayer: MediaPlayer? = null

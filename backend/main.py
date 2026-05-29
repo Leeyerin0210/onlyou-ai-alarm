@@ -16,8 +16,7 @@ app = FastAPI(title="Conne Backend")
 
 @app.on_event("startup")
 async def startup():
-    # 음성 모델 비동기 로드 시작
-    asyncio.create_task(asyncio.to_thread(voice_engine.load_clone_model))
+    pass # ElevenLabs는 별도의 모델 로딩이 필요 없음
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

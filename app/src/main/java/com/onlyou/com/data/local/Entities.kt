@@ -59,6 +59,7 @@ data class PersonaEntity(
     val secondaryHex: String?,
     val creatorId: String? = null,
     val usageCount: Int = 0,
+    val isPrivate: Boolean = false,
 )
 
 @Entity(tableName = "memories")

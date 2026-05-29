@@ -51,9 +51,16 @@ class VoiceRepositoryImpl
                     if (response.isSuccessful) {
                         response.body()?.bytes()
                     } else {
+                        if (response.code() == 400) {
+                            val errorStr = response.errorBody()?.string()
+                            if (errorStr?.contains("detail") == true) {
+                                throw Exception("MODERATION_ERROR")
+                            }
+                        }
                         null
                     }
                 } catch (e: Exception) {
+                    if (e.message == "MODERATION_ERROR") throw e
                     e.printStackTrace()
                     null
                 }

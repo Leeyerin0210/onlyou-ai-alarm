@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -36,6 +37,19 @@ class PersonaEditViewModel
         private val _uiState = MutableStateFlow<PersonaEditUiState>(PersonaEditUiState.Loading)
         val uiState: StateFlow<PersonaEditUiState> = _uiState
 
+        private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+        val uiEvent = _uiEvent.asSharedFlow()
+
+        private val _isPlaying = MutableStateFlow(false)
+        val isPlaying: StateFlow<Boolean> = _isPlaying
+
+        private val _audioDuration = MutableStateFlow(0)
+        val audioDuration: StateFlow<Int> = _audioDuration
+
+        private val _audioPosition = MutableStateFlow(0)
+        val audioPosition: StateFlow<Int> = _audioPosition
+
+        private var progressJob: kotlinx.coroutines.Job? = null
         private var mediaPlayer: MediaPlayer? = null
         private var lastPreviewAudio: ByteArray? = null
         private var lastPreviewText: String? = null
@@ -123,6 +137,7 @@ class PersonaEditViewModel
                 }
             }
         }
+
         fun savePersona() {
             val currentState = _uiState.value
             if (currentState is PersonaEditUiState.Success) {
@@ -155,7 +170,7 @@ class PersonaEditViewModel
                     personaRepository.deletePersona(personaId)
                     // 2. 서버의 참조 음성 데이터도 삭제
                     voiceRepository.deleteReferenceVoice(personaId)
-                    
+
                     _uiState.value = PersonaEditUiState.Saved
                 }
             }
@@ -165,11 +180,22 @@ class PersonaEditViewModel
             val currentState = _uiState.value
             if (currentState is PersonaEditUiState.Success) {
                 viewModelScope.launch {
-                    val voiceData = voiceRepository.synthesizeVoice(text, currentState.persona)
-                    if (voiceData != null) {
-                        lastPreviewAudio = voiceData
-                        lastPreviewText = text
-                        playVoice(voiceData)
+                    stopVoice()
+                    try {
+                        val voiceData = voiceRepository.synthesizeVoice(text, currentState.persona)
+                        if (voiceData != null) {
+                            lastPreviewAudio = voiceData
+                            lastPreviewText = text
+                            playVoice(voiceData)
+                        } else {
+                            _uiEvent.emit("음성 생성에 실패했습니다.")
+                        }
+                    } catch (e: Exception) {
+                        if (e.message == "MODERATION_ERROR") {
+                            _uiEvent.emit("입력하신 프롬프트는 AI 윤리 및 안전 정책에 의해 거부되었습니다. 다른 특징으로 묘사해 주세요.")
+                        } else {
+                            _uiEvent.emit("네트워크 오류가 발생했습니다.")
+                        }
                     }
                 }
             }
@@ -179,9 +205,20 @@ class PersonaEditViewModel
             val currentState = _uiState.value
             if (currentState is PersonaEditUiState.Success) {
                 viewModelScope.launch {
+                    stopVoice()
+                    // 1. 방금 생성한 미리듣기(캐시)가 있다면 그걸 다시 재생
+                    if (lastPreviewAudio != null) {
+                        playVoice(lastPreviewAudio!!)
+                        return@launch
+                    }
+
+                    // 2. 캐시가 없다면 서버에서 기존에 저장된 음성 불러오기
                     val voiceData = voiceRepository.getReferenceVoice(currentState.persona.id)
                     if (voiceData != null) {
                         playVoice(voiceData)
+                    } else {
+                        // 404 NotFound 등의 경우
+                        _uiEvent.emit("아직 서버에 저장된 목소리가 없습니다. 새 목소리를 생성하고 저장해주세요.")
                     }
                 }
             }
@@ -192,23 +229,61 @@ class PersonaEditViewModel
                 val tempFile = File.createTempFile("voice_preview", ".wav", context.cacheDir)
                 FileOutputStream(tempFile).use { it.write(data) }
 
-                mediaPlayer?.release()
+                stopVoice()
+                _isPlaying.value = true
                 mediaPlayer = MediaPlayer().apply {
                     setDataSource(tempFile.absolutePath)
                     prepare()
+                    _audioDuration.value = duration
                     start()
+                    startProgressTracker()
                     setOnCompletionListener {
                         tempFile.delete()
+                        _isPlaying.value = false
+                        _audioPosition.value = duration
+                        progressJob?.cancel()
                     }
                 }
             } catch (e: Exception) {
+                _isPlaying.value = false
                 e.printStackTrace()
+            }
+        }
+
+        fun stopVoice() {
+            try {
+                mediaPlayer?.let {
+                    if (it.isPlaying) {
+                        it.stop()
+                    }
+                    it.release()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            mediaPlayer = null
+            _isPlaying.value = false
+            _audioPosition.value = 0
+            progressJob?.cancel()
+        }
+
+        private fun startProgressTracker() {
+            progressJob?.cancel()
+            progressJob = viewModelScope.launch {
+                while (true) {
+                    mediaPlayer?.let {
+                        if (it.isPlaying) {
+                            _audioPosition.value = it.currentPosition
+                        }
+                    }
+                    kotlinx.coroutines.delay(100)
+                }
             }
         }
 
         override fun onCleared() {
             super.onCleared()
-            mediaPlayer?.release()
+            stopVoice()
         }
     }
 

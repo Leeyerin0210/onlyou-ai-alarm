@@ -27,24 +27,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.repository.BackupState
 import com.onlyou.com.ui.theme.MiyaTheme
 
-@Composable
-fun SimpleTopBar(title: String, onBack: () -> Unit) {
-    val colors = MiyaTheme.colors
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = colors.onSurfaceA) }
-        Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA, modifier = Modifier.weight(1f).padding(start = 16.dp))
-    }
-}
+// Removed SimpleTopBar in favor of MiyaTopAppBar
 
 // 1. 프로필 관리
 @Composable
 fun ProfileEditScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("프로필 관리", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("프로필 관리", onBack)
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(100.dp).clip(CircleShape).background(colors.surfaceA)) {
                 Icon(Icons.Default.Person, null, tint = colors.neutral, modifier = Modifier.align(Alignment.Center).size(48.dp))
@@ -70,8 +60,8 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 @Composable
 fun ToneAndPersonalityScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("말투 및 성격 설정", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("말투 및 성격 설정", onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
             item {
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
@@ -138,8 +128,8 @@ fun ToneAndPersonalityScreen(onBack: () -> Unit) {
 @Composable
 fun AiMemoryScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("AI 메모리 관리", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("AI 메모리 관리", onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
             item {
                 Text("루나는 당신을 이렇게 기억하고 있어요.", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
@@ -189,8 +179,8 @@ fun AiMemoryScreen(onBack: () -> Unit) {
 @Composable
 fun PremiumPlanScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("프리미엄 플랜", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("프리미엄 플랜", onBack)
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.verticalGradient(listOf(colors.primary, colors.secondary))).padding(24.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -252,8 +242,8 @@ fun BackupSyncScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("백업 및 동기화", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("백업 및 동기화", onBack)
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -303,8 +293,8 @@ fun BackupSyncScreen(
 @Composable
 fun DndTimeScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("방해 금지 시간", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("방해 금지 시간", onBack)
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text("지정된 시간에는 알림이나 브리핑을\n보내지 않아요.", color = colors.onSurfaceA, fontSize = 14.sp)
             Spacer(Modifier.height(32.dp))
@@ -353,8 +343,8 @@ fun DndTimeScreen(onBack: () -> Unit) {
 @Composable
 fun BriefingPreviewScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("브리핑 미리 듣기", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("브리핑 미리 듣기", onBack)
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text("AI가 이렇게 브리핑해요.", color = colors.onSurfaceA, fontSize = 14.sp)
             Spacer(Modifier.height(16.dp))
@@ -388,8 +378,8 @@ fun BriefingPreviewScreen(onBack: () -> Unit) {
 @Composable
 fun AppInfoScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        SimpleTopBar("앱 정보", onBack)
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        com.onlyou.com.ui.components.MiyaTopAppBar("앱 정보", onBack)
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(48.dp))
             Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(80.dp))

@@ -33,23 +33,12 @@ fun SettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(colors.background)
-            .statusBarsPadding(),
+            .background(colors.background),
     ) {
-        // Top Bar
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = colors.onSurfaceA) }
-            Text(
-                "설정",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.onSurfaceA,
-                modifier = Modifier.padding(start = 16.dp),
-            )
-        }
+        com.onlyou.com.ui.components.MiyaTopAppBar(
+            title = "설정",
+            onNavigationClick = onBack
+        )
 
         LazyColumn(
             contentPadding = PaddingValues(bottom = 32.dp),
