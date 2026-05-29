@@ -11,6 +11,7 @@ import javax.inject.Inject
 
 data class ScheduleUiState(
     val schedules: List<AiSchedule> = emptyList(),
+    val isOnline: Boolean = true,
 )
 
 @HiltViewModel
@@ -18,6 +19,7 @@ class ScheduleViewModel
     @Inject
     constructor(
         private val repository: ScheduleRepository,
+        private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ScheduleUiState())
         val uiState: StateFlow<ScheduleUiState> = _uiState
@@ -34,15 +36,26 @@ class ScheduleViewModel
 
         init {
             viewModelScope.launch {
+                networkMonitor.isOnline.collectLatest { isOnline ->
+                    _uiState.update { it.copy(isOnline = isOnline) }
+                }
+            }
+            viewModelScope.launch {
                 repository.getAllSchedules().collect { list ->
-                    _uiState.value = ScheduleUiState(schedules = list)
+                    _uiState.update { it.copy(schedules = list) }
                 }
             }
         }
 
-        fun addSchedule(schedule: AiSchedule) {
+        fun addSchedule(schedule: AiSchedule, onSuccess: () -> Unit, onError: () -> Unit) {
             viewModelScope.launch {
-                repository.insertSchedule(schedule)
+                try {
+                    repository.insertSchedule(schedule)
+                    onSuccess()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    onError()
+                }
             }
         }
 

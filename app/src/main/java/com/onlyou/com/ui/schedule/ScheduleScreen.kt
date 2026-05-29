@@ -12,11 +12,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import kotlinx.coroutines.launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -47,20 +49,24 @@ fun ScheduleScreen(
         onNavigateToAlarm = onNavigateToAlarm,
         onOpenDrawer = onOpenDrawer,
         onDeleteSchedule = { viewModel.deleteSchedule(it) },
-        onAddSchedule = { title, time, date ->
+        onAddSchedule = { title, time, date, loc, onSuccess, onError ->
             viewModel.addSchedule(
                 AiSchedule(
                     id = UUID.randomUUID().toString(),
                     date = date,
                     startTime = time,
                     title = title,
+                    location = loc,
                     isAlarmEnabled = false,
                 ),
+                onSuccess,
+                onError
             )
         },
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreenContent(
     uiState: ScheduleUiState,
@@ -68,7 +74,7 @@ fun ScheduleScreenContent(
     onNavigateToAlarm: () -> Unit = {},
     onOpenDrawer: () -> Unit = {},
     onDeleteSchedule: (AiSchedule) -> Unit = {},
-    onAddSchedule: (title: String, time: LocalTime?, date: LocalDate) -> Unit = { _, _, _ -> },
+    onAddSchedule: (title: String, time: LocalTime?, date: LocalDate, loc: String, onSuccess: () -> Unit, onError: () -> Unit) -> Unit = { _, _, _, _, _, _ -> },
 ) {
     val colors = MiyaTheme.colors
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -111,60 +117,75 @@ fun ScheduleScreenContent(
         }.sortedWith(compareBy({ it.date }, { it.startTime }))
         .take(3)
 
-    Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onOpenDrawer) {
-                Icon(
-                    Icons.Default.Menu,
-                    null,
-                    tint = colors.onSurfaceA,
-                )
-            }
-            Column(Modifier.weight(1f).padding(start = 4.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(
-                        Icons.Default.SmartToy,
-                        null,
-                        tint = colors.primary,
-                        modifier = Modifier.size(12.dp),
-                    )
-                    Text(
-                        "AI 관리하는 일정",
-                        fontSize = 10.sp,
-                        color = colors.primary,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-                Text(
-                    "일정",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onSurfaceA,
-                )
-            }
-            IconButton(onClick = { showAddDialog = true }) {
-                Box(
-                    Modifier.size(32.dp).clip(CircleShape).background(colors.primary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        null,
-                        tint = colors.background,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-        }
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+    Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
+        containerColor = colors.background,
+    ) { paddingValues ->
+        Column(Modifier.fillMaxSize().padding(paddingValues).statusBarsPadding()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(
+                        Icons.Default.Menu,
+                        null,
+                        tint = colors.onSurfaceA,
+                    )
+                }
+                Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.SmartToy,
+                            null,
+                            tint = colors.primary,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Text(
+                            "AI 관리하는 일정",
+                            fontSize = 10.sp,
+                            color = colors.primary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    Text(
+                        "일정",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onSurfaceA,
+                    )
+                }
+                IconButton(onClick = { 
+                    if (uiState.isOnline) {
+                        showAddDialog = true 
+                    } else {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("인터넷 연결이 필요합니다.")
+                        }
+                    }
+                }) {
+                    Box(
+                        Modifier.size(32.dp).clip(CircleShape).background(colors.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            null,
+                            tint = colors.background,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
                 WeekStrip(
                     weekDays,
@@ -307,12 +328,33 @@ fun ScheduleScreenContent(
             }
         }
     }
+    }
 
     if (showAddDialog) {
-        AddScheduleDialog(selectedDate, { showAddDialog = false }) { title, time ->
-            onAddSchedule(title, time, selectedDate)
-            showAddDialog = false
-        }
+        AddScheduleBottomSheet(
+            initialDate = selectedDate,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { title, time, date, loc ->
+                if (!uiState.isOnline) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("인터넷 연결이 필요합니다.")
+                    }
+                } else {
+                    onAddSchedule(
+                        title,
+                        time,
+                        date,
+                        loc,
+                        { showAddDialog = false }, // onSuccess
+                        {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("일정 저장 중 오류가 발생했습니다.")
+                            }
+                        } // onError
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -609,114 +651,277 @@ private fun UpcomingItem(schedule: AiSchedule) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddScheduleDialog(
-    selectedDate: LocalDate,
+private fun AddScheduleBottomSheet(
+    initialDate: LocalDate,
     onDismiss: () -> Unit,
-    onConfirm: (title: String, time: LocalTime?) -> Unit,
+    onConfirm: (title: String, time: LocalTime?, date: LocalDate, location: String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
     var title by remember { mutableStateOf("") }
-    var hourText by remember { mutableStateOf("") }
-    var minuteText by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
     var isUntimed by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf(initialDate) }
+    var selectedTime by remember { mutableStateOf(LocalTime.of(12, 0)) }
+    
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedTime.hour,
+            initialMinute = selectedTime.minute,
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("시간 선택") },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                    showTimePicker = false
+                }) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = colors.surfaceA,
-        title = {
-            Text(
-                "${selectedDate.format(DateTimeFormatter.ofPattern("M월 d일"))} 일정 추가",
-                color = colors.onSurfaceA,
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        sheetState = sheetState,
+        containerColor = colors.background,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text("일정 추가", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Spacer(Modifier.height(4.dp))
+                    Text("새로운 일정을 추가해 보세요.", fontSize = 14.sp, color = colors.neutral)
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(colors.surfaceA, CircleShape)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = colors.onSurfaceA, modifier = Modifier.size(20.dp))
+                }
+            }
+
+            // Title Field
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row {
+                    Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Text(" *", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                }
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("일정 제목", color = colors.neutral) },
-                    singleLine = true,
+                    placeholder = { Text("일정 제목을 입력해주세요", color = colors.neutral.copy(alpha = 0.5f)) },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = { Icon(Icons.Default.BookmarkBorder, contentDescription = null, tint = colors.primary) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = colors.primary,
-                        unfocusedBorderColor = colors.neutral,
-                        focusedTextColor = colors.onSurfaceA,
-                        unfocusedTextColor = colors.onSurfaceA,
+                        unfocusedBorderColor = colors.primary.copy(alpha = 0.3f),
+                        focusedContainerColor = colors.background,
+                        unfocusedContainerColor = colors.background,
                     ),
+                    singleLine = true
                 )
-                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                    Text("시간 미정", fontSize = 13.sp, color = colors.onSurfaceA)
-                    Switch(
-                        checked = isUntimed,
-                        onCheckedChange = { isUntimed = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = colors.background,
-                            checkedTrackColor = colors.primary,
-                            uncheckedTrackColor = colors.neutral.copy(alpha = 0.3f),
+            }
+
+            // Date Field
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row {
+                    Text("날짜", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Text(" *", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일 (E)", java.util.Locale.KOREAN)),
+                        onValueChange = { },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, tint = colors.primary) },
+                        trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = colors.neutral) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.neutral.copy(alpha = 0.3f),
+                            unfocusedBorderColor = colors.neutral.copy(alpha = 0.3f),
+                            focusedContainerColor = colors.background,
+                            unfocusedContainerColor = colors.background,
                         ),
                     )
-                }
-                if (!isUntimed) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        OutlinedTextField(
-                            value = hourText,
-                            onValueChange = { if (it.length <= 2) hourText = it },
-                            label = { Text("시", color = colors.neutral) },
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = colors.primary,
-                                unfocusedBorderColor = colors.neutral,
-                                focusedTextColor = colors.onSurfaceA,
-                                unfocusedTextColor = colors.onSurfaceA,
-                            ),
-                        )
-                        Text(
-                            ":",
-                            color = colors.onSurfaceA,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        OutlinedTextField(
-                            value = minuteText,
-                            onValueChange = { if (it.length <= 2) minuteText = it },
-                            label = { Text("분", color = colors.neutral) },
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = colors.primary,
-                                unfocusedBorderColor = colors.neutral,
-                                focusedTextColor = colors.onSurfaceA,
-                                unfocusedTextColor = colors.onSurfaceA,
-                            ),
-                        )
-                    }
+                    Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        val time = if (isUntimed) {
-                            null
-                        } else {
-                            LocalTime.of(
-                                hourText.toIntOrNull()?.coerceIn(0, 23) ?: 0,
-                                minuteText.toIntOrNull()?.coerceIn(0, 59) ?: 0,
-                            )
-                        }
-                        onConfirm(title, time)
+
+            // Time Field
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("시간", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Box(modifier = Modifier.background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("선택", fontSize = 11.sp, color = colors.primary, fontWeight = FontWeight.Medium)
                     }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-            ) { Text("추가", color = colors.background) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("취소", color = colors.neutral) } },
-    )
+                }
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = if (isUntimed) "" else selectedTime.format(DateTimeFormatter.ofPattern("a h:mm", java.util.Locale.KOREAN)),
+                        onValueChange = { },
+                        readOnly = true,
+                        placeholder = { if (isUntimed) Text("시간 미정", color = colors.neutral.copy(alpha = 0.5f)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = colors.primary) },
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
+                                Switch(
+                                    checked = isUntimed,
+                                    onCheckedChange = { isUntimed = it },
+                                    modifier = Modifier.scale(0.8f),
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = colors.background,
+                                        checkedTrackColor = colors.primary,
+                                        uncheckedThumbColor = colors.surfaceB,
+                                        uncheckedTrackColor = colors.neutral.copy(alpha = 0.2f),
+                                    )
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("시간 미정", fontSize = 14.sp, color = colors.neutral)
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.neutral.copy(alpha = 0.3f),
+                            unfocusedBorderColor = colors.neutral.copy(alpha = 0.3f),
+                            focusedContainerColor = colors.background,
+                            unfocusedContainerColor = colors.background,
+                        ),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(enabled = !isUntimed) { showTimePicker = true }
+                    )
+                }
+            }
+
+            // Location Field
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("위치", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Box(modifier = Modifier.background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("선택", fontSize = 11.sp, color = colors.primary, fontWeight = FontWeight.Medium)
+                    }
+                }
+                OutlinedTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    placeholder = { Text("위치를 입력하세요 (선택사항)", color = colors.neutral.copy(alpha = 0.5f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = colors.primary) },
+                    trailingIcon = {
+                        if (location.isNotEmpty()) {
+                            IconButton(onClick = { location = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = colors.neutral)
+                            }
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.neutral.copy(alpha = 0.3f),
+                        focusedContainerColor = colors.background,
+                        unfocusedContainerColor = colors.background,
+                    ),
+                    singleLine = true
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.neutral.copy(alpha = 0.3f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.onSurfaceA)
+                ) {
+                    Text("취소", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                
+                Button(
+                    onClick = {
+                        if (title.isNotBlank()) {
+                            val time = if (isUntimed) null else selectedTime
+                            onConfirm(title, time, selectedDate, location)
+                        }
+                    },
+                    modifier = Modifier.weight(2f).height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = Color.White),
+                    enabled = title.isNotBlank()
+                ) {
+                    Text("추가하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }
 
 @Preview(showBackground = true)
