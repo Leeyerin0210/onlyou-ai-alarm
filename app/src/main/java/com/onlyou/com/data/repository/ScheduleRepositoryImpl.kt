@@ -34,6 +34,7 @@ class ScheduleRepositoryImpl
             AiSchedule(
                 id = id,
                 date = date,
+                endDate = endDate,
                 startTime = startTime,
                 timeHint = timeHint,
                 repeatDays = repeatDays,
@@ -47,6 +48,7 @@ class ScheduleRepositoryImpl
             AiScheduleEntity(
                 id = id,
                 date = date,
+                endDate = endDate,
                 startTime = startTime,
                 timeHint = timeHint,
                 repeatDays = repeatDays,

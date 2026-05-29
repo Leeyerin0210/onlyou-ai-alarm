@@ -10,6 +10,7 @@ data class ScheduleItemDto(
     val id: String,
     val title: String,
     val date: String? = null,
+    val endDate: String? = null,
     val time: String? = null,
     val timeHint: String? = null,
     val location: String? = null

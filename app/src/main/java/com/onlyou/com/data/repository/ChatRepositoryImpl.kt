@@ -149,7 +149,18 @@ $userNoteConstraint
                                                 
                                                 val repeatDaysRaw = schedData["repeatDays"] as? List<*>
                                                 val repeatDays = repeatDaysRaw?.mapNotNull { 
-                                                    try { DayOfWeek.valueOf(it.toString()) } catch (e: Exception) { null }
+                                                    val dayStr = it.toString().uppercase()
+                                                    val fullName = when(dayStr) {
+                                                        "MON" -> "MONDAY"
+                                                        "TUE" -> "TUESDAY"
+                                                        "WED" -> "WEDNESDAY"
+                                                        "THU" -> "THURSDAY"
+                                                        "FRI" -> "FRIDAY"
+                                                        "SAT" -> "SATURDAY"
+                                                        "SUN" -> "SUNDAY"
+                                                        else -> dayStr
+                                                    }
+                                                    try { DayOfWeek.valueOf(fullName) } catch (e: Exception) { null }
                                                 }?.toSet() ?: emptySet()
                                                 
                                                 val locationStr = schedData["location"]?.toString()
@@ -157,6 +168,11 @@ $userNoteConstraint
 
                                                 val parsedDate = if (dateStr.isNotBlank()) {
                                                     try { LocalDate.parse(dateStr) } catch(e: Exception) { null }
+                                                } else { null }
+
+                                                val endDateStr = schedData["endDate"]?.toString() ?: ""
+                                                val parsedEndDate = if (endDateStr.isNotBlank() && endDateStr != "null" && endDateStr != "None") {
+                                                    try { LocalDate.parse(endDateStr) } catch(e: Exception) { null }
                                                 } else { null }
 
                                                 val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null" && timeStr != "None") {
@@ -167,6 +183,7 @@ $userNoteConstraint
                                                     val newSchedule = com.onlyou.com.domain.model.AiSchedule(
                                                         title = title,
                                                         date = parsedDate,
+                                                        endDate = parsedEndDate,
                                                         startTime = parsedTime,
                                                         timeHint = timeHint,
                                                         repeatDays = repeatDays,
@@ -207,15 +224,40 @@ $userNoteConstraint
                                                             try { LocalDate.parse(dateStr) } catch(e: Exception) { targetSchedule.date }
                                                         } else { targetSchedule.date }
 
+                                                        val endDateStr = schedData["endDate"]?.toString()
+                                                        val parsedEndDate = if (!endDateStr.isNullOrBlank() && endDateStr != "null" && endDateStr != "None") {
+                                                            try { LocalDate.parse(endDateStr) } catch(e: Exception) { targetSchedule.endDate }
+                                                        } else { targetSchedule.endDate }
+
                                                         val parsedTime = if (!timeStr.isNullOrBlank() && timeStr != "null" && timeStr != "None") {
                                                             try { LocalTime.parse(timeStr) } catch (e: Exception) { targetSchedule.startTime }
                                                         } else { targetSchedule.startTime }
+                                                        
+                                                        val repeatDaysRaw = schedData["repeatDays"] as? List<*>
+                                                        val repeatDays = if (repeatDaysRaw != null) {
+                                                            repeatDaysRaw.mapNotNull {
+                                                                val dayStr = it.toString().uppercase()
+                                                                val fullName = when(dayStr) {
+                                                                    "MON" -> "MONDAY"
+                                                                    "TUE" -> "TUESDAY"
+                                                                    "WED" -> "WEDNESDAY"
+                                                                    "THU" -> "THURSDAY"
+                                                                    "FRI" -> "FRIDAY"
+                                                                    "SAT" -> "SATURDAY"
+                                                                    "SUN" -> "SUNDAY"
+                                                                    else -> dayStr
+                                                                }
+                                                                try { DayOfWeek.valueOf(fullName) } catch (e: Exception) { null }
+                                                            }.toSet()
+                                                        } else targetSchedule.repeatDays
 
                                                         val updatedSchedule = targetSchedule.copy(
                                                             title = title,
                                                             date = parsedDate,
+                                                            endDate = parsedEndDate,
                                                             startTime = parsedTime,
                                                             timeHint = timeHint,
+                                                            repeatDays = repeatDays,
                                                             location = parsedLocation,
                                                             description = "AI가 대화 중 변경한 일정입니다."
                                                         )

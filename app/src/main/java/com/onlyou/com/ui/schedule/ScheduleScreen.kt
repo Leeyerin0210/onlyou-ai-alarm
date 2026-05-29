@@ -80,11 +80,27 @@ fun ScheduleScreenContent(
         t.minusDays(t.dayOfWeek.value.toLong() - 1).plusWeeks(weekOffset)
     }
     val weekDays = (0..6).map { baseMonday.plusDays(it.toLong()) }
-    val scheduleDates = uiState.schedules.mapNotNull { it.date }.toSet()
-    val schedulesOnDate = uiState.schedules.filter { it.date == selectedDate }
+    val schedulesOnDate = uiState.schedules.filter {
+        val isAfterOrEqualStart = it.date == null || selectedDate >= it.date
+        val isBeforeOrEqualEnd = it.endDate == null || selectedDate <= it.endDate
+        val isInRange = isAfterOrEqualStart && isBeforeOrEqualEnd
+        val isMatchingDay = (it.date == selectedDate && it.repeatDays.isEmpty()) || it.repeatDays.contains(selectedDate.dayOfWeek)
+        isInRange && isMatchingDay
+    }
+    
+    val scheduleDates = weekDays.filter { day ->
+        uiState.schedules.any {
+            val isAfterOrEqualStart = it.date == null || day >= it.date
+            val isBeforeOrEqualEnd = it.endDate == null || day <= it.endDate
+            val isInRange = isAfterOrEqualStart && isBeforeOrEqualEnd
+            val isMatchingDay = (it.date == day && it.repeatDays.isEmpty()) || it.repeatDays.contains(day.dayOfWeek)
+            isInRange && isMatchingDay
+        }
+    }.toSet()
+    
     val timedSchedules = schedulesOnDate.filter { it.startTime != null }.sortedBy { it.startTime }
     val untimedSchedules = schedulesOnDate.filter { it.startTime == null }
-    val weekCount = uiState.schedules.count { it.date != null && weekDays.contains(it.date) }
+    val weekCount = scheduleDates.size
     val upcoming = uiState.schedules
         .filter {
             it.date != null && it.date.isAfter(selectedDate) && it.date.isBefore(

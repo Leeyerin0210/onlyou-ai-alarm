@@ -33,6 +33,7 @@ data class DDayEntity(
 data class AiScheduleEntity(
     @PrimaryKey val id: String,
     val date: LocalDate?,
+    val endDate: LocalDate?,
     val startTime: LocalTime?,
     val timeHint: String?,
     val repeatDays: Set<DayOfWeek>,

@@ -117,6 +117,7 @@ enum class MessageSender {
 data class AiSchedule(
     val id: String = UUID.randomUUID().toString(),
     val date: LocalDate? = null,
+    val endDate: LocalDate? = null,
     val startTime: LocalTime? = null,
     val timeHint: String? = null,
     val repeatDays: Set<DayOfWeek> = emptySet(),
