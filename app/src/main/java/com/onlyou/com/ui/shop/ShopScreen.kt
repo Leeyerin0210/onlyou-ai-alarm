@@ -111,32 +111,47 @@ fun ShopScreen(
         }
 
         // 에이전트 리스트
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            items(filteredByCategory) { persona ->
-                AgentListCard(
-                    persona = persona,
-                    currentUserId = uiState.currentUserId,
-                    onClick = { viewModel.selectPersona(persona) },
-                    onEditClick = { onNavigateToEdit(persona.id) }
-                )
+        if (!uiState.isOnline) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "인터넷 연결이 필요합니다.",
+                        color = colors.onSurfaceA,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
-            item { Spacer(Modifier.height(80.dp)) }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(filteredByCategory) { persona ->
+                    AgentListCard(
+                        persona = persona,
+                        currentUserId = uiState.currentUserId,
+                        onClick = { viewModel.selectPersona(persona) },
+                        onEditClick = { onNavigateToEdit(persona.id) }
+                    )
+                }
+                item { Spacer(Modifier.height(80.dp)) }
+            }
         }
     }
 
     // FAB — 새 에이전트 생성
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-        Box(Modifier.padding(end = 24.dp, bottom = 88.dp)) {
-            FloatingActionButton(
-                onClick = { onNavigateToEdit(null) },
-                containerColor = colors.primary,
-                contentColor = colors.background,
-                shape = CircleShape,
-            ) { Icon(Icons.Default.Add, null) }
+    if (uiState.isOnline) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+            Box(Modifier.padding(end = 24.dp, bottom = 88.dp)) {
+                FloatingActionButton(
+                    onClick = { onNavigateToEdit(null) },
+                    containerColor = colors.primary,
+                    contentColor = colors.background,
+                    shape = CircleShape,
+                ) { Icon(Icons.Default.Add, null) }
+            }
         }
     }
 

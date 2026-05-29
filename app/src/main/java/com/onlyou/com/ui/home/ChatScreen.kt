@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -109,8 +110,12 @@ fun ChatScreenContent(
     val colors = MiyaTheme.colors
     val persona = uiState.persona
     var menuExpanded by remember { mutableStateOf(false) }
+    
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             // 이미지 레이아웃: 좌측 메뉴 | 아바타+이름/부제목 | 우측 설정
             Surface(color = colors.background, modifier = Modifier.fillMaxWidth()) {
@@ -203,7 +208,15 @@ fun ChatScreenContent(
                 ChatInputSection(
                     text = uiState.inputText,
                     onTextChange = onInputTextChange,
-                    onSend = onSendMessage,
+                    onSend = {
+                        if (uiState.isOnline) {
+                            onSendMessage()
+                        } else {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("인터넷 연결이 필요합니다.")
+                            }
+                        }
+                    },
                 )
             }
         },

@@ -15,7 +15,8 @@ import javax.inject.Inject
 
 data class MyPersonasUiState(
     val myPersonas: List<Persona> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isOnline: Boolean = true
 )
 
 @HiltViewModel
@@ -24,11 +25,18 @@ class MyPersonasViewModel
     constructor(
         private val personaRepository: PersonaRepository,
         private val auth: FirebaseAuth,
+        private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(MyPersonasUiState())
         val uiState: StateFlow<MyPersonasUiState> = _uiState
 
         init {
+            viewModelScope.launch {
+                networkMonitor.isOnline.collectLatest { isOnline ->
+                    _uiState.update { it.copy(isOnline = isOnline) }
+                }
+            }
+
             viewModelScope.launch {
                 val currentUid = auth.currentUser?.uid
                 personaRepository.getAllPersonas().collectLatest { allPersonas ->

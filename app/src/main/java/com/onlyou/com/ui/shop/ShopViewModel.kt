@@ -24,6 +24,7 @@ data class ShopUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
     val currentUserId: String? = null,
+    val isOnline: Boolean = true,
 )
 
 @HiltViewModel
@@ -33,6 +34,7 @@ class ShopViewModel
         private val personaRepository: PersonaRepository,
         private val chatRepository: ChatRepository,
         private val auth: com.google.firebase.auth.FirebaseAuth,
+        private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ShopUiState(currentUserId = auth.currentUser?.uid))
         val uiState: StateFlow<ShopUiState> = _uiState
@@ -51,6 +53,12 @@ class ShopViewModel
                 setOnErrorListener { _, _, _ ->
                     _uiState.update { state -> state.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
                     true
+                }
+            }
+
+            viewModelScope.launch {
+                networkMonitor.isOnline.collectLatest { isOnline ->
+                    _uiState.update { it.copy(isOnline = isOnline) }
                 }
             }
 

@@ -26,6 +26,7 @@ data class ChatUiState(
     val streamingText: String? = null,
     val pendingSchedule: com.onlyou.com.domain.model.AiSchedule? = null,
     val isPendingScheduleUpdated: Boolean = false,
+    val isOnline: Boolean = true,
 )
 
 @HiltViewModel
@@ -35,6 +36,7 @@ class ChatViewModel
         private val chatRepository: ChatRepository,
         private val personaRepository: com.onlyou.com.domain.repository.PersonaRepository,
         private val scheduleRepository: com.onlyou.com.domain.repository.ScheduleRepository,
+        private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ChatUiState())
         val uiState: StateFlow<ChatUiState> = _uiState
@@ -42,6 +44,15 @@ class ChatViewModel
         init {
             observeSelectedPersona()
             observeMessages()
+            observeNetwork()
+        }
+
+        private fun observeNetwork() {
+            viewModelScope.launch {
+                networkMonitor.isOnline.collectLatest { isOnline ->
+                    _uiState.update { it.copy(isOnline = isOnline) }
+                }
+            }
         }
 
         private fun observeSelectedPersona() {
