@@ -28,7 +28,8 @@ def seed_personas():
         "themeColors": {
             "primaryHex": "#FFB7C5",
             "secondaryHex": "#FFF0F5"
-        }
+        },
+        "creatorId": "QK876dED1mZPwXqApiePEchoObv2"
     }
     
     # 2. 루나 (지적인 비서)
@@ -45,7 +46,8 @@ def seed_personas():
         "themeColors": {
             "primaryHex": "#6495ED",
             "secondaryHex": "#F0F8FF"
-        }
+        },
+        "creatorId": "QK876dED1mZPwXqApiePEchoObv2"
     }
 
     personas_ref.document(miya_default["id"]).set(miya_default)

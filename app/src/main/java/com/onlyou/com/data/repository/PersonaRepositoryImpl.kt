@@ -159,6 +159,7 @@ class PersonaRepositoryImpl
                     secondaryHex = "#FFF0F5",
                     isSelected = true,
                     isPrivate = false,
+                    creatorId = "QK876dED1mZPwXqApiePEchoObv2",
                 )
                 personaDao.upsertPersona(defaultMiya)
             }

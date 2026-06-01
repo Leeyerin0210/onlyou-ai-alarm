@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -302,22 +305,56 @@ class VoiceRepositoryImpl
                     // 4. 기존 캐시 삭제
                     alarmVoiceChunkDao.deleteChunksForAlarm(alarmId)
 
-                    // 5. 각 청크별로 음성 합성 및 저장
-                    chunks.forEachIndexed { index, text ->
-                        var voiceBytes = synthesizeVoiceCloned(text, persona.id)
-                        if (voiceBytes == null) {
-                            voiceBytes = synthesizeVoice(text, persona)
-                        }
+                    // 5. 첫 번째 청크를 테스트용으로 먼저 합성하여 Clone 가능 여부 판단 및 병렬 처리
+                    if (chunks.isEmpty()) return@runCatching true
 
-                        if (voiceBytes != null) {
-                            alarmVoiceChunkDao.insertChunk(
-                                AlarmVoiceChunkEntity(
-                                    alarmId = alarmId,
-                                    chunkIndex = index,
-                                    script = text,
-                                    audioBytes = voiceBytes,
-                                ),
-                            )
+                    var useClone = true
+                    val firstText = chunks[0]
+                    var firstVoiceBytes = synthesizeVoiceCloned(firstText, persona.id)
+                    if (firstVoiceBytes == null) {
+                        useClone = false
+                        firstVoiceBytes = synthesizeVoice(firstText, persona)
+                    }
+
+                    if (firstVoiceBytes != null) {
+                        alarmVoiceChunkDao.insertChunk(
+                            AlarmVoiceChunkEntity(
+                                alarmId = alarmId,
+                                chunkIndex = 0,
+                                script = firstText,
+                                audioBytes = firstVoiceBytes,
+                            ),
+                        )
+                    }
+
+                    // 6. 나머지 청크 병렬 처리
+                    if (chunks.size > 1) {
+                        val remainingChunks = chunks.drop(1)
+                        coroutineScope {
+                            val deferredChunks = remainingChunks.mapIndexed { index, text ->
+                                val actualIndex = index + 1
+                                async {
+                                    val voiceBytes = if (useClone) {
+                                        synthesizeVoiceCloned(text, persona.id) ?: synthesizeVoice(text, persona)
+                                    } else {
+                                        synthesizeVoice(text, persona)
+                                    }
+
+                                    if (voiceBytes != null) {
+                                        AlarmVoiceChunkEntity(
+                                            alarmId = alarmId,
+                                            chunkIndex = actualIndex,
+                                            script = text,
+                                            audioBytes = voiceBytes,
+                                        )
+                                    } else null
+                                }
+                            }
+
+                            val generatedEntities = deferredChunks.awaitAll().filterNotNull()
+                            generatedEntities.forEach { entity ->
+                                alarmVoiceChunkDao.insertChunk(entity)
+                            }
                         }
                     }
                     true

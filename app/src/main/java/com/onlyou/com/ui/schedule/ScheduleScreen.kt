@@ -124,7 +124,7 @@ fun ScheduleScreenContent(
         snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
         containerColor = colors.background,
     ) { paddingValues ->
-        Column(Modifier.fillMaxSize().padding(paddingValues).statusBarsPadding()) {
+        Column(Modifier.fillMaxSize().padding(paddingValues)) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -400,7 +400,7 @@ private fun WeekStrip(
                             onDateSelect(
                                 date,
                             )
-                        }.padding(horizontal = 8.dp, vertical = 6.dp),
+                        }.padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text(
                         dayLabels[idx],
@@ -957,4 +957,16 @@ fun ScheduleScreenPreview() {
         ),
     )
     MiyaTheme { ScheduleScreenContent(uiState = ScheduleUiState(schedules = samples)) }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AddScheduleBottomSheetPreview() {
+    MiyaTheme {
+        AddScheduleBottomSheet(
+            initialDate = LocalDate.now(),
+            onDismiss = {},
+            onConfirm = { _, _, _, _ -> }
+        )
+    }
 }

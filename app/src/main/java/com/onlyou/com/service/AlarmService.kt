@@ -179,36 +179,20 @@ class AlarmService :
                     ?: personaRepository.getSelectedPersona().first()
 
                 if (persona != null) {
-                    var currentSentence = StringBuilder()
                     
                     voiceRepository.generateWakeUpScriptStream(persona).collect { chunk ->
                         fullScript.append(chunk)
-                        currentSentence.append(chunk)
                         
                         // 화면 업데이트 (실시간)
                         withContext(Dispatchers.Main) {
                             launchAlarmActivity(alarmId, alarmTitle, persona.id, fullScript.toString())
                         }
-
-                        // 문장 단위로 끊기 (., !, ?, \n)
-                        val text = currentSentence.toString()
-                        val terminators = charArrayOf('.', '!', '?', '\n')
-                        val lastTerminatorIndex = text.indexOfLast { it in terminators }
-                        
-                        if (lastTerminatorIndex != -1) {
-                            val sentence = text.substring(0, lastTerminatorIndex + 1).trim()
-                            if (sentence.isNotEmpty()) {
-                                val remaining = text.substring(lastTerminatorIndex + 1)
-                                processSentence(sentence, persona)
-                                currentSentence = StringBuilder(remaining)
-                            }
-                        }
                     }
                     
-                    // 남은 텍스트 처리
-                    val remaining = currentSentence.toString().trim()
-                    if (remaining.isNotEmpty()) {
-                        processSentence(remaining, persona)
+                    // 전체 텍스트 처리 (통으로 보내기)
+                    val finalScript = fullScript.toString().trim()
+                    if (finalScript.isNotEmpty()) {
+                        processSentence(finalScript, persona)
                     }
                 }
             }.onFailure { e ->

@@ -309,7 +309,7 @@ fun PersonaEditContent(
 
                     // 미리 듣기 섹션
                     Column {
-                        Text("미리 듣기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Qwen-3.5 음성 미리보기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(Modifier.height(4.dp))
                         Text("생성된 목소리를 미리 들어보고, 마음에 들 때까지 다시 생성할 수 있어요.", fontSize = 11.sp, color = Color.Gray)
                         
