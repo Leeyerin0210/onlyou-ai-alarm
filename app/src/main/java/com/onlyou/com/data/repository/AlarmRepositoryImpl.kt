@@ -43,6 +43,7 @@ class AlarmRepositoryImpl
                 personaId = personaId,
                 label = label,
                 isOneTime = isOneTime,
+                isWeatherEnabled = isWeatherEnabled,
             )
 
         private fun MiyaAlarm.toEntity() =
@@ -56,5 +57,6 @@ class AlarmRepositoryImpl
                 personaId = personaId,
                 label = label,
                 isOneTime = isOneTime,
+                isWeatherEnabled = isWeatherEnabled,
             )
     }

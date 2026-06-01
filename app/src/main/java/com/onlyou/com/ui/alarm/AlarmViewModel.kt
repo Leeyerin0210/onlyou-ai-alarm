@@ -60,6 +60,7 @@ class AlarmViewModel
             title: String?,
             repeatDays: Set<DayOfWeek>,
             date: LocalDate?,
+            isWeatherEnabled: Boolean,
         ) {
             val current = _singleAlarm.value ?: return
             viewModelScope.launch {
@@ -70,6 +71,7 @@ class AlarmViewModel
                     repeatDays = repeatDays,
                     date = date,
                     isEnabled = true,
+                    isWeatherEnabled = isWeatherEnabled,
                 )
                 repository.updateAlarm(alarmToSave)
                 scheduler.schedule(alarmToSave)

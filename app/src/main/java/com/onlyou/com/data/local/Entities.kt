@@ -19,6 +19,7 @@ data class AlarmEntity(
     val personaId: String,
     val label: String?,
     val isOneTime: Boolean,
+    val isWeatherEnabled: Boolean,
 )
 
 @Entity(tableName = "ddays")

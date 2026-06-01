@@ -16,6 +16,7 @@ data class MiyaAlarm(
     val personaId: String = "default_persona",
     val label: String? = null,
     val isOneTime: Boolean = false,
+    val isWeatherEnabled: Boolean = false,
 )
 
 data class DDayInfo(

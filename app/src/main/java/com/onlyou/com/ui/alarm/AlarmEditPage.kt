@@ -33,11 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
-import com.kizitonwose.calendar.compose.HorizontalCalendar
-import com.kizitonwose.calendar.compose.rememberCalendarState
-import com.kizitonwose.calendar.core.CalendarDay
-import com.kizitonwose.calendar.core.DayPosition
-import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
@@ -49,121 +44,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
-@Composable
-fun AlarmEditPage(
-    alarm: MiyaAlarm,
-    personas: List<Persona>,
-    onSave: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?) -> Unit,
-    onDelete: (() -> Unit)? = null,
-) {
-    var title by remember(alarm.id, alarm.title) { mutableStateOf(alarm.title.orEmpty()) }
-    var time by remember(alarm.id, alarm.time) { mutableStateOf(alarm.time) }
-    var personaId by remember(alarm.id, alarm.personaId) { mutableStateOf(alarm.personaId) }
-    var repeatDays by remember(alarm.id, alarm.repeatDays) { mutableStateOf(alarm.repeatDays) }
-    var date by remember(alarm.id, alarm.date) { mutableStateOf(alarm.date) }
-
-    var showCalendar by remember(alarm.id) { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    if (showCalendar) {
-        MiyaCalendarDialog(
-            initialDate = date,
-            onConfirm = { picked ->
-                date = picked
-                repeatDays = emptySet()
-                showCalendar = false
-            },
-            onDismissRequest = { showCalendar = false },
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(top = 8.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 160.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // 시간 선택 (휠 피커)
-            MiyaTimePicker(
-                time = time,
-                onTimeChange = { newTime -> time = newTime },
-            )
-
-            AlarmTitleSection(
-                title = title,
-                onTitleChange = { title = it },
-            )
-
-            // 반복 설정 (요일 반복 + 특정 날짜)
-            AlarmScheduleSection(
-                date = date,
-                repeatDays = repeatDays,
-                onOpenCalendar = { showCalendar = true },
-                onClearDate = { date = null },
-                onToggleRepeatDay = { day ->
-                    val isSelected = repeatDays.contains(day)
-                    repeatDays = if (isSelected) repeatDays - day else repeatDays + day
-                    date = null
-                },
-            )
-
-            if (onDelete != null && alarm.id != 0) {
-                DeleteAlarmButton(onClick = onDelete)
-            }
-        }
-
-        SaveAlarmButton(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
-                .navigationBarsPadding(),
-            onClick = {
-                val now = java.time.LocalDateTime.now()
-                
-                val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-                val minMinutes = if (isDebug) 1L else 60L
-                if (date != null) {
-                    // 특정 날짜가 지정된 경우
-                    val scheduledDateTime = java.time.LocalDateTime.of(date, time)
-                    val minutesUntil = java.time.Duration.between(now, scheduledDateTime).toMinutes()
-                    if (minutesUntil < minMinutes) {
-                        val msg = if (isDebug) "테스트 모드: 최소 1분 이상 남아야 합니다." else "해당 날짜와 시간까지 1시간 이상 남아야 저장할 수 있어요."
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                        return@SaveAlarmButton
-                    }
-                    onSave(time, personaId, title.ifEmpty { null }, repeatDays, date)
-                } else {
-                    // 날짜가 지정되지 않은 경우 (반복 요일이 있거나, 없으면 1회성)
-                    var scheduledDateTime = java.time.LocalDateTime.of(now.toLocalDate(), time)
-                    var targetDate: java.time.LocalDate? = null
-                    
-                    // 반복 요일이 없는 1회성 알람일 때만 검사
-                    if (repeatDays.isEmpty()) {
-                        // 현재부터 지정된 최소 시간(상용 60분, 개발 1분) 미만 남았거나 이미 지났다면, 내일로 간주
-                        if (java.time.Duration.between(now, scheduledDateTime).toMinutes() < minMinutes) {
-                            targetDate = now.toLocalDate().plusDays(1)
-                        }
-                    }
-                    
-                    // 조건 통과 처리
-                    onSave(time, personaId, title.ifEmpty { null }, repeatDays, targetDate)
-                }
-                
-                Toast.makeText(context, "브리핑 일정이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-            },
-        )
-    }
-}
+// AlarmEditPage 컴포저블은 AlarmScreen으로 통합되어 삭제됨.
 
 // ─────────────────────────────────────────────
 // 시간 선택 휠 피커
@@ -385,59 +266,20 @@ fun CustomWheelPicker(
 // ─────────────────────────────────────────────
 
 @Composable
-private fun AlarmScheduleSection(
-    date: LocalDate?,
+fun AlarmScheduleSection(
     repeatDays: Set<DayOfWeek>,
-    onOpenCalendar: () -> Unit,
-    onClearDate: () -> Unit,
     onToggleRepeatDay: (DayOfWeek) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    AlarmEditSectionCard {
+    AlarmEditSectionCard(modifier = modifier) {
         // 헤더
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = "반복 설정", fontWeight = FontWeight.Bold, color = colors.primary)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (date != null) {
-                    // 선택된 날짜 표시 + 삭제
-                    Surface(
-                        color = colors.primary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "${date.monthValue}/${date.dayOfMonth}(${date.dayOfWeek.getDisplayName(
-                                    TextStyle.SHORT,
-                                    Locale.KOREAN,
-                                )})",
-                                fontSize = 13.sp,
-                                color = colors.primary,
-                                fontWeight = FontWeight.Medium,
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "날짜 제거",
-                                tint = colors.primary,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clickable { onClearDate() },
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                }
-                IconButton(onClick = onOpenCalendar) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = "날짜 선택", tint = colors.primary)
-                }
-            }
+            Text(text = "반복 요일 설정", fontWeight = FontWeight.Bold, color = colors.primary)
         }
 
         // 요일 반복 칩
@@ -461,18 +303,12 @@ private fun AlarmScheduleSection(
 
         // 반복 요약 문구
         val summaryText = when {
-            repeatDays.isEmpty() && date == null -> {
-                "오늘/내일 1회만 울림"
+            repeatDays.isEmpty() -> {
+                "반복 없음 (가장 빠른 시간 1회 알림)"
             }
-
-            repeatDays.isEmpty() && date != null -> {
-                "해당 날짜 1회만 울림"
-            }
-
             repeatDays.size == 7 -> {
                 "매일 반복"
             }
-
             else -> {
                 val days = listOf(
                     DayOfWeek.MONDAY,
@@ -491,164 +327,6 @@ private fun AlarmScheduleSection(
             text = summaryText,
             fontSize = 12.sp,
             color = colors.onSurfaceA.copy(alpha = 0.5f),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────
-// 캘린더 다이얼로그 (kizitonwose)
-// ─────────────────────────────────────────────
-
-@Composable
-fun MiyaCalendarDialog(
-    initialDate: LocalDate?,
-    onConfirm: (LocalDate) -> Unit,
-    onDismissRequest: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
-    val currentMonth = remember { YearMonth.now() }
-    val startMonth = remember { currentMonth }
-    val endMonth = remember { currentMonth.plusMonths(12) }
-    val firstDayOfWeek = remember { firstDayOfWeekFromLocale() }
-
-    val calendarState = rememberCalendarState(
-        startMonth = startMonth,
-        endMonth = endMonth,
-        firstVisibleMonth = currentMonth,
-        firstDayOfWeek = firstDayOfWeek,
-    )
-
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .background(colors.surfaceA, RoundedCornerShape(24.dp))
-                .padding(20.dp),
-        ) {
-            // 헤더
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "날짜 선택",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = colors.primary,
-                )
-                IconButton(onClick = onDismissRequest) {
-                    Icon(Icons.Default.Close, contentDescription = "닫기", tint = colors.onSurfaceA)
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // 월 헤더
-            val visibleMonth = calendarState.firstVisibleMonth.yearMonth
-            Text(
-                text = "${visibleMonth.year}년 ${visibleMonth.monthValue}월",
-                fontWeight = FontWeight.SemiBold,
-                color = colors.onSurfaceA,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-
-            // 요일 헤더
-            Row(modifier = Modifier.fillMaxWidth()) {
-                listOf("일", "월", "화", "수", "목", "금", "토").forEach { day ->
-                    Text(
-                        text = day,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        fontSize = 12.sp,
-                        color = colors.onSurfaceA.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            HorizontalCalendar(
-                state = calendarState,
-                dayContent = { day ->
-                    CalendarDayCell(
-                        day = day,
-                        isSelected = day.date == selectedDate,
-                        isToday = day.date == LocalDate.now(),
-                        onClick = {
-                            if (day.position == DayPosition.MonthDate && !day.date.isBefore(LocalDate.now())) {
-                                selectedDate = day.date
-                            }
-                        },
-                    )
-                },
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // 확인 버튼
-            Button(
-                onClick = { onConfirm(selectedDate) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Text(
-                    "${selectedDate.monthValue}월 ${selectedDate.dayOfMonth}일 선택",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CalendarDayCell(
-    day: CalendarDay,
-    isSelected: Boolean,
-    isToday: Boolean,
-    onClick: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    val isPast = day.date.isBefore(LocalDate.now())
-    val isCurrentMonth = day.position == DayPosition.MonthDate
-
-    val textColor = when {
-        !isCurrentMonth || isPast -> colors.onSurfaceA.copy(alpha = 0.2f)
-        isSelected -> colors.background
-        isToday -> colors.primary
-        else -> colors.onSurfaceA
-    }
-
-    Box(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .padding(2.dp)
-            .background(
-                color = if (isSelected) {
-                    colors.primary
-                } else if (isToday) {
-                    colors.primary.copy(alpha = 0.12f)
-                } else {
-                    Color.Transparent
-                },
-                shape = RoundedCornerShape(10.dp),
-            ).clickable(enabled = isCurrentMonth && !isPast) { onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = day.date.dayOfMonth.toString(),
-            fontSize = 13.sp,
-            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-            color = textColor,
         )
     }
 }
@@ -709,10 +387,11 @@ private fun RepeatDayChip(
     Box(
         modifier = Modifier
             .size(40.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(
                 color = if (selected) colors.primary else colors.neutral.copy(0.2f),
-                shape = RoundedCornerShape(12.dp),
-            ).clickable(onClick = onClick),
+            )
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = label, color = if (selected) colors.background else colors.onSurfaceA)
@@ -720,7 +399,7 @@ private fun RepeatDayChip(
 }
 
 @Composable
-private fun SaveAlarmButton(
+fun SaveAlarmButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -750,45 +429,4 @@ private fun DeleteAlarmButton(onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun AlarmEditPagePreview() {
-    val sampleAlarm = MiyaAlarm(
-        id = 1,
-        title = "아침 기상 알람",
-        time = LocalTime.of(8, 0),
-        repeatDays = setOf(
-            DayOfWeek.MONDAY,
-            DayOfWeek.TUESDAY,
-            DayOfWeek.WEDNESDAY,
-            DayOfWeek.THURSDAY,
-            DayOfWeek.FRIDAY,
-        ),
-    )
-    val samplePersonas = listOf(
-        Persona(
-            id = "1",
-            name = "다정한 루시",
-            prompt = "",
-            description = "다정하게 깨워주는 페르소나",
-            imageUrl = null,
-        ),
-        Persona(
-            id = "2",
-            name = "츤데레 메이",
-            prompt = "",
-            description = "조금 까칠하게 깨워주는 페르소나",
-            imageUrl = null,
-        ),
-    )
-    MiyaTheme {
-        Surface(color = MiyaTheme.colors.background) {
-            AlarmEditPage(
-                alarm = sampleAlarm,
-                personas = samplePersonas,
-                onSave = { _, _, _, _, _ -> },
-                onDelete = {},
-            )
-        }
-    }
-}
+

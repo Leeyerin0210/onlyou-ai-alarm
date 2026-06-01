@@ -27,6 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -44,11 +47,10 @@ fun AlarmScreen(
     
     val singleAlarm by viewModel.singleAlarm.collectAsState()
     val personas by viewModel.personas.collectAsState()
-    var isEditing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isEditing) {
-        onEditingStateChange(isEditing)
-    }
+    var time by remember(singleAlarm?.id, singleAlarm?.time) { mutableStateOf(singleAlarm?.time ?: java.time.LocalTime.now()) }
+    var repeatDays by remember(singleAlarm?.id, singleAlarm?.repeatDays) { mutableStateOf(singleAlarm?.repeatDays ?: emptySet()) }
+    var isWeatherEnabled by remember(singleAlarm?.id, singleAlarm?.isWeatherEnabled) { mutableStateOf(singleAlarm?.isWeatherEnabled ?: false) }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -60,17 +62,51 @@ fun AlarmScreen(
         }
     }
 
-    if (isEditing && singleAlarm != null) {
-        AlarmEditPage(
-            alarm = singleAlarm!!,
-            personas = personas,
-            onSave = { time, personaId, title, repeatDays, date ->
-                viewModel.saveAlarm(time, personaId, title, repeatDays, date)
-                isEditing = false
-            },
-            onDelete = null
-        )
-    } else {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentTime by rememberUpdatedState(time)
+    val currentRepeatDays by rememberUpdatedState(repeatDays)
+    val currentIsWeatherEnabled by rememberUpdatedState(isWeatherEnabled)
+    val currentPersonaId by rememberUpdatedState(singleAlarm?.personaId)
+    val currentTitle by rememberUpdatedState(singleAlarm?.title)
+    
+    DisposableEffect(lifecycleOwner) {
+        fun doSave() {
+            val pId = currentPersonaId ?: return
+            val now = java.time.LocalDateTime.now()
+            val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            val minMinutes = if (isDebug) 1L else 60L
+            var targetDate: java.time.LocalDate? = null
+
+            if (currentRepeatDays.isEmpty()) {
+                val scheduledDateTime = java.time.LocalDateTime.of(now.toLocalDate(), currentTime)
+                if (java.time.Duration.between(now, scheduledDateTime).toMinutes() < minMinutes) {
+                    targetDate = now.toLocalDate().plusDays(1)
+                }
+            }
+            viewModel.saveAlarm(
+                time = currentTime,
+                personaId = pId,
+                title = currentTitle,
+                repeatDays = currentRepeatDays,
+                date = targetDate,
+                isWeatherEnabled = currentIsWeatherEnabled
+            )
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                doSave()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            doSave()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -111,13 +147,28 @@ fun AlarmScreen(
                 AiBriefingHeroCard()
                 
                 singleAlarm?.let { alarm ->
-                    BriefingTimeSectionCard(
-                        alarm = alarm,
-                        onEditClick = { isEditing = true }
+                    // 시간 선택 (휠 피커)
+                    MiyaTimePicker(
+                        time = time,
+                        onTimeChange = { newTime -> time = newTime },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    // 반복 설정 (요일 반복)
+                    AlarmScheduleSection(
+                        repeatDays = repeatDays,
+                        onToggleRepeatDay = { day ->
+                            val isSelected = repeatDays.contains(day)
+                            repeatDays = if (isSelected) repeatDays - day else repeatDays + day
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
                 
-                BriefingCategorySectionCard()
+                BriefingCategorySectionCard(
+                    isWeatherEnabled = isWeatherEnabled,
+                    onWeatherToggle = { isWeatherEnabled = it }
+                )
                 Spacer(Modifier.height(8.dp))
             }
         }
@@ -162,76 +213,30 @@ private fun AiBriefingHeroCard() {
     }
 }
 
+
 @Composable
-private fun BriefingTimeSectionCard(
-    alarm: MiyaAlarm,
-    onEditClick: () -> Unit
+private fun BriefingCategorySectionCard(
+    isWeatherEnabled: Boolean,
+    onWeatherToggle: (Boolean) -> Unit
 ) {
     val colors = MiyaTheme.colors
-    
-    val amPm = if (alarm.time.hour < 12) "오전" else "오후"
-    val displayHour = if (alarm.time.hour % 12 == 0) 12 else alarm.time.hour % 12
-    val timeStr = "$amPm $displayHour:${alarm.time.minute.toString().padStart(2, '0')}"
-
-    Surface(
-        color = colors.surfaceA, 
-        shape = RoundedCornerShape(20.dp), 
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable { onEditClick() }
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(), 
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("브리핑 시간 설정", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = colors.primary, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Column {
-                    Text(alarm.title ?: "알람", fontSize = 14.sp, color = colors.onSurfaceA, fontWeight = FontWeight.Medium)
-                    Text(timeStr, fontSize = 24.sp, color = colors.primary, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BriefingCategorySectionCard() {
-    val colors = MiyaTheme.colors
-    data class AlarmCategory(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, var enabled: Boolean)
-    val categories = remember {
-        mutableStateListOf(
-            AlarmCategory(Icons.Default.Event, "일정 알림", true),
-            AlarmCategory(Icons.Default.TaskAlt, "할 일 / 미션", true),
-            AlarmCategory(Icons.Default.WbSunny, "날씨 / 교통", false),
-        )
-    }
 
     Surface(color = colors.surfaceA, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("알림 받을 항목", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+            Text("추가 알림 항목", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
             Spacer(Modifier.height(8.dp))
-            categories.forEachIndexed { idx, cat ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(colors.primary.copy(0.15f)), contentAlignment = Alignment.Center) {
-                            Icon(cat.icon, null, tint = colors.primary, modifier = Modifier.size(18.dp))
-                        }
-                        Text(cat.label, fontSize = 14.sp, color = colors.onSurfaceA, fontWeight = FontWeight.Medium)
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(colors.primary.copy(0.15f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.WbSunny, null, tint = colors.primary, modifier = Modifier.size(18.dp))
                     }
-                    Switch(
-                        checked = cat.enabled,
-                        onCheckedChange = { categories[idx] = cat.copy(enabled = it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = colors.background, checkedTrackColor = colors.primary, uncheckedTrackColor = colors.neutral.copy(0.3f)),
-                    )
+                    Text("오늘의 날씨", fontSize = 14.sp, color = colors.onSurfaceA, fontWeight = FontWeight.Medium)
                 }
-                if (idx < categories.size - 1) HorizontalDivider(color = colors.surfaceB.copy(0.5f))
+                Switch(
+                    checked = isWeatherEnabled,
+                    onCheckedChange = { onWeatherToggle(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = colors.background, checkedTrackColor = colors.primary, uncheckedTrackColor = colors.neutral.copy(0.3f)),
+                )
             }
         }
     }
