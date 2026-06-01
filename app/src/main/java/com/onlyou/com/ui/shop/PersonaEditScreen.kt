@@ -48,6 +48,7 @@ fun PersonaEditScreen(
     onBack: () -> Unit,
     viewModel: PersonaEditViewModel = hiltViewModel(),
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
     val uiState by viewModel.uiState.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val audioDuration by viewModel.audioDuration.collectAsState()
@@ -66,7 +67,7 @@ fun PersonaEditScreen(
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -81,6 +82,7 @@ fun PersonaEditScreen(
         isPlaying = isPlaying,
         audioDuration = audioDuration,
         audioPosition = audioPosition,
+        snackbarHostState = snackbarHostState,
         onPreviewTextChange = { previewText = it },
         onBack = onBack,
         onImageClick = { imagePickerLauncher.launch("image/*") },
@@ -101,6 +103,7 @@ fun PersonaEditContent(
     isPlaying: Boolean,
     audioDuration: Int,
     audioPosition: Int,
+    snackbarHostState: SnackbarHostState,
     onPreviewTextChange: (String) -> Unit,
     onBack: () -> Unit,
     onImageClick: () -> Unit,
@@ -122,6 +125,7 @@ fun PersonaEditContent(
                 onNavigationClick = onBack
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = backgroundColor,
         bottomBar = {
             if (uiState is PersonaEditUiState.Success) {

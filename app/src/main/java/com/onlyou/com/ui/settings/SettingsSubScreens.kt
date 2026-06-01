@@ -21,11 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import android.content.Intent
-import android.app.Activity
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.repository.BackupState
 import com.onlyou.com.ui.theme.MiyaTheme
+import kotlinx.coroutines.launch
 
 // Removed SimpleTopBar in favor of MiyaTopAppBar
 
@@ -218,10 +218,13 @@ fun BackupSyncScreen(
     val backupState by viewModel.backupState.collectAsState()
     val restoreState by viewModel.restoreState.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     LaunchedEffect(backupState) {
         when (backupState) {
-            is BackupState.Success -> Toast.makeText(context, "백업이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-            is BackupState.Error -> Toast.makeText(context, (backupState as BackupState.Error).message, Toast.LENGTH_LONG).show()
+            is BackupState.Success -> coroutineScope.launch { snackbarHostState.showSnackbar("백업이 완료되었습니다.") }
+            is BackupState.Error -> coroutineScope.launch { snackbarHostState.showSnackbar((backupState as BackupState.Error).message) }
             else -> {}
         }
     }
@@ -229,7 +232,7 @@ fun BackupSyncScreen(
     LaunchedEffect(restoreState) {
         when (restoreState) {
             is BackupState.Success -> {
-                Toast.makeText(context, "복원이 완료되었습니다. 앱을 재시작합니다.", Toast.LENGTH_SHORT).show()
+                coroutineScope.launch { snackbarHostState.showSnackbar("복원이 완료되었습니다. 앱을 재시작합니다.") }
                 val packageManager = context.packageManager
                 val intent = packageManager.getLaunchIntentForPackage(context.packageName)
                 val componentName = intent?.component
@@ -237,12 +240,13 @@ fun BackupSyncScreen(
                 context.startActivity(mainIntent)
                 Runtime.getRuntime().exit(0)
             }
-            is BackupState.Error -> Toast.makeText(context, (restoreState as BackupState.Error).message, Toast.LENGTH_LONG).show()
+            is BackupState.Error -> coroutineScope.launch { snackbarHostState.showSnackbar((restoreState as BackupState.Error).message) }
             else -> {}
         }
     }
 
-    Column(Modifier.fillMaxSize().background(colors.background)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(colors.background)) {
         com.onlyou.com.ui.components.MiyaTopAppBar("백업 및 동기화", onBack)
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
@@ -286,8 +290,13 @@ fun BackupSyncScreen(
                 }
             }
         }
-    }
-}
+    } // Column (바깥쪽) 닫힘
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.align(Alignment.BottomCenter)
+    )
+    } // Box 닫힘
+} // 함수 닫힘
 
 // 6. 방해 금지 시간
 @Composable

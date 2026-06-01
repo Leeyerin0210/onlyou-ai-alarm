@@ -100,6 +100,9 @@ fun LoginScreen(
     var subScreen by remember { mutableStateOf<LoginSubScreen>(LoginSubScreen.Splash) }
     // 어떤 버튼이 로딩 중인지 추적 ("login", "google" 등)
     var loadingSource by remember { mutableStateOf<String?>(null) }
+    
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(uiState) {
         val state = uiState
@@ -107,77 +110,84 @@ fun LoginScreen(
             is LoginState.Success -> onLoginSuccess()
             is LoginState.Error -> {
                 loadingSource = null
-                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                coroutineScope.launch { snackbarHostState.showSnackbar(state.message) }
             }
             is LoginState.Idle -> loadingSource = null
             else -> Unit
         }
     }
 
-    AnimatedContent(
-        targetState = subScreen,
-        transitionSpec = {
-            when {
-                targetState is LoginSubScreen.Splash -> {
-                    fadeIn(tween(300)) togetherWith fadeOut(tween(250))
+    Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = subScreen,
+            transitionSpec = {
+                when {
+                    targetState is LoginSubScreen.Splash -> {
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(250))
+                    }
+                    initialState is LoginSubScreen.Splash -> {
+                        (fadeIn(tween(400)) + slideInHorizontally { it / 4 }) togetherWith
+                            (fadeOut(tween(300)) + slideOutHorizontally { -it / 4 })
+                    }
+                    else -> {
+                        (fadeIn(tween(300)) + slideInHorizontally { it / 3 }) togetherWith
+                            (fadeOut(tween(250)) + slideOutHorizontally { -it / 3 })
+                    }
                 }
-                initialState is LoginSubScreen.Splash -> {
-                    (fadeIn(tween(400)) + slideInHorizontally { it / 4 }) togetherWith
-                        (fadeOut(tween(300)) + slideOutHorizontally { -it / 4 })
+            },
+            label = "login_sub_screen_transition",
+        ) { screen ->
+            when (screen) {
+                is LoginSubScreen.Splash -> {
+                    SplashContent(
+                        onStartClick = { subScreen = LoginSubScreen.Login },
+                        onLoginClick = { subScreen = LoginSubScreen.Login },
+                    )
                 }
-                else -> {
-                    (fadeIn(tween(300)) + slideInHorizontally { it / 3 }) togetherWith
-                        (fadeOut(tween(250)) + slideOutHorizontally { -it / 3 })
+                is LoginSubScreen.Login -> {
+                    LoginContent(
+                        uiState = uiState,
+                        loadingSource = loadingSource,
+                        onLoginClick = {
+                            loadingSource = "login"
+                            viewModel.signInWithGoogle(context)
+                        },
+                        onGoogleSignInClick = {
+                            loadingSource = "google"
+                            viewModel.signInWithGoogle(context)
+                        },
+                        onAppleSignInClick = {
+                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                        },
+                        onKakaoSignInClick = {
+                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                        },
+                        onSignUpClick = { subScreen = LoginSubScreen.SignUp },
+                        onForgotPasswordClick = {
+                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                        },
+                    )
                 }
-            }
-        },
-        label = "login_sub_screen_transition",
-    ) { screen ->
-        when (screen) {
-            is LoginSubScreen.Splash -> {
-                SplashContent(
-                    onStartClick = { subScreen = LoginSubScreen.Login },
-                    onLoginClick = { subScreen = LoginSubScreen.Login },
-                )
-            }
-            is LoginSubScreen.Login -> {
-                LoginContent(
-                    uiState = uiState,
-                    loadingSource = loadingSource,
-                    onLoginClick = {
-                        loadingSource = "login"
-                        viewModel.signInWithGoogle(context)
-                    },
-                    onGoogleSignInClick = {
-                        loadingSource = "google"
-                        viewModel.signInWithGoogle(context)
-                    },
-                    onAppleSignInClick = {
-                        Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                    },
-                    onKakaoSignInClick = {
-                        Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                    },
-                    onSignUpClick = { subScreen = LoginSubScreen.SignUp },
-                    onForgotPasswordClick = {
-                        Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                    },
-                )
-            }
-            is LoginSubScreen.SignUp -> {
-                SignUpContent(
-                    onBackClick = { subScreen = LoginSubScreen.Login },
-                    onSignUpComplete = { subScreen = LoginSubScreen.EmailVerification },
-                    onLoginClick = { subScreen = LoginSubScreen.Login },
-                )
-            }
-            is LoginSubScreen.EmailVerification -> {
-                EmailVerificationContent(
-                    onBackClick = { subScreen = LoginSubScreen.SignUp },
-                    onConfirmClick = { onLoginSuccess() },
-                )
+                is LoginSubScreen.SignUp -> {
+                    SignUpContent(
+                        onBackClick = { subScreen = LoginSubScreen.Login },
+                        onSignUpComplete = { subScreen = LoginSubScreen.EmailVerification },
+                        onLoginClick = { subScreen = LoginSubScreen.Login },
+                    )
+                }
+                is LoginSubScreen.EmailVerification -> {
+                    EmailVerificationContent(
+                        onBackClick = { subScreen = LoginSubScreen.SignUp },
+                        onConfirmClick = { onLoginSuccess() },
+                    )
+                }
             }
         }
+        
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 

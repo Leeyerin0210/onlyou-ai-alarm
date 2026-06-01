@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,43 +68,42 @@ fun AlarmScreen(
     val currentTime by rememberUpdatedState(time)
     val currentRepeatDays by rememberUpdatedState(repeatDays)
     val currentIsWeatherEnabled by rememberUpdatedState(isWeatherEnabled)
-    val currentPersonaId by rememberUpdatedState(singleAlarm?.personaId)
-    val currentTitle by rememberUpdatedState(singleAlarm?.title)
+    val currentPersonaId = singleAlarm?.personaId
+    val currentTitle = singleAlarm?.title
     
-    DisposableEffect(lifecycleOwner) {
-        fun doSave() {
-            val pId = currentPersonaId ?: return
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    
+    LaunchedEffect(time, repeatDays, isWeatherEnabled) {
+        delay(800) // 변경 후 0.8초 대기 (Debounce)
+        
+        val pId = currentPersonaId
+        if (pId != null) {
             val now = java.time.LocalDateTime.now()
             val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
             val minMinutes = if (isDebug) 1L else 60L
             var targetDate: java.time.LocalDate? = null
 
-            if (currentRepeatDays.isEmpty()) {
-                val scheduledDateTime = java.time.LocalDateTime.of(now.toLocalDate(), currentTime)
+            if (repeatDays.isEmpty()) {
+                val scheduledDateTime = java.time.LocalDateTime.of(now.toLocalDate(), time)
                 if (java.time.Duration.between(now, scheduledDateTime).toMinutes() < minMinutes) {
                     targetDate = now.toLocalDate().plusDays(1)
                 }
             }
-            viewModel.saveAlarm(
-                time = currentTime,
-                personaId = pId,
-                title = currentTitle,
-                repeatDays = currentRepeatDays,
-                date = targetDate,
-                isWeatherEnabled = currentIsWeatherEnabled
-            )
-        }
-
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                doSave()
+            try {
+                viewModel.saveAlarm(
+                    time = time,
+                    personaId = pId,
+                    title = currentTitle,
+                    repeatDays = repeatDays,
+                    date = targetDate,
+                    isWeatherEnabled = isWeatherEnabled
+                )
+            } catch (e: Exception) {
+                coroutineScope.launch { snackbarHostState.showSnackbar("설정 저장 중 오류가 발생했습니다.") }
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            doSave()
-            lifecycleOwner.lifecycle.removeObserver(observer)
+        } else {
+            coroutineScope.launch { snackbarHostState.showSnackbar("페르소나 정보가 없어 저장할 수 없습니다.") }
         }
     }
 
@@ -172,6 +173,11 @@ fun AlarmScreen(
                 Spacer(Modifier.height(8.dp))
             }
         }
+        
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
