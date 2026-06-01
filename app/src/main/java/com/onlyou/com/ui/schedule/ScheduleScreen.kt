@@ -1,9 +1,11 @@
 package com.onlyou.com.ui.schedule
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,8 +35,17 @@ import com.onlyou.com.domain.model.AiSchedule
 import com.onlyou.com.ui.theme.MiyaTheme
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
+fun hasScheduleOnDate(day: LocalDate, schedule: AiSchedule): Boolean {
+    val isAfterOrEqualStart = schedule.date == null || day >= schedule.date
+    val isBeforeOrEqualEnd = schedule.endDate == null || day <= schedule.endDate
+    val isInRange = isAfterOrEqualStart && isBeforeOrEqualEnd
+    val isMatchingDay = (schedule.date == day && schedule.repeatDays.isEmpty()) || schedule.repeatDays.contains(day.dayOfWeek)
+    return isInRange && isMatchingDay
+}
 
 @Composable
 fun ScheduleScreen(
@@ -81,27 +93,36 @@ fun ScheduleScreenContent(
     var weekOffset by remember { mutableStateOf(0L) }
     var showAddDialog by remember { mutableStateOf(false) }
 
+    var isCalendarExpanded by remember { mutableStateOf(false) }
+    var monthOffset by remember { mutableStateOf(0L) }
+
     val baseMonday = remember(weekOffset) {
         val t = LocalDate.now()
         t.minusDays(t.dayOfWeek.value.toLong() - 1).plusWeeks(weekOffset)
     }
     val weekDays = (0..6).map { baseMonday.plusDays(it.toLong()) }
+    
+    val currentMonth = remember(monthOffset) { YearMonth.now().plusMonths(monthOffset) }
+    val monthDays = remember(currentMonth) {
+        val firstDayOfMonth = currentMonth.atDay(1)
+        val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value
+        val startOffset = firstDayOfWeek - 1
+        val daysInMonth = currentMonth.lengthOfMonth()
+        val totalCells = startOffset + daysInMonth
+        val weeks = if (totalCells % 7 == 0) totalCells / 7 else totalCells / 7 + 1
+        (0 until weeks * 7).map { firstDayOfMonth.plusDays((it - startOffset).toLong()) }
+    }
+
     val schedulesOnDate = uiState.schedules.filter {
-        val isAfterOrEqualStart = it.date == null || selectedDate >= it.date
-        val isBeforeOrEqualEnd = it.endDate == null || selectedDate <= it.endDate
-        val isInRange = isAfterOrEqualStart && isBeforeOrEqualEnd
-        val isMatchingDay = (it.date == selectedDate && it.repeatDays.isEmpty()) || it.repeatDays.contains(selectedDate.dayOfWeek)
-        isInRange && isMatchingDay
+        hasScheduleOnDate(selectedDate, it)
     }
     
     val scheduleDates = weekDays.filter { day ->
-        uiState.schedules.any {
-            val isAfterOrEqualStart = it.date == null || day >= it.date
-            val isBeforeOrEqualEnd = it.endDate == null || day <= it.endDate
-            val isInRange = isAfterOrEqualStart && isBeforeOrEqualEnd
-            val isMatchingDay = (it.date == day && it.repeatDays.isEmpty()) || it.repeatDays.contains(day.dayOfWeek)
-            isInRange && isMatchingDay
-        }
+        uiState.schedules.any { hasScheduleOnDate(day, it) }
+    }.toSet()
+    
+    val scheduleDatesInMonth = monthDays.filter { day ->
+        uiState.schedules.any { hasScheduleOnDate(day, it) }
     }.toSet()
     
     val timedSchedules = schedulesOnDate.filter { it.startTime != null }.sortedBy { it.startTime }
@@ -187,13 +208,87 @@ fun ScheduleScreenContent(
 
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                WeekStrip(
-                    weekDays,
-                    selectedDate,
-                    scheduleDates,
-                    { weekOffset-- },
-                    { weekOffset++ },
-                ) { selectedDate = it }
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .pointerInput(Unit) {
+                            var dragAccumulator = 0f
+                            detectVerticalDragGestures(
+                                onDragStart = { dragAccumulator = 0f },
+                                onDragEnd = {
+                                    if (dragAccumulator > 50) {
+                                        isCalendarExpanded = true
+                                    } else if (dragAccumulator < -50) {
+                                        isCalendarExpanded = false
+                                    }
+                                },
+                                onVerticalDrag = { change, dragAmount ->
+                                    dragAccumulator += dragAmount
+                                }
+                            )
+                        }
+                        .pointerInput(isCalendarExpanded) {
+                            var dragAccumulator = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragAccumulator = 0f },
+                                onDragEnd = {
+                                    if (dragAccumulator > 50) {
+                                        if (isCalendarExpanded) monthOffset-- else weekOffset--
+                                    } else if (dragAccumulator < -50) {
+                                        if (isCalendarExpanded) monthOffset++ else weekOffset++
+                                    }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume() // Pager 스와이프 차단
+                                    dragAccumulator += dragAmount
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = isCalendarExpanded,
+                        transitionSpec = {
+                            if (targetState) {
+                                slideInVertically { height -> -height } + fadeIn() togetherWith slideOutVertically { height -> height } + fadeOut()
+                            } else {
+                                slideInVertically { height -> height } + fadeIn() togetherWith slideOutVertically { height -> -height } + fadeOut()
+                            }.using(SizeTransform(clip = false))
+                        },
+                        label = "CalendarAnimation"
+                    ) { expanded ->
+                        if (expanded) {
+                            MonthCalendar(
+                                monthDays = monthDays,
+                                currentMonth = currentMonth,
+                                selectedDate = selectedDate,
+                                scheduleDates = scheduleDatesInMonth,
+                                onPrevMonth = { monthOffset-- },
+                                onNextMonth = { monthOffset++ },
+                                onDateSelect = { selectedDate = it }
+                            )
+                        } else {
+                            WeekStrip(
+                                weekDays = weekDays,
+                                selectedDate = selectedDate,
+                                scheduleDates = scheduleDates,
+                                onPrevWeek = { weekOffset-- },
+                                onNextWeek = { weekOffset++ },
+                                onDateSelect = { selectedDate = it }
+                            )
+                        }
+                    }
+                    
+                    Box(
+                        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp).clickable { isCalendarExpanded = !isCalendarExpanded },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (isCalendarExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = "달력 확장/축소",
+                            tint = colors.neutral,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
             item {
                 Spacer(Modifier.height(16.dp))
@@ -436,6 +531,98 @@ private fun WeekStrip(
                 tint = colors.neutral,
                 modifier = Modifier.size(20.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun MonthCalendar(
+    monthDays: List<LocalDate>,
+    currentMonth: YearMonth,
+    selectedDate: LocalDate,
+    scheduleDates: Set<LocalDate>,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onDateSelect: (LocalDate) -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    val dayLabels = listOf("월", "화", "수", "목", "금", "토", "일")
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        // Month Header
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onPrevMonth, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.ChevronLeft, null, tint = colors.neutral, modifier = Modifier.size(20.dp))
+            }
+            Text(
+                "${currentMonth.year}년 ${currentMonth.monthValue}월",
+                fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA
+            )
+            IconButton(onClick = onNextMonth, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.ChevronRight, null, tint = colors.neutral, modifier = Modifier.size(20.dp))
+            }
+        }
+        
+        // Day Labels
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            dayLabels.forEach { label ->
+                Text(label, fontSize = 10.sp, color = colors.neutral, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        
+        // Days Grid
+        val weeks = monthDays.chunked(7)
+        weeks.forEach { week ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                week.forEach { date ->
+                    val isSelected = date == selectedDate
+                    val isToday = date == LocalDate.now()
+                    val hasSchedule = date in scheduleDates
+                    val isCurrentMonth = date.monthValue == currentMonth.monthValue
+                    
+                    val bgColor by animateColorAsState(
+                        if (isSelected) colors.primary else Color.Transparent,
+                        tween(200),
+                        label = "mBg",
+                    )
+                    
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(bgColor)
+                            .clickable(remember { MutableInteractionSource() }, null) {
+                                onDateSelect(date)
+                            }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(
+                            date.dayOfMonth.toString(),
+                            fontSize = 15.sp,
+                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                            color = when {
+                                isSelected -> colors.background
+                                isToday -> colors.primary
+                                isCurrentMonth -> colors.onSurfaceA
+                                else -> colors.neutral.copy(alpha = 0.5f)
+                            },
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Box(
+                            Modifier
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(if (hasSchedule) (if (isSelected) colors.background else colors.secondary) else Color.Transparent),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
         }
     }
 }

@@ -12,6 +12,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -99,7 +102,7 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig
 
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -138,7 +141,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = currentScreen in listOf("chat", "schedule", "shop", "alarm"),
+                    gesturesEnabled = drawerState.isOpen,
                     drawerContent = {
                         MiyaDrawerSheet(
                             selectedPersona = selectedPersona,
@@ -163,16 +166,37 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .background(colors.background),
                     ) {
+                        val mainTabs = listOf("chat", "schedule", "shop", "alarm")
+                        val pagerState = rememberPagerState(
+                            initialPage = mainTabs.indexOf("chat").takeIf { it >= 0 } ?: 0,
+                            pageCount = { mainTabs.size }
+                        )
+
+                        LaunchedEffect(currentScreen) {
+                            val index = mainTabs.indexOf(currentScreen)
+                            if (index >= 0 && index != pagerState.currentPage) {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        }
+
+                        LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+                            if (!pagerState.isScrollInProgress) {
+                                val tab = mainTabs[pagerState.currentPage]
+                                if (currentScreen in mainTabs && currentScreen != tab) {
+                                    currentScreen = tab
+                                }
+                            }
+                        }
+
                         AnimatedContent(
-                            targetState = currentScreen,
+                            targetState = if (currentScreen in mainTabs) "main_tabs" else currentScreen,
                             transitionSpec = {
                                 fadeIn(animationSpec = tween(300))
                                     .togetherWith(fadeOut(animationSpec = tween(250)))
                             },
                             label = "screen_transition",
-                        ) { screen ->
-                            // 바텀 탭 화면들은 하단 패딩을 고려 (바텀바 84dp + 네비게이션바 패딩)
-                            val isMainTab = screen in listOf("chat", "schedule", "shop", "alarm")
+                        ) { screenState ->
+                            val isMainTab = screenState == "main_tabs"
                             val bottomPadding = if (isMainTab) WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 84.dp else 0.dp
                             
                             Box(
@@ -180,91 +204,96 @@ class MainActivity : ComponentActivity() {
                                     .fillMaxSize()
                                     .padding(bottom = bottomPadding),
                             ) {
-                                when {
-                                    screen == "splash_check" -> {
-                                        LaunchedEffect(currentUser) {
-                                            scope.launch {
-                                                try {
-                                                    remoteConfig.fetchAndActivate()
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
+                                if (isMainTab) {
+                                    HorizontalPager(
+                                        state = pagerState,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) { page ->
+                                        val screen = mainTabs[page]
+                                        when (screen) {
+                                            "chat" -> {
+                                                ChatScreen(
+                                                    onNavigateToSchedule = { currentScreen = "schedule" },
+                                                    onNavigateToAlarm = { currentScreen = "alarm" },
+                                                    onNavigateToSettings = { currentScreen = "settings" },
+                                                    onNavigateToShop = { currentScreen = "shop" },
+                                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                                )
                                             }
-                                            if (currentUser != null) {
+                                            "schedule" -> {
+                                                ScheduleScreen(
+                                                    onBack = { currentScreen = "chat" },
+                                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                                )
+                                            }
+                                            "shop" -> {
+                                                ShopScreen(
+                                                    onBack = { currentScreen = "chat" },
+                                                    onNavigateToEdit = { id ->
+                                                        currentScreen = "persona_edit/$id"
+                                                    },
+                                                    onNavigateToMyPersonas = {
+                                                        currentScreen = "my_personas"
+                                                    },
+                                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                                )
+                                            }
+                                            "alarm" -> {
+                                                AlarmScreen(
+                                                    onBack = { currentScreen = "chat" },
+                                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                                    onEditingStateChange = { isEditingAlarm = it },
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    when {
+                                        screenState == "splash_check" -> {
+                                            LaunchedEffect(currentUser) {
                                                 scope.launch {
                                                     try {
-                                                        personaRepository.syncPersonas()
+                                                        remoteConfig.fetchAndActivate()
                                                     } catch (e: Exception) {
                                                         e.printStackTrace()
                                                     }
                                                 }
-                                                // 온보딩 완료 여부 확인
-                                                val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
-                                            } else {
-                                                currentScreen = "login"
+                                                if (currentUser != null) {
+                                                    scope.launch {
+                                                        try {
+                                                            personaRepository.syncPersonas()
+                                                        } catch (e: Exception) {
+                                                            e.printStackTrace()
+                                                        }
+                                                    }
+                                                    val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
+                                                } else {
+                                                    currentScreen = "login"
+                                                }
+                                                keepSplash = false
                                             }
-                                            keepSplash = false
                                         }
-                                    }
 
-                                    screen == "onboarding_pager" -> {
-                                        OnboardingPagerScreen(
-                                            onFinish = { currentScreen = "onboarding" },
-                                            onSkip = { currentScreen = "onboarding" },
-                                        )
-                                    }
+                                        screenState == "onboarding_pager" -> {
+                                            OnboardingPagerScreen(
+                                                onFinish = { currentScreen = "onboarding" },
+                                                onSkip = { currentScreen = "onboarding" },
+                                            )
+                                        }
 
-                                    screen == "onboarding" -> {
-                                        OnboardingScreen(
-                                            onOnboardingComplete = {
-                                                prefs.edit()
-                                                    .putBoolean("onboarding_complete", true)
-                                                    .apply()
-                                                currentScreen = "chat"
-                                            },
-                                        )
-                                    }
+                                        screenState == "onboarding" -> {
+                                            OnboardingScreen(
+                                                onOnboardingComplete = {
+                                                    prefs.edit()
+                                                        .putBoolean("onboarding_complete", true)
+                                                        .apply()
+                                                    currentScreen = "chat"
+                                                },
+                                            )
+                                        }
 
-                                    screen == "chat" -> {
-                                        ChatScreen(
-                                            onNavigateToSchedule = { currentScreen = "schedule" },
-                                            onNavigateToAlarm = { currentScreen = "alarm" },
-                                            onNavigateToSettings = { currentScreen = "settings" },
-                                            onNavigateToShop = { currentScreen = "shop" },
-                                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                                        )
-                                    }
-
-                                    screen == "schedule" -> {
-                                        ScheduleScreen(
-                                            onBack = { currentScreen = "chat" },
-                                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                                        )
-                                    }
-
-                                    screen == "alarm" -> {
-                                        AlarmScreen(
-                                            onBack = { currentScreen = "chat" },
-                                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                                            onEditingStateChange = { isEditingAlarm = it },
-                                        )
-                                    }
-
-                                    screen == "shop" -> {
-                                        ShopScreen(
-                                            onBack = { currentScreen = "chat" },
-                                            onNavigateToEdit = { id ->
-                                                currentScreen = "persona_edit/$id"
-                                            },
-                                            onNavigateToMyPersonas = {
-                                                currentScreen = "my_personas"
-                                            },
-                                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                                        )
-                                    }
-
-                                    screen == "my_personas" -> {
+                                        screenState == "my_personas" -> {
                                         MyPersonasScreen(
                                             onBack = { currentScreen = "shop" },
                                             onNavigateToEdit = { id ->
@@ -273,87 +302,86 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
 
-                                    screen.startsWith("persona_edit") -> {
-                                        val id =
-                                            screen.split("/").getOrNull(1)?.takeIf { it != "null" }
-                                        PersonaEditScreen(
-                                            personaId = id,
-                                            onBack = { currentScreen = "shop" },
-                                        )
-                                    }
+                                        screenState.startsWith("persona_edit") -> {
+                                            val id =
+                                                screenState.split("/").getOrNull(1)?.takeIf { it != "null" }
+                                            PersonaEditScreen(
+                                                personaId = id,
+                                                onBack = { currentScreen = "shop" },
+                                            )
+                                        }
 
-                                    screen == "settings" -> {
-                                        SettingsScreen(
-                                            onBack = { currentScreen = "chat" },
-                                            onNavigateTo = { route -> currentScreen = route },
-                                        )
-                                    }
+                                        screenState == "settings" -> {
+                                            SettingsScreen(
+                                                onBack = { currentScreen = "chat" },
+                                                onNavigateTo = { route -> currentScreen = route },
+                                            )
+                                        }
 
-                                    screen == "drawer_profile" -> {
-                                        ProfileEditScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "drawer_profile" -> {
+                                            ProfileEditScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_tone" -> {
-                                        ToneAndPersonalityScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_tone" -> {
+                                            ToneAndPersonalityScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_ai_memory" -> {
-                                        AiMemoryScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_ai_memory" -> {
+                                            AiMemoryScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "drawer_premium" -> {
-                                        PremiumPlanScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "drawer_premium" -> {
+                                            PremiumPlanScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_backup" -> {
-                                        BackupSyncScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_backup" -> {
+                                            BackupSyncScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_dnd" -> {
-                                        DndTimeScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_dnd" -> {
+                                            DndTimeScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_briefing" -> {
-                                        BriefingPreviewScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_briefing" -> {
+                                            BriefingPreviewScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "settings_app_info" -> {
-                                        AppInfoScreen(onBack = {
-                                            currentScreen = "settings"
-                                        })
-                                    }
+                                        screenState == "settings_app_info" -> {
+                                            AppInfoScreen(onBack = {
+                                                currentScreen = "settings"
+                                            })
+                                        }
 
-                                    screen == "login" -> {
-                                        com.onlyou.com.ui.login.LoginScreen(
-                                            onLoginSuccess = {
-                                                // 로그인 성공 후 온보딩 여부 확인
-                                                val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
-                                            },
-                                        )
-                                    }
+                                        screenState == "login" -> {
+                                            com.onlyou.com.ui.login.LoginScreen(
+                                                onLoginSuccess = {
+                                                    val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
+                                                },
+                                            )
+                                        }
 
-                                    else -> {}
+                                        else -> {}
+                                    }
                                 }
                             }
                         }
 
                         // ─── 바텀 네비게이션 바 (메인 4탭에서만 표시) ───
-                        val mainTabs = listOf("chat", "schedule", "shop", "alarm")
                         if (currentScreen in mainTabs) {
                             Box(
                                 modifier = Modifier
