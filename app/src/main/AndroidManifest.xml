@@ -28,7 +28,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Miya"
+        android:theme="@style/Theme.Miya.Starting"
         tools:targetApi="31">
 
         <!-- WorkManager 자동 초기화 비활성화 (HiltWorkerFactory 수동 주입 사용) -->

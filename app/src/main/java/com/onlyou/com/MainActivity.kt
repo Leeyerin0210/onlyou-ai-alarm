@@ -79,9 +79,11 @@ import com.onlyou.com.ui.theme.ThemeManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var keepSplash = true
     @Inject
     lateinit var themeManager: ThemeManager
 
@@ -99,7 +101,9 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        splashScreen.setKeepOnScreenCondition { keepSplash }
         enableEdgeToEdge()
         setContent {
             val currentFontType by themeManager.currentFontType.collectAsState()
@@ -178,12 +182,6 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 when {
                                     screen == "splash_check" -> {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            CircularProgressIndicator(color = colors.primary)
-                                        }
                                         LaunchedEffect(currentUser) {
                                             scope.launch {
                                                 try {
@@ -206,6 +204,7 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 currentScreen = "login"
                                             }
+                                            keepSplash = false
                                         }
                                     }
 

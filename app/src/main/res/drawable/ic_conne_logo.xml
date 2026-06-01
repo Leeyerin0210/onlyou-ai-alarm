@@ -1,0 +1,65 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Robot Head (Gradient) -->
+    <path
+        android:pathData="M 60 20 C 37.9 20 20 37.9 20 60 C 20 82.1 37.9 100 60 100 C 82.1 100 100 82.1 100 60 C 100 37.9 82.1 20 60 20 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="60"
+                android:centerY="60"
+                android:gradientRadius="40"
+                android:type="radial">
+                <item
+                    android:color="#4B2B9F"
+                    android:offset="0.0" />
+                <item
+                    android:color="#140733"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Antenna Base -->
+    <path
+        android:fillColor="#7D52FF"
+        android:pathData="M 58 12 L 62 12 L 62 20 L 58 20 Z" />
+
+    <!-- Antenna Top -->
+    <path
+        android:fillColor="#7D52FF"
+        android:pathData="M 60 6 C 56.68 6 54 8.68 54 12 C 54 15.32 56.68 18 60 18 C 63.32 18 66 15.32 66 12 C 66 8.68 63.32 6 60 6 Z" />
+
+    <!-- Left Eye -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 46 45 C 42 45 42 55 42 55 C 42 55 42 65 46 65 C 50 65 50 55 50 55 C 50 55 50 45 46 45 Z" />
+
+    <!-- Right Eye -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 74 45 C 70 45 70 55 70 55 C 70 55 70 65 74 65 C 78 65 78 55 78 55 C 78 55 78 45 74 45 Z" />
+
+    <!-- Left Cheek (Pink) -->
+    <path
+        android:fillColor="#FF69B4"
+        android:fillAlpha="0.8"
+        android:pathData="M 36 65 C 32 65 30 67 30 70 C 30 73 32 75 36 75 C 40 75 42 73 42 70 C 42 67 40 65 36 65 Z" />
+
+    <!-- Right Cheek (Pink) -->
+    <path
+        android:fillColor="#FF69B4"
+        android:fillAlpha="0.8"
+        android:pathData="M 84 65 C 80 65 78 67 78 70 C 78 73 80 75 84 75 C 88 75 90 73 90 70 C 90 67 88 65 84 65 Z" />
+
+    <!-- Smile (Path with stroke) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M 52 70 Q 60 76 68 70" />
+</vector>
