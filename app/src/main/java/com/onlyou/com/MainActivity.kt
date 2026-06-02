@@ -82,6 +82,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import com.onlyou.com.ui.theme.ThemeManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
@@ -266,9 +267,13 @@ class MainActivity : ComponentActivity() {
                                                         } catch (e: Exception) {
                                                             e.printStackTrace()
                                                         }
+                                                        val selectedPersona = personaRepository.getSelectedPersona().firstOrNull()
+                                                        if (selectedPersona != null) {
+                                                            prefs.edit().putBoolean("onboarding_complete", true).apply()
+                                                        }
+                                                        val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                        currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
                                                     }
-                                                    val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
                                                 } else {
                                                     val introSeen = prefs.getBoolean("intro_seen", false)
                                                     currentScreen = if (introSeen) "login" else "onboarding_pager"
@@ -383,8 +388,19 @@ class MainActivity : ComponentActivity() {
                                         screenState == "login" -> {
                                             com.onlyou.com.ui.login.LoginScreen(
                                                 onLoginSuccess = {
-                                                    val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
+                                                    scope.launch {
+                                                        try {
+                                                            personaRepository.syncPersonas()
+                                                        } catch (e: Exception) {
+                                                            e.printStackTrace()
+                                                        }
+                                                        val selectedPersona = personaRepository.getSelectedPersona().firstOrNull()
+                                                        if (selectedPersona != null) {
+                                                            prefs.edit().putBoolean("onboarding_complete", true).apply()
+                                                        }
+                                                        val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                        currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
+                                                    }
                                                 },
                                             )
                                         }

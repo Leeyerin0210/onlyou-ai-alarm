@@ -40,12 +40,16 @@ class OnboardingViewModel
             viewModelScope.launch {
                 personaRepository.getAllPersonas().collectLatest { personas ->
                     val count = personas.count { it.isSelected }
-                    _uiState.update { state ->
-                        state.copy(
-                            allPersonas = personas,
-                            filteredPersonas = filterPersonas(personas, state.searchQuery),
-                            selectedCount = count,
-                        )
+                    if (personas.isNotEmpty() && count == 0) {
+                        personaRepository.setSelectedPersona(personas.first().id)
+                    } else {
+                        _uiState.update { state ->
+                            state.copy(
+                                allPersonas = personas,
+                                filteredPersonas = filterPersonas(personas, state.searchQuery),
+                                selectedCount = count,
+                            )
+                        }
                     }
                 }
             }
