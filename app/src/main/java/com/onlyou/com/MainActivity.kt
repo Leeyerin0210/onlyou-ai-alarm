@@ -62,6 +62,7 @@ import com.onlyou.com.ui.components.MiyaBottomNavigationBar
 import com.onlyou.com.ui.components.MiyaDrawerSheet
 import com.onlyou.com.ui.home.ChatScreen
 import com.onlyou.com.ui.onboarding.OnboardingPagerScreen
+import com.onlyou.com.ui.onboarding.OnboardingPermissionScreen
 import com.onlyou.com.ui.onboarding.OnboardingScreen
 import com.onlyou.com.ui.permission.AlarmPermissionDialog
 import com.onlyou.com.ui.schedule.ScheduleScreen
@@ -267,9 +268,10 @@ class MainActivity : ComponentActivity() {
                                                         }
                                                     }
                                                     val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
                                                 } else {
-                                                    currentScreen = "login"
+                                                    val introSeen = prefs.getBoolean("intro_seen", false)
+                                                    currentScreen = if (introSeen) "login" else "onboarding_pager"
                                                 }
                                                 keepSplash = false
                                             }
@@ -277,8 +279,20 @@ class MainActivity : ComponentActivity() {
 
                                         screenState == "onboarding_pager" -> {
                                             OnboardingPagerScreen(
-                                                onFinish = { currentScreen = "onboarding" },
-                                                onSkip = { currentScreen = "onboarding" },
+                                                onFinish = {
+                                                    prefs.edit().putBoolean("intro_seen", true).apply()
+                                                    currentScreen = "login"
+                                                },
+                                                onSkip = {
+                                                    prefs.edit().putBoolean("intro_seen", true).apply()
+                                                    currentScreen = "login"
+                                                },
+                                            )
+                                        }
+
+                                        screenState == "onboarding_permission" -> {
+                                            OnboardingPermissionScreen(
+                                                onFinish = { currentScreen = "onboarding" }
                                             )
                                         }
 
@@ -370,7 +384,7 @@ class MainActivity : ComponentActivity() {
                                             com.onlyou.com.ui.login.LoginScreen(
                                                 onLoginSuccess = {
                                                     val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_pager"
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
                                                 },
                                             )
                                         }

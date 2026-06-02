@@ -63,4 +63,26 @@
     <string name="assistant_card_selected">선택됨</string>
     <string name="assistant_start_button">이 비서로 시작하기</string>
 
+    <!-- 온보딩 권한 요청 -->
+    <string name="permission_noti_title">알림 권한이 필요해요</string>
+    <string name="permission_noti_desc">알람, 일정 알림, AI 브리핑을\n제때 받아보려면 알림 권한이 필요해요.\n다음 화면에서 \'허용\'을 선택해주세요.</string>
+    <string name="permission_noti_reason">권한을 허용해야 앱이\n중요한 알림을 보내드릴 수 있어요.</string>
+    <string name="permission_alarm_title">정확한 알람 권한이\n꺼져있어요</string>
+    <string name="permission_alarm_desc">알람이 제시간에 울리려면\n\'정확한 알람 권한\'을 허용해야 해요.\n설정에서 권한을 켜주세요.</string>
+    <string name="permission_alarm_reason">정확한 알람 권한이 꺼져있으면\n알람이 늦게 울리거나\n울리지 않을 수 있어요.</string>
+    <string name="permission_fullscreen_title">전체 화면 알림 권한이\n필요해요</string>
+    <string name="permission_fullscreen_desc">알람이 울릴 때 화면을 깨워서\n보여드리려면 \'전체 화면 인텐트\' 권한이\n필요해요. 설정에서 권한을 허용해주세요.</string>
+    <string name="permission_fullscreen_reason">권한을 허용해야\n알람 화면이 정상적으로 표시돼요.</string>
+    <string name="permission_location_title">위치 권한이 필요해요</string>
+    <string name="permission_location_desc">정확한 날씨와 위치 기반 정보를\n제공하기 위해 위치 권한이 필요해요.\n다음 화면에서 \'허용\'을 선택해주세요.</string>
+    <string name="permission_location_reason">권한을 허용해야 현재 위치의\n날씨를 정확하게 알려드려요.</string>
+    <string name="permission_badge_noti">알림 권한 요청 (Android 13 이상)</string>
+    <string name="permission_badge_alarm">정확한 알람 권한 필요</string>
+    <string name="permission_badge_fullscreen">전체 화면 인텐트 권한 (Android 14 이상)</string>
+    <string name="permission_badge_location">위치 권한 요청</string>
+    <string name="permission_btn_next">다음</string>
+    <string name="permission_btn_settings">설정으로 이동</string>
+    <string name="permission_btn_later">나중에 하기</string>
+    <string name="permission_bottom_info">권한은 언제든지 설정 > 앱 > %1$s > 권한에서 변경할 수 있어요.</string>
+
 </resources>

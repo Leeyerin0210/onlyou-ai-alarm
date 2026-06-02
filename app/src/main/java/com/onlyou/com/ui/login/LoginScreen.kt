@@ -1,5 +1,6 @@
 package com.onlyou.com.ui.login
 
+import android.R.attr.enabled
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -81,9 +82,10 @@ import kotlinx.coroutines.launch
 // 로그인 플로우 내부 화면 상태
 // ──────────────────────────────────────────────────────
 private sealed interface LoginSubScreen {
-    object Splash : LoginSubScreen
     object Login : LoginSubScreen
+
     object SignUp : LoginSubScreen
+
     object EmailVerification : LoginSubScreen
 }
 
@@ -97,23 +99,32 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var subScreen by remember { mutableStateOf<LoginSubScreen>(LoginSubScreen.Splash) }
+    var subScreen by remember { mutableStateOf<LoginSubScreen>(LoginSubScreen.Login) }
     // 어떤 버튼이 로딩 중인지 추적 ("login", "google" 등)
     var loadingSource by remember { mutableStateOf<String?>(null) }
-    
+
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(uiState) {
         val state = uiState
         when (state) {
-            is LoginState.Success -> onLoginSuccess()
+            is LoginState.Success -> {
+                onLoginSuccess()
+            }
+
             is LoginState.Error -> {
                 loadingSource = null
-                coroutineScope.launch { snackbarHostState.showSnackbar(state.message) }
+                coroutineScope.launch { snackbarHostState.showSnackbar("로그인에 실패했습니다.") }
             }
-            is LoginState.Idle -> loadingSource = null
-            else -> Unit
+
+            is LoginState.Idle -> {
+                loadingSource = null
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
 
@@ -121,29 +132,12 @@ fun LoginScreen(
         AnimatedContent(
             targetState = subScreen,
             transitionSpec = {
-                when {
-                    targetState is LoginSubScreen.Splash -> {
-                        fadeIn(tween(300)) togetherWith fadeOut(tween(250))
-                    }
-                    initialState is LoginSubScreen.Splash -> {
-                        (fadeIn(tween(400)) + slideInHorizontally { it / 4 }) togetherWith
-                            (fadeOut(tween(300)) + slideOutHorizontally { -it / 4 })
-                    }
-                    else -> {
-                        (fadeIn(tween(300)) + slideInHorizontally { it / 3 }) togetherWith
-                            (fadeOut(tween(250)) + slideOutHorizontally { -it / 3 })
-                    }
-                }
+                (fadeIn(tween(300)) + slideInHorizontally { it / 3 }) togetherWith
+                    (fadeOut(tween(250)) + slideOutHorizontally { -it / 3 })
             },
             label = "login_sub_screen_transition",
         ) { screen ->
             when (screen) {
-                is LoginSubScreen.Splash -> {
-                    SplashContent(
-                        onStartClick = { subScreen = LoginSubScreen.Login },
-                        onLoginClick = { subScreen = LoginSubScreen.Login },
-                    )
-                }
                 is LoginSubScreen.Login -> {
                     LoginContent(
                         uiState = uiState,
@@ -157,17 +151,36 @@ fun LoginScreen(
                             viewModel.signInWithGoogle(context)
                         },
                         onAppleSignInClick = {
-                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(
+                                        R.string.coming_soon,
+                                    ),
+                                )
+                            }
                         },
                         onKakaoSignInClick = {
-                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(
+                                        R.string.coming_soon,
+                                    ),
+                                )
+                            }
                         },
                         onSignUpClick = { subScreen = LoginSubScreen.SignUp },
                         onForgotPasswordClick = {
-                            coroutineScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.coming_soon)) }
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(
+                                        R.string.coming_soon,
+                                    ),
+                                )
+                            }
                         },
                     )
                 }
+
                 is LoginSubScreen.SignUp -> {
                     SignUpContent(
                         onBackClick = { subScreen = LoginSubScreen.Login },
@@ -175,6 +188,7 @@ fun LoginScreen(
                         onLoginClick = { subScreen = LoginSubScreen.Login },
                     )
                 }
+
                 is LoginSubScreen.EmailVerification -> {
                     EmailVerificationContent(
                         onBackClick = { subScreen = LoginSubScreen.SignUp },
@@ -183,242 +197,11 @@ fun LoginScreen(
                 }
             }
         }
-        
+
         androidx.compose.material3.SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
-    }
-}
-
-// ──────────────────────────────────────────────────────
-// 1. 스플래시 화면
-// ──────────────────────────────────────────────────────
-@Composable
-fun SplashContent(
-    onStartClick: () -> Unit,
-    onLoginClick: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1A0B3B),
-                        colors.background,
-                    ),
-                ),
-            ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(modifier = Modifier.weight(0.15f))
-
-            // ─── 로봇 마스코트 일러스트 영역 ───
-            Box(
-                modifier = Modifier
-                    .weight(0.45f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                RobotMascotIllustration()
-            }
-
-            // ─── 슬로건 ───
-            Text(
-                text = stringResource(R.string.splash_title),
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                lineHeight = 36.sp,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.splash_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.65f),
-                textAlign = TextAlign.Center,
-                lineHeight = 24.sp,
-            )
-
-            Spacer(modifier = Modifier.weight(0.1f))
-
-            // ─── 시작하기 버튼 ───
-            Button(
-                onClick = onStartClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White,
-                ),
-            ) {
-                Text(
-                    text = stringResource(R.string.splash_cta),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ─── 이미 계정이 있으신가요? ───
-            val accountText = buildAnnotatedString {
-                append("이미 계정이 있으신가요? ")
-                withStyle(SpanStyle(color = colors.primary, fontWeight = FontWeight.Bold)) {
-                    append("로그인")
-                }
-            }
-            Text(
-                text = accountText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.clickable { onLoginClick() },
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
-        }
-    }
-}
-
-// ─── AI 로봇 마스코트 (Compose로 직접 그리기) ───
-@Composable
-fun RobotMascotIllustration() {
-    val colors = MiyaTheme.colors
-
-    Box(
-        modifier = Modifier.size(220.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        // 바깥 글로우 원
-        Box(
-            modifier = Modifier
-                .size(200.dp)
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colors.primary.copy(alpha = 0.35f),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
-        )
-        // 메인 로봇 몸통
-        Box(
-            modifier = Modifier
-                .size(150.dp)
-                .clip(RoundedCornerShape(40.dp))
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF6B3FD6),
-                            Color(0xFF3D1F8C),
-                        ),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                // 눈 영역
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // 왼쪽 눈
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1A0B3B)),
-                        )
-                    }
-                    // 오른쪽 눈
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1A0B3B)),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // 입 (미소)
-                Box(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                        .background(Color.White.copy(alpha = 0.85f)),
-                )
-            }
-        }
-
-        // 떠있는 아이콘들 (채팅/일정/알람)
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF5B31C4))
-                .align(Alignment.TopEnd)
-                .padding(bottom = 20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = "💬", fontSize = 16.sp)
-        }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF5B31C4))
-                .align(Alignment.BottomStart)
-                .padding(top = 20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = "📅", fontSize = 14.sp)
-        }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF5B31C4))
-                .align(Alignment.CenterEnd),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = "🔔", fontSize = 14.sp)
-        }
     }
 }
 
@@ -584,28 +367,23 @@ fun LoginContent(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ─── 소셜 로그인 버튼 3개 ───
-            SocialLoginButton(
+            GoogleSignInButton(
                 label = stringResource(R.string.login_google),
-                icon = "G",
-                iconColor = Color(0xFFEA4335),
                 isLoading = loadingSource == "google",
                 enabled = !isAnyLoading,
                 onClick = onGoogleSignInClick,
             )
             Spacer(modifier = Modifier.height(10.dp))
-            SocialLoginButton(
+            AppleSignInButton(
                 label = stringResource(R.string.login_apple),
-                icon = "",
-                iconColor = colors.onSurfaceA,
+                isLoading = loadingSource == "apple",
                 enabled = !isAnyLoading,
                 onClick = onAppleSignInClick,
             )
             Spacer(modifier = Modifier.height(10.dp))
-            SocialLoginButton(
+            KakaoSignInButton(
                 label = stringResource(R.string.login_kakao),
-                icon = "K",
-                iconColor = Color(0xFFFFE600),
-                iconBg = Color(0xFF3C1E1E),
+                isLoading = loadingSource == "kakao",
                 enabled = !isAnyLoading,
                 onClick = onKakaoSignInClick,
             )
@@ -713,8 +491,7 @@ fun EmailVerificationContent(
                                 } else {
                                     colors.surfaceA
                                 },
-                            )
-                            .border(
+                            ).border(
                                 width = 1.5.dp,
                                 color = if (otpValues[index].value.isNotEmpty()) {
                                     colors.primary
@@ -762,7 +539,9 @@ fun EmailVerificationContent(
 
             // ─── 숫자 키패드 (간이 구현) ───
             val digits = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫")
-            var currentIndex = otpValues.indexOfFirst { it.value.isEmpty() }.let { if (it == -1) otpLength - 1 else it }
+            var currentIndex = otpValues
+                .indexOfFirst { it.value.isEmpty() }
+                .let { if (it == -1) otpLength - 1 else it }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 digits.chunked(3).forEach { row ->
@@ -778,11 +557,11 @@ fun EmailVerificationContent(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         if (digit.isEmpty()) Color.Transparent else colors.surfaceA,
-                                    )
-                                    .clickable(enabled = digit.isNotEmpty()) {
+                                    ).clickable(enabled = digit.isNotEmpty()) {
                                         val idx = otpValues.indexOfFirst { it.value.isEmpty() }
                                         if (digit == "⌫") {
-                                            val lastFilled = otpValues.indexOfLast { it.value.isNotEmpty() }
+                                            val lastFilled =
+                                                otpValues.indexOfLast { it.value.isNotEmpty() }
                                             if (lastFilled >= 0) otpValues[lastFilled].value = ""
                                         } else if (idx >= 0) {
                                             otpValues[idx].value = digit
@@ -793,7 +572,9 @@ fun EmailVerificationContent(
                                 if (digit.isNotEmpty()) {
                                     Text(
                                         text = digit,
-                                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp),
+                                        style = MaterialTheme.typography.headlineMedium.copy(
+                                            fontSize = 22.sp,
+                                        ),
                                         color = colors.onSurfaceA,
                                         fontWeight = FontWeight.Medium,
                                     )
@@ -889,19 +670,48 @@ fun SignUpContent(
 
             Spacer(modifier = Modifier.height(28.dp))
 
+            val isNameError = name.isNotEmpty() && name.length < 2
+            val isEmailError =
+                email.isNotEmpty() && !android.util.Patterns.EMAIL_ADDRESS
+                    .matcher(email)
+                    .matches()
+            val isPasswordError =
+                password.isNotEmpty() &&
+                    !(
+                        password.length >= 8 && password.any { it.isDigit() } && password.any { it.isLetter() } &&
+                            password.any { !it.isLetterOrDigit() }
+                    )
+            val isPasswordConfirmError = passwordConfirm.isNotEmpty() && password != passwordConfirm
+
             MiyaOutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 placeholder = stringResource(R.string.signup_name_hint),
+                isError = isNameError,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "이름은 2자 이상 입력해 주세요.",
+                color = Color(0xFFFF5252).copy(alpha = if (isNameError) 1f else 0f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
+            )
             MiyaOutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 placeholder = stringResource(R.string.signup_email_hint),
                 keyboardType = KeyboardType.Email,
+                isError = isEmailError,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "올바른 이메일 형식이 아닙니다.",
+                color = Color(0xFFFF5252).copy(alpha = if (isEmailError) 1f else 0f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
+            )
             MiyaOutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -910,8 +720,16 @@ fun SignUpContent(
                 isPassword = true,
                 passwordVisible = passwordVisible,
                 onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
+                isError = isPasswordError,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "비밀번호는 8자 이상, 영문/숫자/특수문자 포함이어야 합니다.",
+                color = Color(0xFFFF5252).copy(alpha = if (isPasswordError) 1f else 0f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
+            )
             MiyaOutlinedTextField(
                 value = passwordConfirm,
                 onValueChange = { passwordConfirm = it },
@@ -920,9 +738,16 @@ fun SignUpContent(
                 isPassword = true,
                 passwordVisible = passwordConfirmVisible,
                 onPasswordVisibilityToggle = { passwordConfirmVisible = !passwordConfirmVisible },
+                isError = isPasswordConfirmError,
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "비밀번호가 일치하지 않습니다.",
+                color = Color(0xFFFF5252).copy(alpha = if (isPasswordConfirmError) 1f else 0f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 4.dp, bottom = 16.dp)
+            )
 
             // ─── 이용약관 동의 ───
             Row(
@@ -962,7 +787,11 @@ fun SignUpContent(
                     containerColor = colors.primary,
                     contentColor = Color.White,
                 ),
-                enabled = termsAgreed && name.isNotBlank() && email.isNotBlank() && password.isNotBlank(),
+                enabled = termsAgreed &&
+                    name.isNotBlank() && !isNameError &&
+                    email.isNotBlank() && !isEmailError &&
+                    password.isNotBlank() && !isPasswordError &&
+                    passwordConfirm.isNotBlank() && !isPasswordConfirmError,
             ) {
                 Text(
                     text = stringResource(R.string.signup_button),
@@ -1008,12 +837,14 @@ fun MiyaOutlinedTextField(
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     onPasswordVisibilityToggle: (() -> Unit)? = null,
+    isError: Boolean = false,
 ) {
     val colors = MiyaTheme.colors
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
+        isError = isError,
         placeholder = {
             Text(
                 text = placeholder,
@@ -1049,22 +880,24 @@ fun MiyaOutlinedTextField(
             focusedTextColor = colors.onSurfaceA,
             unfocusedTextColor = colors.onSurfaceA,
             cursorColor = colors.primary,
+            errorBorderColor = Color(0xFFFF5252),
+            errorCursorColor = Color(0xFFFF5252),
         ),
         singleLine = true,
     )
 }
 
 @Composable
-fun SocialLoginButton(
+fun AppleSignInButton(
     label: String,
-    icon: String,
-    iconColor: Color,
     onClick: () -> Unit,
-    iconBg: Color = Color.Transparent,
     isLoading: Boolean = false,
     enabled: Boolean = true,
 ) {
-    val colors = MiyaTheme.colors
+    // Sign in with Apple Guidelines (Black style)
+    val containerColor = Color(0xFF000000)
+    val textColor = Color(0xFFFFFFFF)
+
     val bgAlpha = if (enabled) 1f else 0.6f
 
     Box(
@@ -1072,19 +905,13 @@ fun SocialLoginButton(
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(colors.surfaceA.copy(alpha = bgAlpha))
-            .border(
-                width = 1.dp,
-                color = if (isLoading) colors.primary.copy(alpha = 0.6f) else colors.surfaceB,
-                shape = RoundedCornerShape(14.dp),
-            )
+            .background(containerColor.copy(alpha = bgAlpha))
             .clickable(enabled = enabled && !isLoading) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         if (isLoading) {
-            // 클릭된 버튼만 인디케이터로 교체
             CircularProgressIndicator(
-                color = colors.primary,
+                color = textColor,
                 strokeWidth = 2.5.dp,
                 modifier = Modifier.size(24.dp),
             )
@@ -1092,32 +919,156 @@ fun SocialLoginButton(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(start = 12.dp, end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(iconBg),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = icon,
-                        color = iconColor.copy(alpha = if (enabled) 1f else 0.5f),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                    )
-                }
+                // 공식 애플 로고
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res
+                        .painterResource(id = R.drawable.ic_apple_logo),
+                    contentDescription = "Apple Logo",
+                    modifier = Modifier.size(24.dp),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter
+                        .tint(textColor), // 로고를 흰색으로 틴트
+                )
+
                 Spacer(modifier = Modifier.weight(1f))
+
                 Text(
                     text = label,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = colors.onSurfaceA.copy(alpha = if (enabled) 1f else 0.5f),
+                    color = textColor.copy(alpha = if (enabled) 1f else 0.5f),
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                 )
+
                 Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun GoogleSignInButton(
+    label: String,
+    onClick: () -> Unit,
+    isLoading: Boolean = false,
+    enabled: Boolean = true,
+) {
+    // Google Sign-In Branding Guidelines (Light Theme 기반)
+    val containerColor = Color(0xFFFFFFFF)
+    val borderColor = Color(0xFF747775)
+    val textColor = Color(0xFF1F1F1F)
+
+    val bgAlpha = if (enabled) 1f else 0.6f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp) // Apple/Kakao와 높이 통일
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor.copy(alpha = bgAlpha))
+            .border(
+                width = 1.dp,
+                color = if (isLoading) Color(0xFF4285F4).copy(alpha = 0.6f) else borderColor,
+                shape = RoundedCornerShape(14.dp),
+            ).clickable(enabled = enabled && !isLoading) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = Color(0xFF4285F4),
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 공식 구글 "G" 로고
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res
+                        .painterResource(id = R.drawable.ic_google_logo),
+                    contentDescription = "Google Logo",
+                    modifier = Modifier.size(24.dp),
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = textColor.copy(alpha = if (enabled) 1f else 0.5f),
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun KakaoSignInButton(
+    label: String,
+    onClick: () -> Unit,
+    isLoading: Boolean = false,
+    enabled: Boolean = true,
+) {
+    // Kakao Login Design Guide
+    val containerColor = Color(0xFFFEE500)
+    val textColor = Color(0xFF000000).copy(alpha = 0.85f)
+
+    val bgAlpha = if (enabled) 1f else 0.6f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor.copy(alpha = bgAlpha))
+            .clickable(enabled = enabled && !isLoading) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = textColor,
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 공식 카카오 로고
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res
+                        .painterResource(id = R.drawable.ic_kakao_logo),
+                    contentDescription = "Kakao Logo",
+                    modifier = Modifier.size(24.dp),
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = textColor.copy(alpha = if (enabled) 1f else 0.5f),
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(24.dp))
             }
         }
     }
@@ -1126,17 +1077,6 @@ fun SocialLoginButton(
 // ──────────────────────────────────────────────────────
 // Previews
 // ──────────────────────────────────────────────────────
-
-@Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
-@Composable
-fun SplashContentPreview() {
-    MiyaTheme {
-        SplashContent(
-            onStartClick = {},
-            onLoginClick = {},
-        )
-    }
-}
 
 @Preview(showBackground = true, backgroundColor = 0xFF0B0E14)
 @Composable

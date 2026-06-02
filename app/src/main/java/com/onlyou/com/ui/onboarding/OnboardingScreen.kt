@@ -57,7 +57,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.onlyou.com.R
 import com.onlyou.com.domain.model.Persona
-import com.onlyou.com.ui.login.RobotMascotIllustration
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 
@@ -118,7 +117,6 @@ fun OnboardingPagerScreen(
             .background(colors.background),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-
             // ─── 건너뛰기 버튼 ───
             Row(
                 modifier = Modifier
@@ -741,8 +739,7 @@ fun OnboardingScreen(
                         Brush.verticalGradient(
                             listOf(Color.Transparent, colors.background, colors.background),
                         ),
-                    )
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    ).padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
                 Button(
                     onClick = onOnboardingComplete,
@@ -797,8 +794,7 @@ fun AssistantCard(
                 } else {
                     Modifier
                 },
-            )
-            .clickable { onSelect() },
+            ).clickable { onSelect() },
     ) {
         // 이미지 배경
         if (persona.imageUrl != null) {
@@ -905,8 +901,7 @@ fun AssistantCard(
                         } else {
                             Modifier
                         },
-                    )
-                    .clickable { onSelect() },
+                    ).clickable { onSelect() },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
