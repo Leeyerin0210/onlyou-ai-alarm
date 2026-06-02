@@ -3,6 +3,8 @@ package com.onlyou.com.ui.alarm
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.app.KeyguardManager
+import android.os.PowerManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -74,17 +76,32 @@ class AlarmActivity : ComponentActivity() {
             },
         )
 
+        // 강제로 화면 켜기 및 잠금 해제 요청
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
+            val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
             )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // 에뮬레이터 등에서 확실히 깨우기 위해 일시적 WakeLock 획득
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        if (!powerManager.isInteractive) {
+            @Suppress("DEPRECATION")
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                "MiyaAlarm:ActivityWakeLock"
+            )
+            wakeLock.acquire(3000)
+        }
 
         val alarmTitle = intent.getStringExtra(AlarmService.EXTRA_ALARM_TITLE) ?: "알람"
         val personaId = intent.getStringExtra(AlarmService.EXTRA_PERSONA_ID) ?: ""

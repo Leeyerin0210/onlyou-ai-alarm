@@ -37,6 +37,7 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
+import android.os.PowerManager
 
 @AndroidEntryPoint
 class AlarmService :
@@ -60,6 +61,8 @@ class AlarmService :
     private val audioQueue = Channel<ByteArray>(Channel.UNLIMITED)
     private var isAIVoicePlaying = false
     private var fullScript = StringBuilder()
+    
+    private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         const val CHANNEL_ID = "alarm_channel"
@@ -74,6 +77,12 @@ class AlarmService :
 
     override fun onCreate() {
         super.onCreate()
+        
+        // 백그라운드에서 CPU가 잠들지 않도록 WakeLock 획득
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiyaAlarm:ServiceWakeLock")
+        wakeLock?.acquire(10 * 60 * 1000L) // 최대 10분
+
         createNotificationChannel()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
@@ -391,6 +400,7 @@ class AlarmService :
         tts?.shutdown()
         vibrator?.cancel()
         serviceScope.cancel()
+        wakeLock?.release()
         super.onDestroy()
     }
 
