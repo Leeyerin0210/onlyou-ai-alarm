@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -279,43 +280,71 @@ fun ChatSection(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(messages) { message ->
-            ChatBubble(message = message)
+    if (messages.isEmpty() && streamingText == null && !isAiTyping) {
+        Column(
+            modifier = modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Chat,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MiyaTheme.colors.neutral.copy(alpha = 0.5f)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "반가워요! 자유롭게 대화를 시작해보세요.",
+                color = MiyaTheme.colors.onSurfaceA,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "일정 추가나 알람 설정도 채팅으로 할 수 있어요.",
+                color = MiyaTheme.colors.neutral,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
-
-        // 스트리밍 중인 AI 응답을 실시간으로 표시
-        if (streamingText != null) {
-            item(key = "streaming_bubble") {
-                val streamingMsg = ChatMessage(text = streamingText, sender = MessageSender.AI)
-                ChatBubble(message = streamingMsg)
+    } else {
+        LazyColumn(
+            state = listState,
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(messages) { message ->
+                ChatBubble(message = message)
             }
-        }
 
-        if (isAiTyping) {
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MiyaTheme.colors.primary.copy(alpha = 0.5f),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "생각 중...",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MiyaTheme.colors.primary.copy(alpha = 0.5f),
-                    )
+            // 스트리밍 중인 AI 응답을 실시간으로 표시
+            if (streamingText != null) {
+                item(key = "streaming_bubble") {
+                    val streamingMsg = ChatMessage(text = streamingText, sender = MessageSender.AI)
+                    ChatBubble(message = streamingMsg)
+                }
+            }
+
+            if (isAiTyping) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MiyaTheme.colors.primary.copy(alpha = 0.5f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "생각 중...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MiyaTheme.colors.primary.copy(alpha = 0.5f),
+                        )
+                    }
                 }
             }
         }
