@@ -42,6 +42,8 @@ data class AiScheduleEntity(
     val description: String?,
     val location: String?,
     val isAlarmEnabled: Boolean,
+    val updatedAt: Long = 0L,
+    val pendingSync: Boolean = true,
 )
 
 @Entity(tableName = "personas")

@@ -48,6 +48,12 @@ interface AiScheduleDao {
 
     @Delete
     suspend fun deleteSchedule(schedule: AiScheduleEntity)
+
+    @Query("UPDATE ai_schedules SET pendingSync = :pending WHERE id = :id")
+    suspend fun updatePendingSync(id: String, pending: Boolean)
+
+    @Query("SELECT * FROM ai_schedules WHERE pendingSync = 1")
+    suspend fun getPendingSchedulesOnce(): List<AiScheduleEntity>
 }
 
 @Dao
@@ -135,7 +141,7 @@ interface AlarmVoiceChunkDao {
         ChatMessageEntity::class,
         AlarmVoiceChunkEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 @TypeConverters(MiyaTypeConverters::class)
