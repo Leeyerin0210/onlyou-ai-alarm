@@ -7,6 +7,8 @@ import com.onlyou.com.domain.model.AiSchedule
 import com.onlyou.com.domain.repository.ScheduleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -53,22 +55,58 @@ class ScheduleRepositoryImpl
     @Inject
     constructor(
         private val scheduleDao: AiScheduleDao,
+        private val firestore: com.google.firebase.firestore.FirebaseFirestore,
+        private val auth: com.google.firebase.auth.FirebaseAuth,
     ) : ScheduleRepository {
+        private val syncScope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+        )
+
         override fun getAllSchedules(): Flow<List<AiSchedule>> =
             scheduleDao.getAllSchedules().map { entities ->
                 entities.map { it.toDomainModel() }
             }
 
         override suspend fun insertSchedule(schedule: AiSchedule) {
-            scheduleDao.insertSchedule(schedule.toEntity())
+            val entity = schedule.toEntity()
+            scheduleDao.insertSchedule(entity)
+            pushToFirestore(entity)
         }
 
         override suspend fun updateSchedule(schedule: AiSchedule) {
-            scheduleDao.updateSchedule(schedule.toEntity())
+            val entity = schedule.toEntity()
+            scheduleDao.updateSchedule(entity)
+            pushToFirestore(entity)
         }
 
         override suspend fun deleteSchedule(schedule: AiSchedule) {
             scheduleDao.deleteSchedule(schedule.toEntity())
+            val uid = auth.currentUser?.uid ?: return
+            syncScope.launch {
+                try {
+                    firestore.collection("users").document(uid)
+                        .collection("schedules").document(schedule.id)
+                        .delete()
+                        .await()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        private fun pushToFirestore(entity: AiScheduleEntity) {
+            val uid = auth.currentUser?.uid ?: return
+            syncScope.launch {
+                try {
+                    firestore.collection("users").document(uid)
+                        .collection("schedules").document(entity.id)
+                        .set(aiScheduleEntityToFirestoreMap(entity))
+                        .await()
+                    scheduleDao.updatePendingSync(entity.id, false)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
 
         private fun AiScheduleEntity.toDomainModel() =
@@ -97,5 +135,7 @@ class ScheduleRepositoryImpl
                 description = description,
                 location = location,
                 isAlarmEnabled = isAlarmEnabled,
+                updatedAt = System.currentTimeMillis(),
+                pendingSync = true,
             )
     }
