@@ -94,6 +94,33 @@ class ScheduleRepositoryImpl
             }
         }
 
+        override suspend fun syncSchedules() {
+            val uid = auth.currentUser?.uid ?: return
+
+            // 1. 이전에 전송 실패했던 로컬 항목 재시도
+            scheduleDao.getPendingSchedulesOnce().forEach { pushToFirestore(it) }
+
+            // 2. 원격 목록 pull
+            try {
+                val snapshot = kotlinx.coroutines.withTimeout(5000L) {
+                    firestore.collection("users").document(uid)
+                        .collection("schedules")
+                        .get()
+                        .await()
+                }
+                val localById = scheduleDao.getAllSchedulesOnce().associateBy { it.id }
+                snapshot.documents.forEach { doc ->
+                    val remote = mapToScheduleEntity(doc.id, doc.data ?: emptyMap()) ?: return@forEach
+                    val local = localById[doc.id]
+                    if (local == null || isRemoteNewer(local.updatedAt, remote.updatedAt)) {
+                        scheduleDao.insertSchedule(remote)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         private fun pushToFirestore(entity: AiScheduleEntity) {
             val uid = auth.currentUser?.uid ?: return
             syncScope.launch {

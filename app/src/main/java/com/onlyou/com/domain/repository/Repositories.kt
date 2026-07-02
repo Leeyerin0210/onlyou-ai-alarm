@@ -34,6 +34,8 @@ interface ScheduleRepository {
     suspend fun updateSchedule(schedule: AiSchedule)
 
     suspend fun deleteSchedule(schedule: AiSchedule)
+
+    suspend fun syncSchedules() // Firestore와 로컬 DB 동기화 (pull + 재시도)
 }
 
 /**

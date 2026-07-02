@@ -45,6 +45,9 @@ class ScheduleViewModel
                     _uiState.update { it.copy(schedules = list) }
                 }
             }
+            viewModelScope.launch {
+                repository.syncSchedules()
+            }
         }
 
         fun addSchedule(schedule: AiSchedule, onSuccess: () -> Unit, onError: () -> Unit) {
