@@ -136,7 +136,7 @@ interface AlarmVoiceChunkDao {
         AlarmVoiceChunkEntity::class,
     ],
     version = 17,
-    exportSchema = false,
+    exportSchema = true,
 )
 @TypeConverters(MiyaTypeConverters::class)
 abstract class MiyaDatabase : RoomDatabase() {
