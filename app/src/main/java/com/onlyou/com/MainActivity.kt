@@ -82,6 +82,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import com.onlyou.com.ui.theme.ThemeManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -130,7 +131,6 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf("splash_check") }
                 var isEditingAlarm by remember { mutableStateOf(false) }
 
-                val currentUser by authRepository.currentUser.collectAsState(initial = null)
                 val selectedPersona by personaRepository
                     .getSelectedPersona()
                     .collectAsState(initial = null)
@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     when {
                                         screenState == "splash_check" -> {
-                                            LaunchedEffect(currentUser) {
+                                            LaunchedEffect(Unit) {
                                                 scope.launch {
                                                     try {
                                                         remoteConfig.fetchAndActivate()
@@ -260,7 +260,12 @@ class MainActivity : ComponentActivity() {
                                                         e.printStackTrace()
                                                     }
                                                 }
-                                                if (currentUser != null) {
+                                                // authRepository.currentUser는 콜백 기반 Flow라 첫 구독 시점에는
+                                                // Firebase의 실제 로그인 상태를 아직 모른다(placeholder 없음).
+                                                // first()로 AuthStateListener의 첫 콜백을 실제로 기다려야
+                                                // 스플래시 라우팅이 진짜 로그인 상태를 근거로 결정된다.
+                                                val resolvedUser = authRepository.currentUser.first()
+                                                if (resolvedUser != null) {
                                                     scope.launch {
                                                         try {
                                                             personaRepository.syncPersonas()
