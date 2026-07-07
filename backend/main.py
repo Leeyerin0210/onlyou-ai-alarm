@@ -10,9 +10,12 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, weather
-from services.voice_service import voice_engine
 
 app = FastAPI(title="Conne Backend")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 @app.on_event("startup")
 async def startup():
