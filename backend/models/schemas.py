@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage]
     message: str
     schedules: Optional[List[ScheduleItem]] = None
+    skip_side_effects: bool = False
 
 class VoiceSynthesizeRequest(BaseModel):
     text: str
