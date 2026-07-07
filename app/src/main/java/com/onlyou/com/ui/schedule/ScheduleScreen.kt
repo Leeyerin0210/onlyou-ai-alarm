@@ -75,6 +75,9 @@ fun ScheduleScreen(
                 onError
             )
         },
+        onUpdateSchedule = { schedule, onSuccess, onError ->
+            viewModel.updateSchedule(schedule, onSuccess, onError)
+        },
     )
 }
 
@@ -87,11 +90,13 @@ fun ScheduleScreenContent(
     onOpenDrawer: () -> Unit = {},
     onDeleteSchedule: (AiSchedule) -> Unit = {},
     onAddSchedule: (title: String, time: LocalTime?, date: LocalDate, loc: String, onSuccess: () -> Unit, onError: () -> Unit) -> Unit = { _, _, _, _, _, _ -> },
+    onUpdateSchedule: (schedule: AiSchedule, onSuccess: () -> Unit, onError: () -> Unit) -> Unit = { _, _, _ -> },
 ) {
     val colors = MiyaTheme.colors
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var weekOffset by remember { mutableStateOf(0L) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingSchedule by remember { mutableStateOf<AiSchedule?>(null) }
 
     var isCalendarExpanded by remember { mutableStateOf(false) }
     var monthOffset by remember { mutableStateOf(0L) }
@@ -352,6 +357,7 @@ fun ScheduleScreenContent(
                         it,
                         { onDeleteSchedule(it) },
                         true,
+                        onClick = { editingSchedule = it },
                     )
                 }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -361,6 +367,7 @@ fun ScheduleScreenContent(
                     TimelineItem(
                         it,
                         { onDeleteSchedule(it) },
+                        onClick = { editingSchedule = it },
                     )
                 }
             }
@@ -441,6 +448,38 @@ fun ScheduleScreenContent(
                         date,
                         loc,
                         { showAddDialog = false }, // onSuccess
+                        {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("일정 저장 중 오류가 발생했습니다.")
+                            }
+                        } // onError
+                    )
+                }
+            }
+        )
+    }
+
+    editingSchedule?.let { editing ->
+        AddScheduleBottomSheet(
+            initialDate = editing.date ?: selectedDate,
+            editingSchedule = editing,
+            onDismiss = { editingSchedule = null },
+            onConfirm = { title, time, date, loc ->
+                if (!uiState.isOnline) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("인터넷 연결이 필요합니다.")
+                    }
+                } else {
+                    onUpdateSchedule(
+                        editing.copy(
+                            title = title,
+                            startTime = time,
+                            date = date,
+                            location = loc.ifBlank { null },
+                            // 구체 시간이 정해지면 '저녁쯤' 같은 기존 시간 힌트는 무의미해진다
+                            timeHint = if (time != null) null else editing.timeHint,
+                        ),
+                        { editingSchedule = null }, // onSuccess
                         {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("일정 저장 중 오류가 발생했습니다.")
@@ -693,6 +732,7 @@ private fun TimelineItem(
     schedule: AiSchedule,
     onDelete: () -> Unit,
     isUntimed: Boolean = false,
+    onClick: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
     val timeText =
@@ -727,6 +767,7 @@ private fun TimelineItem(
             color = if (isUntimed) colors.surfaceB else colors.surfaceA,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.weight(1f).padding(bottom = 4.dp),
+            onClick = onClick,
         ) {
             Row(
                 Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -844,13 +885,15 @@ private fun AddScheduleBottomSheet(
     initialDate: LocalDate,
     onDismiss: () -> Unit,
     onConfirm: (title: String, time: LocalTime?, date: LocalDate, location: String) -> Unit,
+    editingSchedule: AiSchedule? = null,
 ) {
     val colors = MiyaTheme.colors
-    var title by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var isUntimed by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(initialDate) }
-    var selectedTime by remember { mutableStateOf(LocalTime.of(12, 0)) }
+    val isEditing = editingSchedule != null
+    var title by remember { mutableStateOf(editingSchedule?.title ?: "") }
+    var location by remember { mutableStateOf(editingSchedule?.location ?: "") }
+    var isUntimed by remember { mutableStateOf(isEditing && editingSchedule?.startTime == null) }
+    var selectedDate by remember { mutableStateOf(editingSchedule?.date ?: initialDate) }
+    var selectedTime by remember { mutableStateOf(editingSchedule?.startTime ?: LocalTime.of(12, 0)) }
     
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -931,9 +974,13 @@ private fun AddScheduleBottomSheet(
                 verticalAlignment = Alignment.Top
             ) {
                 Column {
-                    Text("일정 추가", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
+                    Text(if (isEditing) "일정 수정" else "일정 추가", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
                     Spacer(Modifier.height(4.dp))
-                    Text("새로운 일정을 추가해 보세요.", fontSize = 14.sp, color = colors.neutral)
+                    Text(
+                        if (isEditing) "일정 내용을 변경해 보세요." else "새로운 일정을 추가해 보세요.",
+                        fontSize = 14.sp,
+                        color = colors.neutral,
+                    )
                 }
                 IconButton(
                     onClick = onDismiss,
@@ -1104,7 +1151,7 @@ private fun AddScheduleBottomSheet(
                     colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = Color.White),
                     enabled = title.isNotBlank()
                 ) {
-                    Text("추가하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(if (isEditing) "저장하기" else "추가하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -68,9 +68,15 @@ class ScheduleViewModel
             }
         }
 
-        fun updateSchedule(schedule: AiSchedule) {
+        fun updateSchedule(schedule: AiSchedule, onSuccess: () -> Unit = {}, onError: () -> Unit = {}) {
             viewModelScope.launch {
-                repository.updateSchedule(schedule)
+                try {
+                    repository.updateSchedule(schedule)
+                    onSuccess()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    onError()
+                }
             }
         }
     }
