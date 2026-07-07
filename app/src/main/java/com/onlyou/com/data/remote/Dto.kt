@@ -21,6 +21,7 @@ data class ChatRequestDto(
     val history: List<ChatMessageDto>,
     val message: String,
     val schedules: List<ScheduleItemDto>? = null,
+    val skip_side_effects: Boolean = false,
 )
 
 // Memory
