@@ -80,6 +80,12 @@ abstract class RepositoryModule {
     abstract fun bindWeatherRepository(
         weatherRepositoryImpl: com.onlyou.com.data.repository.WeatherRepositoryImpl,
     ): com.onlyou.com.domain.repository.WeatherRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFeedbackSettingsRepository(
+        feedbackSettingsRepositoryImpl: com.onlyou.com.data.repository.FeedbackSettingsRepositoryImpl,
+    ): com.onlyou.com.domain.repository.FeedbackSettingsRepository
 }
 
 @Module

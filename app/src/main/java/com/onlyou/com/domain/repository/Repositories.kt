@@ -8,6 +8,7 @@ import com.onlyou.com.domain.model.Memory
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.domain.model.Persona
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface AlarmRepository {
     fun getAllAlarms(): Flow<List<MiyaAlarm>>
@@ -147,4 +148,18 @@ interface VoiceRepository {
      * 캐시된 알람 보이스 청크들을 가져옴
      */
     suspend fun getCachedAlarmVoiceChunks(alarmId: Int): List<AlarmVoiceChunk>
+}
+
+data class EveningFeedbackSettings(
+    val enabled: Boolean = true,
+    val hour: Int = 21,
+    val minute: Int = 0,
+)
+
+interface FeedbackSettingsRepository {
+    val settings: StateFlow<EveningFeedbackSettings>
+
+    suspend fun setEnabled(enabled: Boolean)
+
+    suspend fun setTime(hour: Int, minute: Int)
 }
