@@ -199,7 +199,7 @@ fun EveningFeedbackRow(
         Column(modifier = Modifier.weight(1f)) {
             Text("저녁 일정 피드백", fontSize = 16.sp, color = colors.onSurfaceA)
             Text(
-                text = String.format("매일 %02d:%02d에 하루 안부를 물어봐요", hour, minute),
+                text = String.format(java.util.Locale.US, "매일 %02d:%02d에 하루 안부를 물어봐요", hour, minute),
                 fontSize = 12.sp,
                 color = colors.neutral,
                 modifier = Modifier.clickable(enabled = enabled) { onTimeClick() },

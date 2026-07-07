@@ -1046,3 +1046,9 @@ git commit -m "feat: evening feedback settings UI (toggle + send time)"
 - "부팅 시 재등록": WorkManager는 자체 DB로 작업을 재부팅 후 복원하므로 부팅 리시버 불필요.
 - tombstone(`isDeleted`) 일정: `ScheduleRepositoryImpl.getAllSchedules()`가 삭제 일정을 걸러서 내보내는지 Task 6 구현 시 DAO 쿼리를 확인할 것. 걸러지지 않는다면 일정 탭에도 보이는 기존 버그이므로 별도 이슈로 보고하고, 이 기능에서는 그대로 진행.
 - 스펙의 "네트워크 오프라인 → 스킵"은 명시적 연결 상태 체크 대신 "API 호출 실패 → null → 스킵"으로 구현한다 (동일 결과, 코드 단순).
+
+## 사후 수정 (2026-07-07 최종 리뷰 반영)
+
+- 앱 시작 정책을 KEEP → CANCEL_AND_REENQUEUE로 변경 (주기 작업이 직전 실행 시점 기준으로 앵커되어, 윈도우 밖 실행 1회가 스케줄을 영구 고착시키는 드리프트 방지).
+- `sendProactiveMessage`의 `catch (e: Exception)` 앞에 `CancellationException` 재던지기 추가 (구조적 동시성 보존).
+- `SettingsScreen.kt`의 `EveningFeedbackRow`에서 `String.format`에 `Locale.US` 명시 (린트 경고 및 로케일별 숫자 렌더링 이슈 방지).

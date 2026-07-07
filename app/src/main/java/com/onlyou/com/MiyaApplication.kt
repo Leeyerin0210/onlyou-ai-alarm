@@ -30,10 +30,15 @@ class MiyaApplication : Application(), Configuration.Provider {
         val settings = feedbackSettingsRepository.settings.value
         if (settings.enabled) {
             // WorkManager는 재부팅 후에도 작업을 복원하므로 부팅 리시버는 불필요.
+            // 앱 시작마다 CANCEL_AND_REENQUEUE로 재정렬하는 것은 의도된 동작이다:
+            // 주기 작업은 직전 실행 시점을 기준으로 다음 실행을 앵커링하므로, 발송 윈도우(21~23시) 밖에서
+            // 단 한 번이라도 실행되면(예: 폰이 꺼져있다가 부팅 시 07:30에 실행) 이후 모든 실행이
+            // 그 시각에 영구적으로 고정되어 윈도우 밖으로 영원히 벗어난다. KEEP은 이 드리프트를 그대로
+            // 유지시키므로, 앱을 켤 때마다 설정된 시각으로 재정렬해 드리프트를 복구한다.
             eveningFeedbackScheduler.schedule(
                 settings.hour,
                 settings.minute,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
             )
         }
     }

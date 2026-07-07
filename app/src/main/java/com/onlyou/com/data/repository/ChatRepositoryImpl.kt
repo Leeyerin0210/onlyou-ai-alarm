@@ -363,6 +363,8 @@ $userNoteConstraint
                     ChatMessage(text = fullText, sender = MessageSender.AI).toEntity(),
                 )
                 fullText
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("ChatRepo", "Proactive message failed (skipping)", e)
                 null

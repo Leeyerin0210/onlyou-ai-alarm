@@ -31,7 +31,8 @@
 - **WorkManager 자체 재예약 방식** 사용: `OneTimeWorkRequest` + `initialDelay`(다음 발송 시각까지), 고유 이름 `evening_feedback` (ExistingWorkPolicy.REPLACE).
   - 분 단위 정시성이 필요 없으므로 AlarmManager(정확 알람 권한)를 쓰지 않는다.
   - 워커 실행 완료 시(성공/스킵 무관) 다음날 발송 시각으로 스스로 재예약.
-  - 재등록 트리거: 앱 시작 시(`MiyaApplication`), 설정에서 발송 시각 변경 시, 부팅 시(기존 BOOT receiver가 있다면 함께).
+  - 재등록 트리거/정책: 앱 시작 시(`MiyaApplication`)는 `CANCEL_AND_REENQUEUE`, 설정에서 발송 시각 변경 시에도 `CANCEL_AND_REENQUEUE`, 부팅 시(기존 BOOT receiver가 있다면 함께).
+    - 앱 시작에도 KEEP이 아닌 CANCEL_AND_REENQUEUE를 쓰는 이유: 주기 작업이 직전 실행 시점 기준으로 앵커되어, 윈도우 밖 실행 1회가 스케줄을 영구히 어긋나게 하는 드리프트를 방지하기 위함.
 - 발송 시각은 SharedPreferences에 저장 (`ThemeRepositoryImpl` 패턴을 따르는 Settings 저장소).
 
 ### B. 워커 로직 (`EveningFeedbackWorker`)
