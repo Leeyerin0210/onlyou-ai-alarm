@@ -34,9 +34,10 @@ interface AlarmDao {
 
 @Dao
 interface AiScheduleDao {
-    @Query("SELECT * FROM ai_schedules")
+    @Query("SELECT * FROM ai_schedules WHERE isDeleted = 0")
     fun getAllSchedules(): Flow<List<AiScheduleEntity>>
 
+    // tombstone 포함 전체 조회 (sync 충돌 해결용)
     @Query("SELECT * FROM ai_schedules")
     suspend fun getAllSchedulesOnce(): List<AiScheduleEntity>
 
@@ -49,8 +50,9 @@ interface AiScheduleDao {
     @Delete
     suspend fun deleteSchedule(schedule: AiScheduleEntity)
 
-    @Query("UPDATE ai_schedules SET pendingSync = :pending WHERE id = :id")
-    suspend fun updatePendingSync(id: String, pending: Boolean)
+    // push 도중 로컬이 다시 수정됐으면(updatedAt 불일치) 플래그를 유지해 재시도되게 한다.
+    @Query("UPDATE ai_schedules SET pendingSync = 0 WHERE id = :id AND updatedAt = :updatedAt")
+    suspend fun clearPendingSync(id: String, updatedAt: Long)
 
     @Query("SELECT * FROM ai_schedules WHERE pendingSync = 1")
     suspend fun getPendingSchedulesOnce(): List<AiScheduleEntity>
@@ -141,7 +143,7 @@ interface AlarmVoiceChunkDao {
         ChatMessageEntity::class,
         AlarmVoiceChunkEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 @TypeConverters(MiyaTypeConverters::class)

@@ -44,6 +44,9 @@ data class AiScheduleEntity(
     val isAlarmEnabled: Boolean,
     val updatedAt: Long = 0L,
     val pendingSync: Boolean = true,
+    // 삭제는 행 제거 대신 tombstone으로 남긴다. 원격 삭제 실패 시 재시도가 가능하고,
+    // sync pull이 삭제된 일정을 되살리는 것을 막는다.
+    val isDeleted: Boolean = false,
 )
 
 @Entity(tableName = "personas")

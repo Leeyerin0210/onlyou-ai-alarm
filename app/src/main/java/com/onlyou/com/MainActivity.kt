@@ -266,19 +266,21 @@ class MainActivity : ComponentActivity() {
                                                 // 스플래시 라우팅이 진짜 로그인 상태를 근거로 결정된다.
                                                 val resolvedUser = authRepository.currentUser.first()
                                                 if (resolvedUser != null) {
-                                                    scope.launch {
-                                                        try {
+                                                    // 라우팅이 결정되기 전에 스플래시를 내리면 빈 화면이 보이므로
+                                                    // 여기서 동기적으로 기다리되, 네트워크 지연에 대비해 타임아웃을 둔다.
+                                                    try {
+                                                        kotlinx.coroutines.withTimeoutOrNull(5000L) {
                                                             personaRepository.syncPersonas()
-                                                        } catch (e: Exception) {
-                                                            e.printStackTrace()
                                                         }
-                                                        val selectedPersona = personaRepository.getSelectedPersona().firstOrNull()
-                                                        if (selectedPersona != null) {
-                                                            prefs.edit().putBoolean("onboarding_complete", true).apply()
-                                                        }
-                                                        val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                        currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
                                                     }
+                                                    val selectedPersona = personaRepository.getSelectedPersona().firstOrNull()
+                                                    if (selectedPersona != null) {
+                                                        prefs.edit().putBoolean("onboarding_complete", true).apply()
+                                                    }
+                                                    val onboardingDone = prefs.getBoolean("onboarding_complete", false)
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
                                                 } else {
                                                     val introSeen = prefs.getBoolean("intro_seen", false)
                                                     currentScreen = if (introSeen) "login" else "onboarding_pager"

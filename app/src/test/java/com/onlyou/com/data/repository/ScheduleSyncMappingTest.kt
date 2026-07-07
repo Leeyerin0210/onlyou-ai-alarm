@@ -82,6 +82,66 @@ class ScheduleSyncMappingTest {
     }
 
     @Test
+    fun `updatedAt survives a push-pull round trip`() {
+        // 앱이 push한 문서는 updatedAt이 Long(epoch millis)으로 저장된다.
+        // pull 시 그 값을 그대로 복원하지 못하면 기기 간 충돌 해결이 무력화된다.
+        val entity = AiScheduleEntity(
+            id = "sched-1",
+            date = LocalDate.of(2026, 7, 10),
+            endDate = null,
+            startTime = LocalTime.of(9, 0),
+            timeHint = null,
+            repeatDays = setOf(DayOfWeek.MONDAY),
+            title = "병원 예약",
+            description = null,
+            location = null,
+            isAlarmEnabled = true,
+            updatedAt = 1_720_000_000_000L,
+            pendingSync = true,
+        )
+
+        val roundTripped = mapToScheduleEntity("sched-1", aiScheduleEntityToFirestoreMap(entity))
+
+        requireNotNull(roundTripped)
+        assertEquals(1_720_000_000_000L, roundTripped.updatedAt)
+        assertEquals(setOf(DayOfWeek.MONDAY), roundTripped.repeatDays)
+    }
+
+    @Test
+    fun `deleted tombstone survives a push-pull round trip`() {
+        val tombstone = AiScheduleEntity(
+            id = "sched-1",
+            date = null,
+            endDate = null,
+            startTime = null,
+            timeHint = null,
+            repeatDays = emptySet(),
+            title = "삭제된 일정",
+            description = null,
+            location = null,
+            isAlarmEnabled = false,
+            updatedAt = 1_720_000_000_000L,
+            pendingSync = true,
+            isDeleted = true,
+        )
+
+        val map = aiScheduleEntityToFirestoreMap(tombstone)
+        assertEquals(true, map["deleted"])
+
+        val roundTripped = mapToScheduleEntity("sched-1", map)
+        requireNotNull(roundTripped)
+        assertTrue(roundTripped.isDeleted)
+        assertEquals(1_720_000_000_000L, roundTripped.updatedAt)
+    }
+
+    @Test
+    fun `documents without deleted field parse as not deleted`() {
+        val entity = mapToScheduleEntity("sched-1", mapOf("title" to "약속"))
+        requireNotNull(entity)
+        assertEquals(false, entity.isDeleted)
+    }
+
+    @Test
     fun `isRemoteNewer returns true only when remote timestamp is strictly greater`() {
         assertTrue(isRemoteNewer(localUpdatedAt = 100L, remoteUpdatedAt = 200L))
         assertEquals(false, isRemoteNewer(localUpdatedAt = 200L, remoteUpdatedAt = 200L))

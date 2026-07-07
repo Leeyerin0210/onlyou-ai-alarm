@@ -38,6 +38,12 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
     }
 }
 
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE ai_schedules ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -56,7 +62,7 @@ object DatabaseModule {
                 MiyaDatabase::class.java,
                 "miya_database",
             )
-            .addMigrations(MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18)
+            .addMigrations(MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18, MIGRATION_18_19)
             .fallbackToDestructiveMigration()
             .build()
 

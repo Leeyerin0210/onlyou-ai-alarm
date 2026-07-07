@@ -25,6 +25,7 @@ internal fun aiScheduleEntityToFirestoreMap(entity: AiScheduleEntity): Map<Strin
     "location" to entity.location,
     "isAlarmEnabled" to entity.isAlarmEnabled,
     "updatedAt" to entity.updatedAt,
+    "deleted" to entity.isDeleted,
 )
 
 internal fun mapToScheduleEntity(id: String, data: Map<String, Any?>): AiScheduleEntity? {
@@ -43,8 +44,14 @@ internal fun mapToScheduleEntity(id: String, data: Map<String, Any?>): AiSchedul
         description = data["description"] as? String,
         location = data["location"] as? String,
         isAlarmEnabled = data["isAlarmEnabled"] as? Boolean ?: false,
-        updatedAt = (data["updatedAt"] as? Timestamp)?.toDate()?.time ?: 0L,
+        // 앱이 push한 문서는 Long(epoch millis), 외부에서 쓴 문서는 Timestamp일 수 있어 둘 다 지원
+        updatedAt = when (val raw = data["updatedAt"]) {
+            is Timestamp -> raw.toDate().time
+            is Number -> raw.toLong()
+            else -> 0L
+        },
         pendingSync = false,
+        isDeleted = data["deleted"] as? Boolean ?: false,
     )
 }
 
@@ -80,25 +87,18 @@ class ScheduleRepositoryImpl
         }
 
         override suspend fun deleteSchedule(schedule: AiSchedule) {
-            scheduleDao.deleteSchedule(schedule.toEntity())
-            val uid = auth.currentUser?.uid ?: return
-            syncScope.launch {
-                try {
-                    firestore.collection("users").document(uid)
-                        .collection("schedules").document(schedule.id)
-                        .delete()
-                        .await()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            // 행을 지우지 않고 tombstone으로 남긴다. 원격 push가 실패해도 pendingSync=1로
+            // 남아 다음 sync에서 재시도되고, pull이 삭제를 되살리지 못한다.
+            val tombstone = schedule.toEntity().copy(isDeleted = true)
+            scheduleDao.insertSchedule(tombstone)
+            pushToFirestore(tombstone)
         }
 
         override suspend fun syncSchedules() {
             val uid = auth.currentUser?.uid ?: return
 
-            // 1. 이전에 전송 실패했던 로컬 항목 재시도
-            scheduleDao.getPendingSchedulesOnce().forEach { pushToFirestore(it) }
+            // 1. 이전에 전송 실패했던 로컬 항목 재시도 (pull과 경합하지 않도록 완료를 기다림)
+            scheduleDao.getPendingSchedulesOnce().forEach { pushToFirestoreNow(uid, it) }
 
             // 2. 원격 목록 pull
             try {
@@ -112,6 +112,7 @@ class ScheduleRepositoryImpl
                 snapshot.documents.forEach { doc ->
                     val remote = mapToScheduleEntity(doc.id, doc.data ?: emptyMap()) ?: return@forEach
                     val local = localById[doc.id]
+                    if (remote.isDeleted && local == null) return@forEach
                     if (local == null || isRemoteNewer(local.updatedAt, remote.updatedAt)) {
                         scheduleDao.insertSchedule(remote)
                     }
@@ -123,16 +124,18 @@ class ScheduleRepositoryImpl
 
         private fun pushToFirestore(entity: AiScheduleEntity) {
             val uid = auth.currentUser?.uid ?: return
-            syncScope.launch {
-                try {
-                    firestore.collection("users").document(uid)
-                        .collection("schedules").document(entity.id)
-                        .set(aiScheduleEntityToFirestoreMap(entity))
-                        .await()
-                    scheduleDao.updatePendingSync(entity.id, false)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            syncScope.launch { pushToFirestoreNow(uid, entity) }
+        }
+
+        private suspend fun pushToFirestoreNow(uid: String, entity: AiScheduleEntity) {
+            try {
+                firestore.collection("users").document(uid)
+                    .collection("schedules").document(entity.id)
+                    .set(aiScheduleEntityToFirestoreMap(entity))
+                    .await()
+                scheduleDao.clearPendingSync(entity.id, entity.updatedAt)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
