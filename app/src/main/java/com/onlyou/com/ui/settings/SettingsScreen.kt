@@ -53,6 +53,30 @@ fun SettingsScreen(
             item { SettingsRowItem(Icons.Default.NotificationsNone, "푸시 알림", onClick = { /* TODO */ }) }
             item { SettingsRowItem(Icons.Default.Campaign, "브리핑 알림", onClick = { onNavigateTo("settings_briefing") }) }
             item { SettingsRowItem(Icons.Default.DoNotDisturb, "방해 금지 시간", onClick = { onNavigateTo("settings_dnd") }) }
+            item {
+                val feedback by viewModel.eveningFeedback.collectAsState()
+                var showTimePicker by remember { mutableStateOf(false) }
+
+                EveningFeedbackRow(
+                    enabled = feedback.enabled,
+                    hour = feedback.hour,
+                    minute = feedback.minute,
+                    onToggle = { viewModel.setEveningFeedbackEnabled(it) },
+                    onTimeClick = { showTimePicker = true },
+                )
+
+                if (showTimePicker) {
+                    EveningFeedbackTimePickerDialog(
+                        initialHour = feedback.hour,
+                        initialMinute = feedback.minute,
+                        onConfirm = { h, m ->
+                            viewModel.setEveningFeedbackTime(h, m)
+                            showTimePicker = false
+                        },
+                        onDismiss = { showTimePicker = false },
+                    )
+                }
+            }
             item { Spacer(Modifier.height(16.dp)) }
 
             item { SettingsSectionTitle("테마 설정") }
@@ -153,4 +177,69 @@ fun ThemeCard(
             )
         }
     }
+}
+
+@Composable
+fun EveningFeedbackRow(
+    enabled: Boolean,
+    hour: Int,
+    minute: Int,
+    onToggle: (Boolean) -> Unit,
+    onTimeClick: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Nightlight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("저녁 일정 피드백", fontSize = 16.sp, color = colors.onSurfaceA)
+            Text(
+                text = String.format("매일 %02d:%02d에 하루 안부를 물어봐요", hour, minute),
+                fontSize = 12.sp,
+                color = colors.neutral,
+                modifier = Modifier.clickable(enabled = enabled) { onTimeClick() },
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.primary,
+                checkedTrackColor = colors.surfaceB,
+            ),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EveningFeedbackTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onConfirm: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surfaceA,
+        title = { Text("발송 시각", color = colors.onSurfaceA) },
+        text = { TimePicker(state = state) },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour, state.minute) }) {
+                Text("확인", color = colors.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소", color = colors.neutral)
+            }
+        },
+    )
 }
