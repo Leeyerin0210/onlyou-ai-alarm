@@ -42,7 +42,7 @@ class PersonaRepositoryImpl
                     }
                 }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
-        override suspend fun syncPersonas() {
+        override suspend fun syncPersonas(): Boolean {
             try {
                 // 1. 원격 페르소나 마스터 데이터 가져오기 (타임아웃 적용)
                 val personaSnapshots = try {
@@ -53,10 +53,16 @@ class PersonaRepositoryImpl
                     null
                 }
 
-                if (personaSnapshots == null || personaSnapshots.isEmpty) {
-                    // 서버에 데이터가 없거나 오류 시 기본 데이터 삽입 (Fallback)
+                if (personaSnapshots == null) {
+                    // 서버 도달 실패(타임아웃/오류) → 오프라인. 기본 데이터는 보장하되 실패로 보고.
                     insertDefaultPersonas()
-                    return
+                    return false
+                }
+
+                if (personaSnapshots.isEmpty) {
+                    // 서버는 응답했으나 데이터가 없음 → 온라인으로 간주(기본 데이터 삽입)
+                    insertDefaultPersonas()
+                    return true
                 }
 
                 val remotePersonas = personaSnapshots.documents.mapNotNull { doc ->
@@ -98,7 +104,7 @@ class PersonaRepositoryImpl
 
                 if (remotePersonas.isEmpty()) {
                     insertDefaultPersonas()
-                    return
+                    return true
                 }
 
                 // 2. 유저 정보 (선택된 비서) 가져오기
@@ -136,9 +142,11 @@ class PersonaRepositoryImpl
                     )
                     personaDao.upsertPersona(updatedEntity)
                 }
+                return true
             } catch (e: Exception) {
                 e.printStackTrace()
                 insertDefaultPersonas() // 어떤 에러가 나도 기본 데이터는 보장
+                return false
             }
         }
 

@@ -25,6 +25,7 @@ data class ShopUiState(
     val isBuffering: Boolean = false,
     val currentUserId: String? = null,
     val isOnline: Boolean = true,
+    val isLoading: Boolean = true,
 )
 
 @HiltViewModel
@@ -36,7 +37,13 @@ class ShopViewModel
         private val auth: com.google.firebase.auth.FirebaseAuth,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(ShopUiState(currentUserId = auth.currentUser?.uid))
+        private val _uiState =
+            MutableStateFlow(
+                ShopUiState(
+                    currentUserId = auth.currentUser?.uid,
+                    isOnline = networkMonitor.isCurrentlyOnline,
+                ),
+            )
         val uiState: StateFlow<ShopUiState> = _uiState
 
         private var mediaPlayer: MediaPlayer? = null
@@ -56,18 +63,22 @@ class ShopViewModel
                 }
             }
 
+            // 네트워크 상태 변화에 따라 서버와 동기화하고, 그 결과로 온라인 여부를 판정한다.
+            // 기기 인터넷이 되더라도 서버(Firestore)에 닿지 못하면 오프라인으로 처리한다.
             viewModelScope.launch {
-                networkMonitor.isOnline.collectLatest { isOnline ->
-                    _uiState.update { it.copy(isOnline = isOnline) }
-                }
-            }
-
-            // 원격 데이터 동기화
-            viewModelScope.launch {
-                try {
-                    personaRepository.syncPersonas()
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                networkMonitor.isOnline.collectLatest { deviceOnline ->
+                    if (!deviceOnline) {
+                        _uiState.update { it.copy(isOnline = false, isLoading = false) }
+                    } else {
+                        _uiState.update { it.copy(isLoading = true) }
+                        val reachable = try {
+                            personaRepository.syncPersonas()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            false
+                        }
+                        _uiState.update { it.copy(isOnline = reachable, isLoading = false) }
+                    }
                 }
             }
 

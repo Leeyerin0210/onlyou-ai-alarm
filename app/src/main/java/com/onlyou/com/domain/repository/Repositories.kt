@@ -47,7 +47,11 @@ interface PersonaRepository {
 
     fun getSelectedPersona(): Flow<Persona?>
 
-    suspend fun syncPersonas() // Firebase와 로컬 DB 동기화
+    /**
+     * Firebase와 로컬 DB 동기화.
+     * @return 서버(Firestore) 도달 및 동기화 성공 여부. 서버에 닿지 못하면 false(=오프라인).
+     */
+    suspend fun syncPersonas(): Boolean
 
     suspend fun deletePersona(personaId: String)
 
