@@ -50,7 +50,8 @@ def test_select_increments_usage_and_sets_user(client):
     assert res.status_code == 200
     personas = client.get("/personas").json()
     assert personas[0]["usageCount"] == 1
-    # me = client.get("/users/me")  # Task 5에서 구현 — 여기선 usage_count만 검증해도 됨
+    me = client.get("/users/me").json()
+    assert me["selectedPersonaId"] == "p1"
 
 
 def test_put_cannot_hijack_others_persona(client):

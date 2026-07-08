@@ -68,3 +68,8 @@ class PersonaIn(BaseModel):
     usageCount: int = 0
     isPrivate: bool = False
     updatedAt: int = 0
+
+class UserProfileIn(BaseModel):
+    displayName: Optional[str] = None
+    email: Optional[str] = None
+    photoUrl: Optional[str] = None
