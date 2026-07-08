@@ -51,3 +51,23 @@ def test_select_increments_usage_and_sets_user(client):
     personas = client.get("/personas").json()
     assert personas[0]["usageCount"] == 1
     # me = client.get("/users/me")  # Task 5에서 구현 — 여기선 usage_count만 검증해도 됨
+
+
+def test_put_cannot_hijack_others_persona(client):
+    from core.rdb import get_conn
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id, is_private) "
+            "VALUES ('other', 'x', 'other-uid', TRUE)"
+        )
+    res = client.put("/personas/other", json=_persona_body())
+    assert res.status_code == 403
+    # is_private가 뒤집히지 않았는지 확인
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT is_private, creator_id FROM personas WHERE id='other'")
+        row = cur.fetchone()
+    assert row == (True, "other-uid")
+
+
+def test_select_nonexistent_persona_404(client):
+    assert client.post("/personas/nope/select").status_code == 404

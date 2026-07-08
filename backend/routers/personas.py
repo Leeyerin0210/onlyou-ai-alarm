@@ -39,6 +39,12 @@ async def list_personas(uid: str = Depends(get_uid)):
 @router.put("/{persona_id}")
 async def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
+        # Check ownership if persona exists
+        cur.execute("SELECT creator_id FROM personas WHERE id = %s", (persona_id,))
+        row = cur.fetchone()
+        if row is not None and row[0] != uid:
+            raise HTTPException(status_code=403, detail="not owner")
+
         cur.execute(
             "INSERT INTO personas (id, name, prompt, description, voice_tone, "
             "voice_speed, voice_prompt, user_call_sign, image_url, primary_hex, "
@@ -79,6 +85,8 @@ async def select_persona(persona_id: str, uid: str = Depends(get_uid)):
             "UPDATE personas SET usage_count = usage_count + 1 WHERE id = %s",
             (persona_id,),
         )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="persona not found")
         cur.execute(
             "INSERT INTO users (uid, selected_persona_id) VALUES (%s, %s) "
             "ON CONFLICT (uid) DO UPDATE SET selected_persona_id = EXCLUDED.selected_persona_id",
