@@ -17,6 +17,7 @@ data class OnboardingUiState(
     val filteredPersonas: List<Persona> = emptyList(),
     val searchQuery: String = "",
     val selectedCount: Int = 0,
+    val isOnline: Boolean = true,
 )
 
 @HiltViewModel
@@ -24,6 +25,7 @@ class OnboardingViewModel
     @Inject
     constructor(
         private val personaRepository: PersonaRepository,
+        private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(OnboardingUiState())
         val uiState: StateFlow<OnboardingUiState> = _uiState
@@ -35,6 +37,11 @@ class OnboardingViewModel
                     personaRepository.syncPersonas()
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+            }
+            viewModelScope.launch {
+                networkMonitor.isOnline.collectLatest { online ->
+                    _uiState.update { it.copy(isOnline = online) }
                 }
             }
             viewModelScope.launch {

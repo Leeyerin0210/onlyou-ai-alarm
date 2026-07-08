@@ -52,16 +52,7 @@ fun MyPersonasScreen(
         containerColor = MiyaTheme.colors.background
     ) { padding ->
         if (!uiState.isOnline) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "인터넷 연결이 필요합니다.",
-                        color = MiyaTheme.colors.onSurfaceA,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
+            com.onlyou.com.ui.components.OfflineView(Modifier.fillMaxSize().padding(padding))
         } else if (uiState.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MiyaTheme.colors.primary)

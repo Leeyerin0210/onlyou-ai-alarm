@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -113,7 +112,6 @@ fun ChatScreenContent(
     var menuExpanded by remember { mutableStateOf(false) }
     
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     Scaffold(
         snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
@@ -192,33 +190,27 @@ fun ChatScreenContent(
             }
         },
         bottomBar = {
-            Column {
-                AnimatedVisibility(
-                    visible = uiState.pendingSchedule != null,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                ) {
-                    uiState.pendingSchedule?.let { schedule ->
-                        ScheduleNotificationBar(
-                            scheduleTitle = schedule.title,
-                            isUpdated = uiState.isPendingScheduleUpdated,
-                            onCancel = onCancelSchedule
-                        )
-                    }
-                }
-                ChatInputSection(
-                    text = uiState.inputText,
-                    onTextChange = onInputTextChange,
-                    onSend = {
-                        if (uiState.isOnline) {
-                            onSendMessage()
-                        } else {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("인터넷 연결이 필요합니다.")
-                            }
+            if (uiState.isOnline) {
+                Column {
+                    AnimatedVisibility(
+                        visible = uiState.pendingSchedule != null,
+                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                    ) {
+                        uiState.pendingSchedule?.let { schedule ->
+                            ScheduleNotificationBar(
+                                scheduleTitle = schedule.title,
+                                isUpdated = uiState.isPendingScheduleUpdated,
+                                onCancel = onCancelSchedule
+                            )
                         }
-                    },
-                )
+                    }
+                    ChatInputSection(
+                        text = uiState.inputText,
+                        onTextChange = onInputTextChange,
+                        onSend = onSendMessage,
+                    )
+                }
             }
         },
         containerColor = colors.background,
@@ -229,7 +221,9 @@ fun ChatScreenContent(
                 .padding(paddingValues),
             contentAlignment = Alignment.Center,
         ) {
-            if (persona == null) {
+            if (!uiState.isOnline) {
+                com.onlyou.com.ui.components.OfflineView()
+            } else if (persona == null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Default.Storefront,

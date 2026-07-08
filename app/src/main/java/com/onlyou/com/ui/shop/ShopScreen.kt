@@ -124,28 +124,7 @@ fun ShopScreen(
                 CircularProgressIndicator(color = colors.primary)
             }
         } else if (!uiState.isOnline) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Icon(
-                        Icons.Default.CloudOff,
-                        contentDescription = null,
-                        tint = colors.neutral,
-                        modifier = Modifier.size(48.dp),
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "서버에 연결할 수 없어요.",
-                        color = colors.onSurfaceA,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "네트워크 상태를 확인한 뒤 다시 시도해주세요.",
-                        color = colors.neutral,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
+            com.onlyou.com.ui.components.OfflineView()
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
