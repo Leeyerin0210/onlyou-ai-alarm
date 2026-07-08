@@ -1,3 +1,5 @@
 /Qwen3-TTS-12Hz-1.7B-VoiceDesign
 /.env
 /chroma_db
+/serviceAccountKey.json
+__pycache__/
