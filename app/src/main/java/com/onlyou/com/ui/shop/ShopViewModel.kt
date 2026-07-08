@@ -64,7 +64,7 @@ class ShopViewModel
             }
 
             // 네트워크 상태 변화에 따라 서버와 동기화하고, 그 결과로 온라인 여부를 판정한다.
-            // 기기 인터넷이 되더라도 서버(Firestore)에 닿지 못하면 오프라인으로 처리한다.
+            // 기기 인터넷이 되더라도 서버에 닿지 못하면 오프라인으로 처리한다.
             viewModelScope.launch {
                 networkMonitor.isOnline.collectLatest { deviceOnline ->
                     if (!deviceOnline) {
