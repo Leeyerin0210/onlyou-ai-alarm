@@ -73,3 +73,16 @@ class UserProfileIn(BaseModel):
     displayName: Optional[str] = None
     email: Optional[str] = None
     photoUrl: Optional[str] = None
+
+class ScheduleIn(BaseModel):
+    date: Optional[str] = None
+    endDate: Optional[str] = None
+    startTime: Optional[str] = None
+    timeHint: Optional[str] = None
+    repeatDays: List[str] = []
+    title: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    isAlarmEnabled: bool = False
+    updatedAt: int = 0
+    deleted: bool = False
