@@ -165,7 +165,14 @@ def get_uid(authorization: str = Header(...)) -> str:
 
 ### 네트워크 계층
 - `NetworkModule`
-  - `BASE_URL`을 운영 서버(`https://onlyou-ai-alarm-u6f2.somsatang.cloud/`)로. 개발 빌드는 `http://10.0.2.2:8080/` 유지 → **빌드 타입별 분기**(`BuildConfig` 또는 flavor).
+  - `BASE_URL`을 **빌드 타입(`debug`/`release`)별 `buildConfigField`로 분리**(flavor 아님, 2줄). `NetworkModule`은 `BuildConfig.BASE_URL` 사용.
+    ```gradle
+    buildTypes {
+        debug   { buildConfigField "String", "BASE_URL", "\"http://10.0.2.2:8080/\"" }                       // 로컬 백엔드
+        release { buildConfigField "String", "BASE_URL", "\"https://onlyou-ai-alarm-u6f2.somsatang.cloud/\"" } // 배포
+    }
+    ```
+    - 효과: debug 빌드 = 로컬 백엔드 자동 연결(배포 없이 검증), release 빌드 = 배포 서버 자동. 수동 전환/되돌리기 실수 없음.
   - `AuthInterceptor`를 OkHttp에 추가.
 - `AuthInterceptor`
   - 매 요청에 `Authorization: Bearer <idToken>` 부착.
@@ -209,7 +216,8 @@ def get_uid(authorization: str = Header(...)) -> str:
 
 ## 테스트 / 검증
 
-- **백엔드**: 로컬 기동 후 각 엔드포인트를 유효 Firebase 토큰으로 curl 테스트. `CREATE TABLE` 자동 생성 확인. 인증/소유권(403)/404 확인.
+- **백엔드**: **로컬 Postgres**(운영과 분리)에 연결해 로컬 기동 후, 각 엔드포인트를 유효 Firebase 토큰으로 curl 테스트. `CREATE TABLE` 자동 생성 확인. 인증/소유권(403)/404 확인.
+  - 앱은 **debug 빌드**로 이 로컬 백엔드에 붙어 end-to-end 검증 → 이상 없으면 배포 → release 빌드가 운영 서버 사용.
 - **앱**: 빌드 후 실제 플로우 구동
   - 로그인 → `PUT /users/me` 프로필 기록
   - 상점 목록 로드 / 페르소나 생성·삭제 / 선택(usage_count·selected_persona 반영)
@@ -223,5 +231,6 @@ def get_uid(authorization: str = Header(...)) -> str:
 - **인터셉터 동기 토큰 획득**: `Tasks.await(getIdToken)`가 인터셉터 스레드에서 블로킹되도록 정확히 구현. 만료 토큰 자동 갱신(`getIdToken(false)`가 필요 시 갱신) 확인.
 - **personas 공개/비공개 필터링을 서버에서 강제** — 클라이언트 신뢰 금지.
 - **빅뱅 검증 부담**: 한 번에 교체되므로 위 검증 항목을 빠짐없이 수행. 데이터는 폐기 가능하므로 롤백은 브랜치 되돌리기로 충분.
-- **BASE_URL 빌드 분기**: 개발(에뮬레이터 10.0.2.2)과 운영 서버가 섞이지 않도록 빌드 타입 분기.
+- **BASE_URL 빌드 분기**: `debug`(로컬)/`release`(운영) `buildConfigField`로 분리해 개발과 운영이 섞이지 않게 함.
+- **환경 분리(개발 DB)**: 로컬 백엔드는 **별도 로컬 Postgres**에 연결(`DATABASE_URL` 환경변수). **운영 Postgres는 개발 중 절대 접근하지 않음** — 개발 테스트가 운영 데이터를 오염시키지 않도록 함.
 - **Firebase Storage 이미지**: URL 그대로 사용(범위 밖).
