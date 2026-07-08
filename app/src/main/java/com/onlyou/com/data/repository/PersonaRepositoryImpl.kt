@@ -8,17 +8,15 @@ import com.onlyou.com.domain.model.StreamerTheme
 import com.onlyou.com.domain.model.ThemeModeColors
 import com.onlyou.com.domain.repository.PersonaRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class PersonaRepositoryImpl
     @Inject
     constructor(
         private val personaDao: PersonaDao,
-        private val firestore: com.google.firebase.firestore.FirebaseFirestore,
+        private val api: com.onlyou.com.data.remote.MiyaApiService,
         private val auth: com.google.firebase.auth.FirebaseAuth,
     ) : PersonaRepository {
         override fun getAllPersonas(): Flow<List<Persona>> = personaDao.getAllPersonas().map { entities -> entities.map { it.toDomain() } }
@@ -43,153 +41,55 @@ class PersonaRepositoryImpl
                 }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
         override suspend fun syncPersonas(): Boolean {
-            try {
-                // 1. 원격 페르소나 마스터 데이터 가져오기 (타임아웃 적용)
-                val personaSnapshots = try {
-                    kotlinx.coroutines.withTimeout(5000L) {
-                        firestore.collection("personas").get().await()
-                    }
+            return try {
+                // 1. 원격 페르소나 가져오기 (서버가 공개+본인 private 필터링)
+                val remote = kotlinx.coroutines.withTimeout(5000L) { api.getPersonas() }
+
+                // 2. 선택된 페르소나 id (서버 기록)
+                val selectedIdRemote = try {
+                    kotlinx.coroutines.withTimeout(3000L) { api.getMe().selectedPersonaId }
                 } catch (e: Exception) {
                     null
                 }
 
-                if (personaSnapshots == null) {
-                    // 서버 도달 실패(타임아웃/오류) → 오프라인. 기본 데이터는 보장하되 실패로 보고.
-                    insertDefaultPersonas()
-                    return false
-                }
-
-                if (personaSnapshots.isEmpty) {
-                    // 서버는 응답했으나 데이터가 없음 → 온라인으로 간주(기본 데이터 삽입)
-                    insertDefaultPersonas()
-                    return true
-                }
-
-                val remotePersonas = personaSnapshots.documents.mapNotNull { doc ->
-                    // id 필드가 없으면 문서 ID를 기본값으로 사용
-                    val id = doc.getString("id") ?: doc.id
-                    val creatorId = doc.getString("creatorId")
-                    val isPrivate = doc.getBoolean("isPrivate") ?: false
-                    val uid = auth.currentUser?.uid
-                    
-                    if (isPrivate && creatorId != uid) {
-                        return@mapNotNull null
-                    }
-                    
-                    val themeColorsMap = doc.get("themeColors") as? Map<*, *>
-
-                    try {
-                        PersonaEntity(
-                            id = id,
-                            name = doc.getString("name") ?: "Unknown",
-                            prompt = doc.getString("prompt") ?: "",
-                            description = doc.getString("description") ?: "",
-                            voiceTone = (doc.get("voiceTone") as? Number)?.toFloat() ?: 1.0f,
-                            voiceSpeed = (doc.get("voiceSpeed") as? Number)?.toFloat() ?: 1.0f,
-                            voicePrompt = doc.getString("voicePrompt") ?: "다정하고 친절한 어조로",
-                            userCallSign = doc.getString("userCallSign") ?: "주인님",
-                            imageUrl = doc.getString("imageUrl"),
-                            primaryHex = (themeColorsMap?.get("primaryHex") as? String) ?: doc.getString("primaryHex"),
-                            secondaryHex = (themeColorsMap?.get("secondaryHex") as? String) ?: doc.getString("secondaryHex"),
-                            isSelected = false,
-                            creatorId = creatorId,
-                            usageCount = (doc.get("usageCount") as? Number)?.toInt() ?: 0,
-                            isPrivate = isPrivate,
-                        )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        null
-                    }
-                }
-
-                if (remotePersonas.isEmpty()) {
-                    insertDefaultPersonas()
-                    return true
-                }
-
-                // 2. 유저 정보 (선택된 비서) 가져오기
-                val uid = auth.currentUser?.uid
-                val selectedId =
-                    if (uid != null) {
-                        val userDoc = try {
-                            kotlinx.coroutines.withTimeout(3000L) {
-                                firestore
-                                    .collection("users")
-                                    .document(uid)
-                                    .get()
-                                    .await()
-                            }
-                        } catch (e: Exception) {
-                            null
-                        }
-                        userDoc?.getString("selectedPersonaId")
-                    } else {
-                        null
-                    }
-
-                // 3. 로컬 DB 업데이트
-                // 동기화 중(네트워크 지연 등) 유저가 화면에서 먼저 비서를 선택했을 수 있으므로 최신 로컬 선택 상태를 우선 확인
+                // 3. 로컬 병합 — 로컬 선택이 있으면 우선(동기화 중 유저 선택 보호)
                 val currentLocalSelectedId = personaDao.getAllPersonasOnce().find { it.isSelected }?.id
-                // 로컬에 선택된 게 있으면 유지, 없으면 원격에서 가져온 selectedId 사용
-                val finalSelectedId = currentLocalSelectedId ?: selectedId
+                val finalSelectedId = currentLocalSelectedId ?: selectedIdRemote
 
-                remotePersonas.forEach { entity ->
-                    // 로컬 DB에 이미 존재하는 엔티티인지 확인 (기존 usageCount 유지용)
-                    val existing = personaDao.getAllPersonasOnce().find { it.id == entity.id }
-                    val updatedEntity = entity.copy(
-                        isSelected = entity.id == finalSelectedId,
-                        usageCount = existing?.usageCount ?: entity.usageCount
+                remote.forEach { dto ->
+                    val existing = personaDao.getAllPersonasOnce().find { it.id == dto.id }
+                    personaDao.upsertPersona(
+                        PersonaEntity(
+                            id = dto.id,
+                            name = dto.name,
+                            prompt = dto.prompt,
+                            description = dto.description,
+                            voiceTone = dto.voiceTone,
+                            voiceSpeed = dto.voiceSpeed,
+                            voicePrompt = dto.voicePrompt ?: "다정하고 친절한 어조로",
+                            userCallSign = dto.userCallSign ?: "주인님",
+                            imageUrl = dto.imageUrl,
+                            primaryHex = dto.primaryHex,
+                            secondaryHex = dto.secondaryHex,
+                            isSelected = dto.id == finalSelectedId,
+                            creatorId = dto.creatorId,
+                            usageCount = existing?.usageCount ?: dto.usageCount,
+                            isPrivate = dto.isPrivate,
+                        ),
                     )
-                    personaDao.upsertPersona(updatedEntity)
                 }
-                return true
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
-                insertDefaultPersonas() // 어떤 에러가 나도 기본 데이터는 보장
-                return false
-            }
-        }
-
-        private suspend fun insertDefaultPersonas() {
-            val count = personaDao.getAllPersonasOnce().size
-            if (count == 0) {
-                val defaultMiya = PersonaEntity(
-                    id = "miya_default",
-                    name = "미야",
-                    prompt = "너는 친절하고 다정한 개인 비서 '미야'야. 주인의 일정을 관리하고 항상 밝은 모습으로 응원해줘.",
-                    description = "코네(Conne)의 기본 비서입니다. 다정한 성격으로 당신의 하루를 챙겨줍니다.",
-                    voiceTone = 1.0f,
-                    voiceSpeed = 1.0f,
-                    voicePrompt = "다정하고 친절한 어조로",
-                    userCallSign = "주인님",
-                    imageUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200",
-                    primaryHex = "#FFB7C5",
-                    secondaryHex = "#FFF0F5",
-                    isSelected = true,
-                    isPrivate = false,
-                    creatorId = "QK876dED1mZPwXqApiePEchoObv2",
-                )
-                personaDao.upsertPersona(defaultMiya)
+                false
             }
         }
 
         override suspend fun deletePersona(personaId: String) {
-            if (personaId == "miya_default") return // 기본 비서는 삭제 불가
-
-            val uid = auth.currentUser?.uid ?: return
-
-            // 1. 만약 삭제하려는 비서가 현재 선택된 비서라면, 기본 비서로 변경
-            val currentSelected = getSelectedPersona().first()
-            if (currentSelected?.id == personaId) {
-                setSelectedPersona("miya_default")
-            }
-
-            // 2. 로컬 DB 삭제
+            // 로컬 삭제 (선택된 페르소나였다면 getSelectedPersona의 fallback이 첫 페르소나를 재선택)
             personaDao.deletePersona(personaId)
-
-            // 3. Firebase Firestore 삭제 (비동기 완료 대기)
             try {
-                firestore.collection("personas").document(personaId).delete().await()
+                api.deletePersona(personaId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -210,14 +110,10 @@ class PersonaRepositoryImpl
                 personaDao.update(updatedTarget)
 
                 // 원격에도 반영
-                val uid = auth.currentUser?.uid
-                if (uid != null) {
-                    try {
-                        firestore.collection("personas").document(personaId).update("usageCount", updatedTarget.usageCount)
-                        firestore.collection("users").document(uid).update("selectedPersonaId", personaId)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                try {
+                    api.selectPersona(personaId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
 
@@ -239,30 +135,33 @@ class PersonaRepositoryImpl
             } else {
                 persona
             }
-            
+
             val entity = updatedPersona.toEntity()
             // 1. 로컬 DB 저장
             personaDao.upsertPersona(entity)
 
-            // 2. Firebase Firestore 저장
+            // 2. 원격 저장
             try {
-                val personaMap = hashMapOf(
-                    "id" to updatedPersona.id,
-                    "name" to updatedPersona.name,
-                    "prompt" to updatedPersona.prompt,
-                    "description" to updatedPersona.description,
-                    "voiceTone" to updatedPersona.voiceTone,
-                    "voiceSpeed" to updatedPersona.voiceSpeed,
-                    "voicePrompt" to updatedPersona.voicePrompt,
-                    "userCallSign" to updatedPersona.userCallSign,
-                    "imageUrl" to updatedPersona.imageUrl,
-                    "primaryHex" to (updatedPersona.themeColors?.primaryHex ?: "#FFB7C5"),
-                    "secondaryHex" to (updatedPersona.themeColors?.secondaryHex ?: "#FFF0F5"),
-                    "creatorId" to updatedPersona.creatorId,
-                    "usageCount" to updatedPersona.usageCount,
-                    "isPrivate" to updatedPersona.isPrivate
+                api.upsertPersona(
+                    updatedPersona.id,
+                    com.onlyou.com.data.remote.PersonaDto(
+                        id = updatedPersona.id,
+                        name = updatedPersona.name,
+                        prompt = updatedPersona.prompt,
+                        description = updatedPersona.description,
+                        voiceTone = updatedPersona.voiceTone,
+                        voiceSpeed = updatedPersona.voiceSpeed,
+                        voicePrompt = updatedPersona.voicePrompt,
+                        userCallSign = updatedPersona.userCallSign,
+                        imageUrl = updatedPersona.imageUrl,
+                        primaryHex = updatedPersona.themeColors?.primaryHex,
+                        secondaryHex = updatedPersona.themeColors?.secondaryHex,
+                        creatorId = updatedPersona.creatorId,
+                        usageCount = updatedPersona.usageCount,
+                        isPrivate = updatedPersona.isPrivate,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
                 )
-                firestore.collection("personas").document(updatedPersona.id).set(personaMap).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
