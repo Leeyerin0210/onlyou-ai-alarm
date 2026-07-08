@@ -86,3 +86,9 @@ class ScheduleIn(BaseModel):
     isAlarmEnabled: bool = False
     updatedAt: int = 0
     deleted: bool = False
+
+class BackupIn(BaseModel):
+    chats: str
+    schedules: str
+    memories: str
+    timestamp: int
