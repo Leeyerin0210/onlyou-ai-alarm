@@ -9,7 +9,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from routers import auth, chat, voice, memory, alarm, weather
+from routers import auth, chat, voice, memory, alarm, weather, personas
 from core.rdb import init_schema
 
 app = FastAPI(title="Conne Backend")
@@ -34,6 +34,7 @@ app.include_router(voice.router)
 app.include_router(memory.router)
 app.include_router(alarm.router)
 app.include_router(weather.router)
+app.include_router(personas.router)
 
 if __name__ == "__main__":
     # 실행 시 모듈 이름을 파일명(main)으로 지정하여 경로 문제 방지

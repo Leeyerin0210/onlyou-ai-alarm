@@ -53,3 +53,18 @@ class AlarmScriptRequest(BaseModel):
 
 class AlarmScriptResponse(BaseModel):
     chunks: List[str]
+
+class PersonaIn(BaseModel):
+    name: str
+    prompt: str = ""
+    description: str = ""
+    voiceTone: float = 1.0
+    voiceSpeed: float = 1.0
+    voicePrompt: Optional[str] = None
+    userCallSign: Optional[str] = None
+    imageUrl: Optional[str] = None
+    primaryHex: Optional[str] = None
+    secondaryHex: Optional[str] = None
+    usageCount: int = 0
+    isPrivate: bool = False
+    updatedAt: int = 0
