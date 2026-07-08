@@ -10,6 +10,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, weather
+from core.rdb import init_schema
 
 app = FastAPI(title="Conne Backend")
 
@@ -19,7 +20,7 @@ async def health():
 
 @app.on_event("startup")
 async def startup():
-    pass # ElevenLabs는 별도의 모델 로딩이 필요 없음
+    init_schema()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
