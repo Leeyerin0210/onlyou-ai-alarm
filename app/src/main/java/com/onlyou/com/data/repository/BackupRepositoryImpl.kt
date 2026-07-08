@@ -58,7 +58,7 @@ class BackupRepositoryImpl @Inject constructor(
 
             // 2. 직렬화
             // 3. 서버 업로드
-            api.putBackup(
+            val response = api.putBackup(
                 com.onlyou.com.data.remote.BackupDto(
                     chats = gson.toJson(chats),
                     schedules = gson.toJson(schedules),
@@ -66,6 +66,10 @@ class BackupRepositoryImpl @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                 ),
             )
+            if (!response.isSuccessful) {
+                _backupState.value = BackupState.Error("백업 업로드에 실패했습니다. (${response.code()})")
+                return@withContext
+            }
 
             // 4. 로컬 시간 업데이트
             val timeString = SimpleDateFormat("yyyy.MM.dd a hh:mm", Locale.KOREA).format(Date())
@@ -91,11 +95,15 @@ class BackupRepositoryImpl @Inject constructor(
         try {
             // 1. 서버에서 다운로드
             val response = api.getBackup()
-            if (response.code() == 404 || response.body() == null) {
+            if (response.code() == 404) {
                 _restoreState.value = BackupState.Error("클라우드에 저장된 백업 데이터가 없습니다.")
                 return@withContext
             }
-            val backup = response.body()!!
+            val backup = response.body()
+            if (!response.isSuccessful || backup == null) {
+                _restoreState.value = BackupState.Error("백업 데이터를 불러오지 못했습니다. (${response.code()})")
+                return@withContext
+            }
             val chatsJson = backup.chats
             val schedulesJson = backup.schedules
             val memoriesJson = backup.memories
