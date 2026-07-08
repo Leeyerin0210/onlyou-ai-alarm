@@ -36,7 +36,7 @@ interface ScheduleRepository {
 
     suspend fun deleteSchedule(schedule: AiSchedule)
 
-    suspend fun syncSchedules() // Firestore와 로컬 DB 동기화 (pull + 재시도)
+    suspend fun syncSchedules() // 서버와 로컬 DB 동기화 (pull + 재시도)
 }
 
 /**
@@ -48,8 +48,8 @@ interface PersonaRepository {
     fun getSelectedPersona(): Flow<Persona?>
 
     /**
-     * Firebase와 로컬 DB 동기화.
-     * @return 서버(Firestore) 도달 및 동기화 성공 여부. 서버에 닿지 못하면 false(=오프라인).
+     * 서버와 로컬 DB 동기화.
+     * @return 서버 도달 및 동기화 성공 여부. 서버에 닿지 못하면 false(=오프라인).
      */
     suspend fun syncPersonas(): Boolean
 

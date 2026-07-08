@@ -2,7 +2,6 @@ package com.onlyou.com.di
 
 import android.content.Context
 import androidx.room.Room
-import com.google.firebase.firestore.FirebaseFirestore
 import com.onlyou.com.data.local.AiScheduleDao
 import com.onlyou.com.data.local.AlarmDao
 import com.onlyou.com.data.local.AlarmVoiceChunkDao
@@ -47,10 +46,6 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    @Provides
-    @Singleton
-    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
-
     @Provides
     @Singleton
     fun provideDatabase(
