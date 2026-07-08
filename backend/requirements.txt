@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 google-generativeai
-chromadb
+psycopg2-binary
 pydantic
 python-dotenv
 sse-starlette

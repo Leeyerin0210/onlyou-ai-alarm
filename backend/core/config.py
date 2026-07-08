@@ -14,5 +14,7 @@ class Settings:
     TTS_API_KEY = os.getenv("TTS_API_KEY", "")
     # 참조 음성 영구 저장용 Firebase Storage 버킷 (예: my-project.firebasestorage.app)
     FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
+    # 벡터 기억용 PostgreSQL + pgvector (예: postgresql://user:pass@host:5432/dbname)
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 settings = Settings()
