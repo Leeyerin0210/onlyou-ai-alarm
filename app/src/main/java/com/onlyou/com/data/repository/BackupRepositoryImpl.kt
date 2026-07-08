@@ -2,11 +2,11 @@ package com.onlyou.com.data.repository
 
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.onlyou.com.data.local.AiScheduleDao
 import com.onlyou.com.data.local.ChatDao
 import com.onlyou.com.data.local.MemoryDao
+import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.domain.repository.BackupRepository
 import com.onlyou.com.domain.repository.BackupState
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -14,7 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -25,7 +24,7 @@ class BackupRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
     private val scheduleDao: AiScheduleDao,
     private val memoryDao: MemoryDao,
-    private val firestore: FirebaseFirestore,
+    private val api: MiyaApiService,
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context
 ) : BackupRepository {
@@ -57,18 +56,16 @@ class BackupRepositoryImpl @Inject constructor(
             val schedules = scheduleDao.getAllSchedulesOnce()
             val memories = memoryDao.getAllMemoriesOnce()
 
-            // 2. 직렬화하여 Map 구성
-            val backupData = mapOf(
-                "chats" to gson.toJson(chats),
-                "schedules" to gson.toJson(schedules),
-                "memories" to gson.toJson(memories),
-                "timestamp" to System.currentTimeMillis()
+            // 2. 직렬화
+            // 3. 서버 업로드
+            api.putBackup(
+                com.onlyou.com.data.remote.BackupDto(
+                    chats = gson.toJson(chats),
+                    schedules = gson.toJson(schedules),
+                    memories = gson.toJson(memories),
+                    timestamp = System.currentTimeMillis(),
+                ),
             )
-
-            // 3. Firestore 업로드
-            firestore.collection("users").document(uid).collection("backups").document("latest")
-                .set(backupData)
-                .await()
 
             // 4. 로컬 시간 업데이트
             val timeString = SimpleDateFormat("yyyy.MM.dd a hh:mm", Locale.KOREA).format(Date())
@@ -92,19 +89,16 @@ class BackupRepositoryImpl @Inject constructor(
         _restoreState.value = BackupState.Loading
 
         try {
-            // 1. Firestore에서 다운로드
-            val document = firestore.collection("users").document(uid).collection("backups").document("latest")
-                .get()
-                .await()
-
-            if (!document.exists()) {
+            // 1. 서버에서 다운로드
+            val response = api.getBackup()
+            if (response.code() == 404 || response.body() == null) {
                 _restoreState.value = BackupState.Error("클라우드에 저장된 백업 데이터가 없습니다.")
                 return@withContext
             }
-
-            val chatsJson = document.getString("chats") ?: "[]"
-            val schedulesJson = document.getString("schedules") ?: "[]"
-            val memoriesJson = document.getString("memories") ?: "[]"
+            val backup = response.body()!!
+            val chatsJson = backup.chats
+            val schedulesJson = backup.schedules
+            val memoriesJson = backup.memories
 
             // 2. 역직렬화
             val chatsType = object : com.google.gson.reflect.TypeToken<List<com.onlyou.com.data.local.ChatMessageEntity>>() {}.type
