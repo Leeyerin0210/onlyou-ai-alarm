@@ -60,4 +60,16 @@ class ScheduleSyncMappingTest {
         assertTrue(isRemoteNewer(localUpdatedAt = 1000L, remoteUpdatedAt = 2000L))
         assertFalse(isRemoteNewer(localUpdatedAt = 2000L, remoteUpdatedAt = 2000L))
     }
+
+    @Test
+    fun `Gson이 남긴 null repeatDays에도 NPE 없이 매핑`() {
+        // Gson은 누락 키에 기본값을 안 넣으므로 리플렉션으로 null 상태를 재현
+        val gson = com.google.gson.Gson()
+        val dto = gson.fromJson(
+            """{"id":"s1","title":"회의","updatedAt":1000,"deleted":false}""",
+            com.onlyou.com.data.remote.ScheduleDto::class.java,
+        )
+        val back = dto.toEntity()!!
+        assertEquals(emptySet<DayOfWeek>(), back.repeatDays)
+    }
 }

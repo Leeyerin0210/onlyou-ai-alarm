@@ -27,7 +27,8 @@ internal fun ScheduleDto.toEntity(): AiScheduleEntity? = AiScheduleEntity(
     endDate = endDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
     startTime = startTime?.let { runCatching { LocalTime.parse(it) }.getOrNull() },
     timeHint = timeHint,
-    repeatDays = repeatDays
+    // Gson은 누락된 JSON 키에 Kotlin 기본값을 적용하지 않아 non-null 필드가 null일 수 있다
+    repeatDays = (this.repeatDays as List<String>? ?: emptyList())
         .mapNotNull { day -> runCatching { DayOfWeek.valueOf(day) }.getOrNull() }
         .toSet(),
     title = title,
