@@ -55,9 +55,6 @@ internal fun mapToScheduleEntity(id: String, data: Map<String, Any?>): AiSchedul
     )
 }
 
-internal fun isRemoteNewer(localUpdatedAt: Long, remoteUpdatedAt: Long): Boolean =
-    remoteUpdatedAt > localUpdatedAt
-
 class ScheduleRepositoryImpl
     @Inject
     constructor(

@@ -64,3 +64,58 @@ data class VoiceCloneRequestDto(
     val text: String,
     val persona_id: String
 )
+
+// Personas / Users / Schedules / Backups (Firestore → REST 이전)
+data class PersonaDto(
+    val id: String,
+    val name: String,
+    val prompt: String = "",
+    val description: String = "",
+    val voiceTone: Float = 1.0f,
+    val voiceSpeed: Float = 1.0f,
+    val voicePrompt: String? = null,
+    val userCallSign: String? = null,
+    val imageUrl: String? = null,
+    val primaryHex: String? = null,
+    val secondaryHex: String? = null,
+    val creatorId: String? = null,
+    val usageCount: Int = 0,
+    val isPrivate: Boolean = false,
+    val updatedAt: Long = 0L,
+)
+
+data class UserProfileDto(
+    val uid: String,
+    val displayName: String?,
+    val email: String?,
+    val photoUrl: String?,
+    val selectedPersonaId: String?,
+)
+
+data class UserProfilePutDto(
+    val displayName: String?,
+    val email: String?,
+    val photoUrl: String?,
+)
+
+data class ScheduleDto(
+    val id: String,
+    val date: String? = null,
+    val endDate: String? = null,
+    val startTime: String? = null,
+    val timeHint: String? = null,
+    val repeatDays: List<String> = emptyList(),
+    val title: String,
+    val description: String? = null,
+    val location: String? = null,
+    val isAlarmEnabled: Boolean = false,
+    val updatedAt: Long = 0L,
+    val deleted: Boolean = false,
+)
+
+data class BackupDto(
+    val chats: String,
+    val schedules: String,
+    val memories: String,
+    val timestamp: Long,
+)
