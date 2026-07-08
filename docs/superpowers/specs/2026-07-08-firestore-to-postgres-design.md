@@ -233,4 +233,5 @@ def get_uid(authorization: str = Header(...)) -> str:
 - **빅뱅 검증 부담**: 한 번에 교체되므로 위 검증 항목을 빠짐없이 수행. 데이터는 폐기 가능하므로 롤백은 브랜치 되돌리기로 충분.
 - **BASE_URL 빌드 분기**: `debug`(로컬)/`release`(운영) `buildConfigField`로 분리해 개발과 운영이 섞이지 않게 함.
 - **환경 분리(개발 DB)**: 로컬 백엔드는 **별도 로컬 Postgres**에 연결(`DATABASE_URL` 환경변수). **운영 Postgres는 개발 중 절대 접근하지 않음** — 개발 테스트가 운영 데이터를 오염시키지 않도록 함.
+- **로컬 개발 환경 구동**: `docker-compose.yml`(로컬 Postgres + 백엔드)을 리포에 추가. 개발 시 `docker compose up` 한 방으로 로컬 스택 기동 → 앱 debug 빌드가 `10.0.2.2:8080`으로 접속. 이번 범위의 엔드포인트는 Postgres만 필요(Neo4j/Gemini는 채팅용 — 로컬 미기동 시 채팅만 동작 안 함, 필요해지면 compose에 추가).
 - **Firebase Storage 이미지**: URL 그대로 사용(범위 밖).
