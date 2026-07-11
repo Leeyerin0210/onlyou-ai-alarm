@@ -66,18 +66,31 @@ class EveningFeedbackWorker @AssistedInject constructor(
             return Result.success()
         }
 
+        // 발송 시각 기준으로 일정을 완료/예정으로 구분해 AI가 시제를 틀리지 않게 한다
+        // (예: 21시 영화를 20시에 "어떠셨나요?"라고 묻는 사고 방지)
+        val nowTime = now.toLocalTime()
         val scheduleLines = todaySchedules.joinToString("\n") { s ->
+            val statusPart = when {
+                s.startTime == null -> "[시간 미정]"
+                s.startTime <= nowTime -> "[완료]"
+                else -> "[예정]"
+            }
             val time = s.startTime?.toString() ?: s.timeHint.orEmpty()
             val timePart = if (time.isNotBlank()) " ($time)" else ""
             val locationPart = s.location?.let { " @$it" }.orEmpty()
             val repeatPart = if (s.repeatDays.isNotEmpty()) " [반복 루틴]" else ""
-            "- ${s.title}$timePart$locationPart$repeatPart"
+            "- $statusPart ${s.title}$timePart$locationPart$repeatPart"
         }
+        val nowLabel = String.format(java.util.Locale.US, "%02d:%02d", now.hour, now.minute)
         val instruction = """
-            [시스템 지시] 지금은 저녁 시간이고, 오늘 유저에게 아래 일정들이 있었다.
+            [시스템 지시] 지금은 $nowLabel 이다. 오늘 유저의 일정 목록:
             $scheduleLines
-            페르소나의 말투 그대로, 오늘 하루가 어땠는지 자연스럽게 묻는 짧은 선톡을 1~2문장으로 보내라.
-            일정 목록을 그대로 나열하지 말고, 그중 인상적인 것 하나만 자연스럽게 언급해라.
+            페르소나의 말투와 성격을 그대로 유지한 채, 유저에게 보내는 짧은 선톡을 1~2문장으로 작성하라.
+            아래는 사실관계 제약일 뿐이며, 표현 방식과 감정 톤은 전적으로 페르소나 성격을 따르라.
+            - [완료] 일정: 이미 끝난 일이다. 어땠는지 반응을 끌어내는 말을 하라.
+            - [예정] 일정: 아직 시작 전이다. 끝난 것처럼 과거형으로 말하지 마라.
+            - [시간 미정] 일정: 했는지 여부를 단정하지 마라.
+            일정 목록을 그대로 나열하지 말고, 그중 가장 인상적인 것 하나만 골라 자연스럽게 언급해라.
             [반복 루틴] 표시가 붙은 일정은 특별한 맥락이 없으면 언급하지 마라.
         """.trimIndent()
 
