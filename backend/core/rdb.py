@@ -76,3 +76,22 @@ def init_schema():
         return
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(SCHEMA_SQL)
+
+
+# 시드에서 제거된 기본 페르소나 — 서버 기동 시 DB에서 자동 정리된다.
+# (SSH 접근 없이 깃 푸시 + 배포만으로 운영 DB에 반영하기 위함)
+REMOVED_PERSONA_IDS = ["miya_default"]
+
+
+def cleanup_removed_personas():
+    """서버 기동 시 호출. 제거 대상 페르소나를 삭제한다(멱등)."""
+    if not settings.DATABASE_URL:
+        return
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        for pid in REMOVED_PERSONA_IDS:
+            # 해당 페르소나를 선택 중이던 유저는 선택 해제 (앱이 다음 페르소나로 폴백)
+            cur.execute(
+                "UPDATE users SET selected_persona_id = NULL WHERE selected_persona_id = %s",
+                (pid,),
+            )
+            cur.execute("DELETE FROM personas WHERE id = %s", (pid,))

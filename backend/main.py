@@ -10,7 +10,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, weather, personas, users, schedules, backups
-from core.rdb import init_schema
+from core.rdb import init_schema, cleanup_removed_personas
 
 app = FastAPI(title="Conne Backend")
 
@@ -21,10 +21,12 @@ async def health():
 @app.on_event("startup")
 async def startup():
     init_schema()
+    cleanup_removed_personas()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    print(f"Incoming Request: {request.method} {request.url}")
+    # 쿼리스트링에 개인정보가 섞여 로그로 남지 않도록 path까지만 기록한다
+    print(f"Incoming Request: {request.method} {request.url.path}")
     return await call_next(request)
 
 # Router 등록

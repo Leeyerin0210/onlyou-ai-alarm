@@ -78,6 +78,15 @@ class PersonaRepositoryImpl
                         ),
                     )
                 }
+
+                // 4. 서버에서 사라진 페르소나를 로컬에서도 정리 (예: 시드에서 제거된 기본 페르소나).
+                // 내가 만든 페르소나는 아직 서버에 업로드되지 못했을 수 있으므로 보존한다.
+                val myUid = auth.currentUser?.uid
+                val remoteIds = remote.map { it.id }.toSet()
+                personaDao
+                    .getAllPersonasOnce()
+                    .filter { it.id !in remoteIds && it.creatorId != myUid }
+                    .forEach { personaDao.deletePersona(it.id) }
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
