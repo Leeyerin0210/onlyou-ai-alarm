@@ -68,7 +68,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
 
 [시간 및 시제 해석 가이드 (매우 중요)]
 1. 위 '이전 기억'에 적힌 "오늘", "내일", "어제" 같은 상대적인 시간 표현은 반드시 해당 항목 앞의 **[기록된 날짜]**를 기준으로 계산하세요.
-2. 현재 날짜({current_date_str})와 비교하여 이미 지나간 일정/기억이라면 과거형으로 말하거나 안부를 물어보세요 (예: "어제 여행 가신다고 했는데 잘 다녀오셨나요?").
+2. 현재 날짜({current_date_str})와 비교하여 이미 지나간 일정/기억은 반드시 과거의 일로 다루세요. 어땠는지 물어볼 수 있지만, 표현 방식과 말투는 전적으로 페르소나를 따르세요.
 3. 이미 지나간 일을 현재 진행 중이거나 미래의 일처럼 말하지 마세요. 시제가 맞지 않으면 매우 어색합니다.
 
 [사용자 발화 가이드]
@@ -101,15 +101,6 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
                 import json
                 parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
                 date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
-                sched_prompt = f"""
-                오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'.
-                유저의 메시지가 일정을 생성하거나 반복적인 루틴을 다짐하는 내용이라면 JSON으로 추출하세요.
-                ... (생략된 프롬프트 규칙 동일) ...
-                포맷:
-                {{"title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" 또는 null, "timeHint": "...", "repeatDays": [...]}}
-                일정이 아니면 None을 반환하세요.
-                """
-                # 원본 main.py의 규칙을 그대로 유지해야 하므로 생략하지 않고 채웁니다.
                 sched_prompt = f"""
                 오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'.
                 {existing_schedules_str}
