@@ -9,8 +9,6 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.onlyou.com.domain.repository.AuthRepository
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -25,7 +23,7 @@ class AuthRepositoryImpl
     constructor(
         private val firebaseAuth: FirebaseAuth,
         private val credentialManager: CredentialManager,
-        private val firestore: FirebaseFirestore,
+        private val api: com.onlyou.com.data.remote.MiyaApiService,
     ) : AuthRepository {
         override val currentUser: Flow<FirebaseUser?> = callbackFlow {
             val listener = FirebaseAuth.AuthStateListener { auth ->
@@ -68,21 +66,17 @@ class AuthRepositoryImpl
 
                     authResult.user?.let { user ->
                         try {
-                            val userData = hashMapOf(
-                                "displayName" to (user.displayName ?: "User"),
-                                "email" to (user.email ?: ""),
-                                "photoUrl" to (user.photoUrl?.toString() ?: ""),
-                            )
-                            // 5초 타임아웃 설정: Firestore API가 비활성화되어 있어도 로그인 프로세스가 멈추지 않게 함
+                            // 프로필 기록 실패해도 로그인 세션 자체는 성공으로 간주해 앱 진입 허용
                             kotlinx.coroutines.withTimeout(5000L) {
-                                firestore
-                                    .collection("users")
-                                    .document(user.uid)
-                                    .set(userData, SetOptions.merge())
-                                    .await()
+                                api.putMe(
+                                    com.onlyou.com.data.remote.UserProfilePutDto(
+                                        displayName = user.displayName ?: "User",
+                                        email = user.email ?: "",
+                                        photoUrl = user.photoUrl?.toString() ?: "",
+                                    ),
+                                )
                             }
                         } catch (e: Exception) {
-                            // 타임아웃이나 API 비활성화로 실패해도 로그인 세션 자체는 성공한 것으로 간주하여 앱 진입은 허용
                             e.printStackTrace()
                         }
                         Result.success(user)

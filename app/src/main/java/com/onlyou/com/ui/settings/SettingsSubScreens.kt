@@ -217,6 +217,7 @@ fun BackupSyncScreen(
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
     val restoreState by viewModel.restoreState.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -257,35 +258,39 @@ fun BackupSyncScreen(
                 }
             }
             Spacer(Modifier.height(32.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { 
-                    Text("마지막 백업", fontSize = 16.sp, color = colors.onSurfaceA)
-                    Text(lastBackupTime ?: "기록 없음", fontSize = 12.sp, color = colors.neutral) 
-                }
-                Button(
-                    onClick = { viewModel.backupData() },
-                    enabled = backupState != BackupState.Loading,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
-                ) { 
-                    if (backupState == BackupState.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    } else {
-                        Text("지금 백업하기", color = Color.White) 
+            if (!isOnline) {
+                com.onlyou.com.ui.components.OfflineView(Modifier.fillMaxWidth().height(240.dp))
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("마지막 백업", fontSize = 16.sp, color = colors.onSurfaceA)
+                        Text(lastBackupTime ?: "기록 없음", fontSize = 12.sp, color = colors.neutral)
+                    }
+                    Button(
+                        onClick = { viewModel.backupData() },
+                        enabled = backupState != BackupState.Loading,
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
+                    ) {
+                        if (backupState == BackupState.Loading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text("지금 백업하기", color = Color.White)
+                        }
                     }
                 }
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = colors.surfaceB)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("데이터 복원", fontSize = 16.sp, color = colors.onSurfaceA); Text("클라우드에서 최신 백업 데이터를 불러옵니다.", fontSize = 12.sp, color = colors.neutral) }
-                OutlinedButton(
-                    onClick = { viewModel.restoreData() },
-                    enabled = restoreState != BackupState.Loading,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary)
-                ) { 
-                    if (restoreState == BackupState.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colors.primary, strokeWidth = 2.dp)
-                    } else {
-                        Text("불러오기")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = colors.surfaceB)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column { Text("데이터 복원", fontSize = 16.sp, color = colors.onSurfaceA); Text("클라우드에서 최신 백업 데이터를 불러옵니다.", fontSize = 12.sp, color = colors.neutral) }
+                    OutlinedButton(
+                        onClick = { viewModel.restoreData() },
+                        enabled = restoreState != BackupState.Loading,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary)
+                    ) {
+                        if (restoreState == BackupState.Loading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colors.primary, strokeWidth = 2.dp)
+                        } else {
+                            Text("불러오기")
+                        }
                     }
                 }
             }

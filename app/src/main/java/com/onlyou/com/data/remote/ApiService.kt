@@ -58,4 +58,44 @@ interface MiyaApiService {
 
     @DELETE("memory/clear")
     suspend fun clearMemory(): Response<Unit>
+
+    // Personas
+    @retrofit2.http.GET("personas")
+    suspend fun getPersonas(): List<PersonaDto>
+
+    @retrofit2.http.PUT("personas/{id}")
+    suspend fun upsertPersona(
+        @retrofit2.http.Path("id") id: String,
+        @Body body: PersonaDto,
+    ): Response<Unit>
+
+    @DELETE("personas/{id}")
+    suspend fun deletePersona(@retrofit2.http.Path("id") id: String): Response<Unit>
+
+    @POST("personas/{id}/select")
+    suspend fun selectPersona(@retrofit2.http.Path("id") id: String): Response<Unit>
+
+    // Users
+    @retrofit2.http.GET("users/me")
+    suspend fun getMe(): UserProfileDto
+
+    @retrofit2.http.PUT("users/me")
+    suspend fun putMe(@Body body: UserProfilePutDto): Response<Unit>
+
+    // Schedules
+    @retrofit2.http.GET("schedules")
+    suspend fun getSchedules(): List<ScheduleDto>
+
+    @retrofit2.http.PUT("schedules/{id}")
+    suspend fun upsertSchedule(
+        @retrofit2.http.Path("id") id: String,
+        @Body body: ScheduleDto,
+    ): Response<Unit>
+
+    // Backups
+    @retrofit2.http.GET("backups")
+    suspend fun getBackup(): Response<BackupDto>
+
+    @retrofit2.http.PUT("backups")
+    suspend fun putBackup(@Body body: BackupDto): Response<Unit>
 }

@@ -1,0 +1,28 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: conne
+      POSTGRES_PASSWORD: conne
+      POSTGRES_DB: conne
+    ports:
+      - "5433:5432"   # 호스트 5433 → 로컬 psql/pytest 접근용
+    volumes:
+      - conne_pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://conne:conne@db:5432/conne
+      # GEMINI_API_KEY / NEO4J_* 는 로컬에서 채팅 테스트할 때만 필요 (없으면 채팅만 동작 안 함)
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app   # serviceAccountKey.json 포함 (gitignored 파일이 마운트로 전달됨)
+
+volumes:
+  conne_pgdata:

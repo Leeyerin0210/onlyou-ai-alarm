@@ -17,6 +17,18 @@ import javax.inject.Singleton
 class NetworkMonitor @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    /**
+     * 현재 네트워크 상태를 동기적으로 즉시 반환한다.
+     * Flow 첫 방출을 기다리지 않고 초기 UI 상태를 정확히 잡기 위해 사용한다.
+     */
+    val isCurrentlyOnline: Boolean
+        get() {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val caps = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            return caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }
+
     val isOnline: Flow<Boolean> = callbackFlow {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 

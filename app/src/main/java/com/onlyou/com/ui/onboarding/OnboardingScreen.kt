@@ -711,22 +711,30 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ─── 비서 카드 그리드 ───
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(uiState.filteredPersonas) { persona ->
-                    AssistantCard(
-                        persona = persona,
-                        onSelect = { viewModel.selectPersona(persona.id) },
-                    )
+            if (!uiState.isOnline) {
+                com.onlyou.com.ui.components.OfflineView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                )
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(uiState.filteredPersonas) { persona ->
+                        AssistantCard(
+                            persona = persona,
+                            onSelect = { viewModel.selectPersona(persona.id) },
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
 

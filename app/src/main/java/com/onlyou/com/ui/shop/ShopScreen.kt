@@ -1,7 +1,13 @@
 package com.onlyou.com.ui.shop
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -45,6 +52,7 @@ fun ShopScreen(
 
     val categories = listOf("전체", "내 페르소나", "전문가형", "친구형", "유쾌형")
     var selectedCategory by remember { mutableStateOf("전체") }
+    var isFabExpanded by remember { mutableStateOf(false) }
 
     val filteredByCategory = when (selectedCategory) {
         "내 페르소나" -> uiState.filteredPersonas.filter { it.creatorId == uiState.currentUserId }
@@ -111,17 +119,12 @@ fun ShopScreen(
         }
 
         // 에이전트 리스트
-        if (!uiState.isOnline) {
+        if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "인터넷 연결이 필요합니다.",
-                        color = colors.onSurfaceA,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
+                CircularProgressIndicator(color = colors.primary)
             }
+        } else if (!uiState.isOnline) {
+            com.onlyou.com.ui.components.OfflineView()
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -141,16 +144,94 @@ fun ShopScreen(
         }
     }
 
-    // FAB — 새 에이전트 생성
-    if (uiState.isOnline) {
+    // FAB — 펼침 메뉴 (내 페르소나 관리 / 새 페르소나 생성)
+    if (uiState.isOnline && !uiState.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-            Box(Modifier.padding(end = 24.dp, bottom = 88.dp)) {
+            Column(
+                modifier = Modifier.padding(end = 24.dp, bottom = 88.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // 확장되는 메뉴 버튼들
+                AnimatedVisibility(
+                    visible = isFabExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        // 1. 내 페르소나 관리 버튼
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceB.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(end = 8.dp),
+                            ) {
+                                Text(
+                                    "내 페르소나 관리",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 12.sp,
+                                    color = colors.onSurfaceB,
+                                )
+                            }
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    isFabExpanded = false
+                                    onNavigateToMyPersonas()
+                                },
+                                containerColor = colors.secondary,
+                                contentColor = Color.White,
+                                shape = CircleShape,
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = "Manage")
+                            }
+                        }
+
+                        // 2. 새 페르소나 생성 버튼
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceB.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(end = 8.dp),
+                            ) {
+                                Text(
+                                    "새 페르소나 생성",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 12.sp,
+                                    color = colors.onSurfaceB,
+                                )
+                            }
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    isFabExpanded = false
+                                    onNavigateToEdit(null)
+                                },
+                                containerColor = colors.primary,
+                                contentColor = Color.White,
+                                shape = CircleShape,
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Create")
+                            }
+                        }
+                    }
+                }
+
+                // 메인 FAB 버튼
+                val rotation by animateFloatAsState(if (isFabExpanded) 45f else 0f, label = "fab_rotation")
                 FloatingActionButton(
-                    onClick = { onNavigateToEdit(null) },
+                    onClick = { isFabExpanded = !isFabExpanded },
                     containerColor = colors.primary,
                     contentColor = colors.background,
                     shape = CircleShape,
-                ) { Icon(Icons.Default.Add, null) }
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Menu",
+                        modifier = Modifier.rotate(rotation),
+                    )
+                }
             }
         }
     }

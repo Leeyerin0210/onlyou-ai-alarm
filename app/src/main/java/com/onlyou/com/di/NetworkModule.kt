@@ -1,6 +1,8 @@
 package com.onlyou.com.di
 
 import android.util.Log
+import com.onlyou.com.BuildConfig
+import com.onlyou.com.data.remote.AuthInterceptor
 import com.onlyou.com.data.remote.MiyaApiService
 import dagger.Module
 import dagger.Provides
@@ -16,17 +18,18 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.HEADERS
+            redactHeader("Authorization")
         }
 
         return OkHttpClient
             .Builder()
+            .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .readTimeout(60, TimeUnit.SECONDS) // 스트리밍이므로 타임아웃을 넉넉히 잡음
             .connectTimeout(60, TimeUnit.SECONDS)
@@ -38,7 +41,7 @@ object NetworkModule {
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
         Retrofit
             .Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(BuildConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

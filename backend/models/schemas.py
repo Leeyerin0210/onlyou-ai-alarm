@@ -53,3 +53,42 @@ class AlarmScriptRequest(BaseModel):
 
 class AlarmScriptResponse(BaseModel):
     chunks: List[str]
+
+class PersonaIn(BaseModel):
+    name: str
+    prompt: str = ""
+    description: str = ""
+    voiceTone: float = 1.0
+    voiceSpeed: float = 1.0
+    voicePrompt: Optional[str] = None
+    userCallSign: Optional[str] = None
+    imageUrl: Optional[str] = None
+    primaryHex: Optional[str] = None
+    secondaryHex: Optional[str] = None
+    usageCount: int = 0
+    isPrivate: bool = False
+    updatedAt: int = 0
+
+class UserProfileIn(BaseModel):
+    displayName: Optional[str] = None
+    email: Optional[str] = None
+    photoUrl: Optional[str] = None
+
+class ScheduleIn(BaseModel):
+    date: Optional[str] = None
+    endDate: Optional[str] = None
+    startTime: Optional[str] = None
+    timeHint: Optional[str] = None
+    repeatDays: List[str] = []
+    title: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    isAlarmEnabled: bool = False
+    updatedAt: int = 0
+    deleted: bool = False
+
+class BackupIn(BaseModel):
+    chats: str
+    schedules: str
+    memories: str
+    timestamp: int

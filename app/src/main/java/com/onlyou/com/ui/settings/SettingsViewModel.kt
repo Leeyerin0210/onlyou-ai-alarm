@@ -8,7 +8,12 @@ import com.onlyou.com.domain.repository.FeedbackSettingsRepository
 import com.onlyou.com.domain.repository.ThemeMode
 import com.onlyou.com.domain.repository.ThemeRepository
 import com.onlyou.com.service.EveningFeedbackScheduler
+import com.onlyou.com.util.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,8 +23,20 @@ class SettingsViewModel @Inject constructor(
     private val backupRepository: BackupRepository,
     private val feedbackSettingsRepository: FeedbackSettingsRepository,
     private val eveningFeedbackScheduler: EveningFeedbackScheduler,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
     val themeMode = themeRepository.themeMode
+
+    private val _isOnline = MutableStateFlow(true)
+    val isOnline: StateFlow<Boolean> = _isOnline
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collectLatest { online ->
+                _isOnline.update { online }
+            }
+        }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
