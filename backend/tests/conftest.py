@@ -1,13 +1,15 @@
 """라우터 테스트 공통 픽스처.
 
-전제: 로컬 Postgres (네이티브 설치, 5432, conne/conne).
+전제: 로컬 Postgres (네이티브 설치, 5432, conne/conne) + 테스트 전용 DB `conne_test`.
+개발 DB(conne)를 쓰면 TRUNCATE가 개발 데이터를 지우고 테스트 잔여물이 앱에 노출되므로
+반드시 분리된 DB를 쓴다. (없으면: CREATE DATABASE conne_test OWNER conne)
 docker compose의 db(호스트 5433)를 쓸 때는 TEST_DATABASE_URL로 오버라이드.
 DATABASE_URL을 테스트용으로 강제한 뒤 앱을 import한다.
 """
 import os
 
 os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://conne:conne@localhost:5432/conne"
+    "TEST_DATABASE_URL", "postgresql://conne:conne@localhost:5432/conne_test"
 )
 
 import pytest

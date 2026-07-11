@@ -152,7 +152,9 @@ fun ShopScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 88.dp),
+                // 바텀 내비바 여백은 MainActivity가 메인 탭 전체에 이미 적용(84dp+)하므로
+                // 여기서는 일반 FAB 마진만 준다. 크게 주면 이중 패딩으로 FAB이 공중에 뜬다.
+                .padding(end = 24.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
