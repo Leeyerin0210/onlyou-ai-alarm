@@ -16,5 +16,8 @@ class Settings:
     FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
     # 벡터 기억용 PostgreSQL + pgvector (예: postgresql://user:pass@host:5432/dbname)
     DATABASE_URL = os.getenv("DATABASE_URL", "")
+    # [로컬 개발 전용] serviceAccountKey.json 없이 토큰 서명 검증을 건너뛰고
+    # JWT payload에서 uid만 추출한다. 운영에서는 절대 설정하지 말 것.
+    DEV_TRUST_TOKENS = os.getenv("DEV_TRUST_TOKENS", "").strip().lower() in ("1", "true", "yes")
 
 settings = Settings()
