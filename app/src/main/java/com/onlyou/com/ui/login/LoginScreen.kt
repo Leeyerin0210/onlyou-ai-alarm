@@ -92,6 +92,9 @@ private sealed interface LoginSubScreen {
 // ──────────────────────────────────────────────────────
 // 진입점: LoginScreen (내부 상태 관리)
 // ──────────────────────────────────────────────────────
+// 필수 동의(약관·개인정보·만14세) 완료 여부 저장 키
+const val PREF_LEGAL_CONSENT = "legal_consent_v1"
+
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
@@ -102,9 +105,33 @@ fun LoginScreen(
     var subScreen by remember { mutableStateOf<LoginSubScreen>(LoginSubScreen.Login) }
     // 어떤 버튼이 로딩 중인지 추적 ("login", "google" 등)
     var loadingSource by remember { mutableStateOf<String?>(null) }
+    var showConsentDialog by remember { mutableStateOf(false) }
+    val prefs = remember { context.getSharedPreferences("miya_prefs", Context.MODE_PRIVATE) }
 
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    // 로그인(=가입) 전에 이용약관·개인정보 수집 동의와 만 14세 확인을 먼저 받는다
+    val startGoogleSignIn: (String) -> Unit = { source ->
+        if (prefs.getBoolean(PREF_LEGAL_CONSENT, false)) {
+            loadingSource = source
+            viewModel.signInWithGoogle(context)
+        } else {
+            showConsentDialog = true
+        }
+    }
+
+    if (showConsentDialog) {
+        com.onlyou.com.ui.legal.ConsentDialog(
+            onAgree = {
+                prefs.edit().putBoolean(PREF_LEGAL_CONSENT, true).apply()
+                showConsentDialog = false
+                loadingSource = "google"
+                viewModel.signInWithGoogle(context)
+            },
+            onDismiss = { showConsentDialog = false },
+        )
+    }
 
     LaunchedEffect(uiState) {
         val state = uiState
@@ -142,14 +169,8 @@ fun LoginScreen(
                     LoginContent(
                         uiState = uiState,
                         loadingSource = loadingSource,
-                        onLoginClick = {
-                            loadingSource = "login"
-                            viewModel.signInWithGoogle(context)
-                        },
-                        onGoogleSignInClick = {
-                            loadingSource = "google"
-                            viewModel.signInWithGoogle(context)
-                        },
+                        onLoginClick = { startGoogleSignIn("login") },
+                        onGoogleSignInClick = { startGoogleSignIn("google") },
                         onAppleSignInClick = {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
@@ -627,7 +648,24 @@ fun SignUpContent(
     var passwordConfirm by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var passwordConfirmVisible by remember { mutableStateOf(false) }
+    // 필수 동의: 만 14세 확인 / 이용약관 / 개인정보 수집·이용 (각각 구분해서 받는다)
+    var over14 by remember { mutableStateOf(false) }
     var termsAgreed by remember { mutableStateOf(false) }
+    var privacyAgreed by remember { mutableStateOf(false) }
+    var viewingDocument by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    viewingDocument?.let { (title, body) ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { viewingDocument = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            com.onlyou.com.ui.legal.LegalDocumentScreen(
+                title = title,
+                body = body,
+                onBack = { viewingDocument = null },
+            )
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -749,29 +787,34 @@ fun SignUpContent(
                     .padding(start = 4.dp, top = 4.dp, bottom = 16.dp)
             )
 
-            // ─── 이용약관 동의 ───
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            // ─── 필수 동의 (만 14세 / 이용약관 / 개인정보 수집·이용) ───
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(colors.surfaceA)
-                    .clickable { termsAgreed = !termsAgreed }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
             ) {
-                Checkbox(
+                com.onlyou.com.ui.legal.ConsentRow(
+                    checked = over14,
+                    onCheckedChange = { over14 = it },
+                    label = "(필수) 만 14세 이상입니다",
+                )
+                com.onlyou.com.ui.legal.ConsentRow(
                     checked = termsAgreed,
                     onCheckedChange = { termsAgreed = it },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = colors.primary,
-                        uncheckedColor = colors.neutral,
-                    ),
+                    label = "(필수) 서비스 이용약관 동의",
+                    onViewClick = {
+                        viewingDocument = "서비스 이용약관" to com.onlyou.com.ui.legal.LegalTexts.TERMS_OF_SERVICE
+                    },
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.signup_terms),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceA,
+                com.onlyou.com.ui.legal.ConsentRow(
+                    checked = privacyAgreed,
+                    onCheckedChange = { privacyAgreed = it },
+                    label = "(필수) 개인정보 수집·이용 동의",
+                    onViewClick = {
+                        viewingDocument = "개인정보 처리방침" to com.onlyou.com.ui.legal.LegalTexts.PRIVACY_POLICY
+                    },
                 )
             }
 
@@ -787,7 +830,7 @@ fun SignUpContent(
                     containerColor = colors.primary,
                     contentColor = Color.White,
                 ),
-                enabled = termsAgreed &&
+                enabled = over14 && termsAgreed && privacyAgreed &&
                     name.isNotBlank() && !isNameError &&
                     email.isNotBlank() && !isEmailError &&
                     password.isNotBlank() && !isPasswordError &&

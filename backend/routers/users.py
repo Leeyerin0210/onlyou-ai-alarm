@@ -36,3 +36,29 @@ async def put_me(body: UserProfileIn, uid: str = Depends(get_uid)):
             (uid, body.displayName, body.email, body.photoUrl),
         )
     return {"ok": True}
+
+
+@router.delete("/me")
+async def delete_me(uid: str = Depends(get_uid)):
+    """회원 탈퇴: 서버에 저장된 해당 사용자의 개인정보를 모두 파기한다.
+
+    개인정보보호법 제21조(개인정보의 파기) 대응 — 프로필, 백업(대화/기억/일정),
+    일정, 본인이 만든 페르소나 및 그 음성 참조 파일까지 삭제한다.
+    """
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM personas WHERE creator_id = %s", (uid,))
+        persona_ids = [r[0] for r in cur.fetchall()]
+
+        # 음성 참조 파일은 DB 밖(디스크/스토리지)에 있어 개별 삭제. 실패해도 탈퇴는 진행.
+        for pid in persona_ids:
+            try:
+                from services.voice_service import voice_engine
+                voice_engine.delete_reference(pid)
+            except Exception as e:
+                print(f"delete_me: voice reference cleanup failed for {pid}: {e}")
+
+        cur.execute("DELETE FROM personas WHERE creator_id = %s", (uid,))
+        cur.execute("DELETE FROM schedules WHERE user_id = %s", (uid,))
+        cur.execute("DELETE FROM backups WHERE user_id = %s", (uid,))
+        cur.execute("DELETE FROM users WHERE uid = %s", (uid,))
+    return {"ok": True}

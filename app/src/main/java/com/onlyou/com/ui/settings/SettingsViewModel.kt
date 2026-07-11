@@ -1,8 +1,10 @@
 package com.onlyou.com.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
+import com.onlyou.com.domain.repository.AuthRepository
 import com.onlyou.com.domain.repository.BackupRepository
 import com.onlyou.com.domain.repository.FeedbackSettingsRepository
 import com.onlyou.com.domain.repository.ThemeMode
@@ -17,6 +19,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed interface DeleteAccountState {
+    object Idle : DeleteAccountState
+    object Loading : DeleteAccountState
+    object Success : DeleteAccountState
+    data class Error(val message: String) : DeleteAccountState
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val themeRepository: ThemeRepository,
@@ -24,6 +33,7 @@ class SettingsViewModel @Inject constructor(
     private val feedbackSettingsRepository: FeedbackSettingsRepository,
     private val eveningFeedbackScheduler: EveningFeedbackScheduler,
     private val networkMonitor: NetworkMonitor,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
     val themeMode = themeRepository.themeMode
 
@@ -80,6 +90,22 @@ class SettingsViewModel @Inject constructor(
             if (feedbackSettingsRepository.settings.value.enabled) {
                 eveningFeedbackScheduler.schedule(hour, minute, ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE)
             }
+        }
+    }
+
+    private val _deleteAccountState = MutableStateFlow<DeleteAccountState>(DeleteAccountState.Idle)
+    val deleteAccountState: StateFlow<DeleteAccountState> = _deleteAccountState
+
+    fun deleteAccount(context: Context) {
+        if (_deleteAccountState.value == DeleteAccountState.Loading) return
+        viewModelScope.launch {
+            _deleteAccountState.value = DeleteAccountState.Loading
+            authRepository.deleteAccount(context)
+                .onSuccess { _deleteAccountState.value = DeleteAccountState.Success }
+                .onFailure {
+                    _deleteAccountState.value =
+                        DeleteAccountState.Error(it.message ?: "탈퇴 처리에 실패했습니다.")
+                }
         }
     }
 }

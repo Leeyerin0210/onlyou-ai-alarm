@@ -25,10 +25,35 @@ import com.onlyou.com.ui.theme.MiyaTheme
 fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateTo: (String) -> Unit,
+    onAccountDeleted: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val colors = MiyaTheme.colors
     val currentThemeMode by viewModel.themeMode.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val deleteAccountState by viewModel.deleteAccountState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(deleteAccountState) {
+        when (val state = deleteAccountState) {
+            is DeleteAccountState.Success -> {
+                showDeleteDialog = false
+                onAccountDeleted()
+            }
+            is DeleteAccountState.Error -> {
+                android.widget.Toast.makeText(context, state.message, android.widget.Toast.LENGTH_LONG).show()
+            }
+            else -> {}
+        }
+    }
+
+    if (showDeleteDialog) {
+        DeleteAccountDialog(
+            isLoading = deleteAccountState == DeleteAccountState.Loading,
+            onConfirm = { viewModel.deleteAccount(context) },
+            onDismiss = { showDeleteDialog = false },
+        )
+    }
 
     Column(
         Modifier
@@ -47,6 +72,7 @@ fun SettingsScreen(
             item { SettingsSectionTitle("계정") }
             item { SettingsRowItem(Icons.Default.PersonOutline, "프로필 관리", onClick = { onNavigateTo("drawer_profile") }) }
             item { SettingsRowItem(Icons.Default.Lock, "계정 및 보안", onClick = { /* TODO */ }) }
+            item { SettingsRowItem(Icons.Default.PersonRemove, "회원 탈퇴", onClick = { showDeleteDialog = true }) }
             item { Spacer(Modifier.height(16.dp)) }
 
             item { SettingsSectionTitle("알림 설정") }
@@ -94,6 +120,47 @@ fun SettingsScreen(
             item { SettingsRowItem(Icons.Default.Info, "앱 정보", "v1.2.0 >", onClick = { onNavigateTo("settings_app_info") }) }
         }
     }
+}
+
+@Composable
+private fun DeleteAccountDialog(
+    isLoading: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        containerColor = colors.surfaceA,
+        title = { Text("회원 탈퇴", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
+        text = {
+            Text(
+                "탈퇴하면 계정과 함께 서버에 저장된 대화, 기억, 일정, " +
+                    "직접 만든 페르소나와 음성 데이터가 모두 삭제되며 복구할 수 없어요.\n\n" +
+                    "정말 탈퇴하시겠어요?",
+                color = colors.neutral,
+                fontSize = 14.sp,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isLoading) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = colors.primary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("탈퇴하기", color = androidx.compose.ui.graphics.Color(0xFFFF5252))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text("취소", color = colors.neutral)
+            }
+        },
+    )
 }
 
 @Composable

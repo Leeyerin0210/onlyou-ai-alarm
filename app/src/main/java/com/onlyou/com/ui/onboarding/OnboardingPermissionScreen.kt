@@ -34,7 +34,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 
 enum class PermissionType {
-    NOTIFICATION, EXACT_ALARM, FULL_SCREEN_INTENT, LOCATION
+    NOTIFICATION, EXACT_ALARM, FULL_SCREEN_INTENT
 }
 
 data class PermissionPageItem(
@@ -119,23 +119,6 @@ fun OnboardingPermissionScreen(
             )
         }
 
-        // 4. 위치 권한 (날씨용)
-        val isLocGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!isLocGranted) {
-            list.add(
-                PermissionPageItem(
-                    type = PermissionType.LOCATION,
-                    badgeTextRes = R.string.permission_badge_location,
-                    iconEmoji = "📍",
-                    titleRes = R.string.permission_location_title,
-                    descRes = R.string.permission_location_desc,
-                    reasonIconEmoji = "🌦️",
-                    reasonTextRes = R.string.permission_location_reason,
-                    buttonTextRes = R.string.permission_btn_next
-                )
-            )
-        }
-
         list
     }
 
@@ -210,9 +193,6 @@ fun OnboardingPermissionScreen(
                             } else {
                                 onNextOrSkip()
                             }
-                        }
-                        PermissionType.LOCATION -> {
-                            permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
                         }
                         PermissionType.EXACT_ALARM -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

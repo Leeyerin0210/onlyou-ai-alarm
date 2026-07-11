@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 에뮬레이터(10.0.2.2) 로컬 백엔드 접속용. release 빌드에는 병합되지 않아 HTTPS만 허용된다. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

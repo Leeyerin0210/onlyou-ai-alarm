@@ -24,6 +24,7 @@ class AuthRepositoryImpl
         private val firebaseAuth: FirebaseAuth,
         private val credentialManager: CredentialManager,
         private val api: com.onlyou.com.data.remote.MiyaApiService,
+        private val database: com.onlyou.com.data.local.MiyaDatabase,
     ) : AuthRepository {
         override val currentUser: Flow<FirebaseUser?> = callbackFlow {
             val listener = FirebaseAuth.AuthStateListener { auth ->
@@ -33,35 +34,44 @@ class AuthRepositoryImpl
             awaitClose { firebaseAuth.removeAuthStateListener(listener) }
         }
 
+        // 구글 로그인/재인증에 공통으로 쓰이는 AuthCredential 획득
+        private suspend fun getGoogleAuthCredential(context: Context): com.google.firebase.auth.AuthCredential? {
+            val rawNonce = UUID.randomUUID().toString()
+            val bytes = rawNonce.toByteArray()
+            val md = MessageDigest.getInstance("SHA-256")
+            val digest = md.digest(bytes)
+            val hashedNonce = digest.fold("") { str, it -> str + "%02x".format(it) }
+
+            // Strings.xml에서 Web Client ID를 가져옵니다 (google-services.json 에서 자동 생성되거나 수동 입력)
+            val webClientId = context.getString(com.onlyou.com.R.string.google_web_client_id)
+
+            val googleIdOption = GetGoogleIdOption
+                .Builder()
+                .setFilterByAuthorizedAccounts(false)
+                .setServerClientId(webClientId)
+                .setNonce(hashedNonce)
+                .build()
+
+            val request = GetCredentialRequest
+                .Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            val result = credentialManager.getCredential(context = context, request = request)
+            val credential = result.credential
+
+            return if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
+            } else {
+                null
+            }
+        }
+
         override suspend fun signInWithGoogle(context: Context): Result<FirebaseUser> =
             try {
-                val rawNonce = UUID.randomUUID().toString()
-                val bytes = rawNonce.toByteArray()
-                val md = MessageDigest.getInstance("SHA-256")
-                val digest = md.digest(bytes)
-                val hashedNonce = digest.fold("") { str, it -> str + "%02x".format(it) }
-
-                // Strings.xml에서 Web Client ID를 가져옵니다 (google-services.json 에서 자동 생성되거나 수동 입력)
-                val webClientId = context.getString(com.onlyou.com.R.string.google_web_client_id)
-
-                val googleIdOption = GetGoogleIdOption
-                    .Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(webClientId)
-                    .setNonce(hashedNonce)
-                    .build()
-
-                val request = GetCredentialRequest
-                    .Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-
-                val result = credentialManager.getCredential(context = context, request = request)
-                val credential = result.credential
-
-                if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                    val authCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
+                val authCredential = getGoogleAuthCredential(context)
+                if (authCredential != null) {
                     val authResult = firebaseAuth.signInWithCredential(authCredential).await()
 
                     authResult.user?.let { user ->
@@ -82,7 +92,7 @@ class AuthRepositoryImpl
                         Result.success(user)
                     } ?: Result.failure(Exception("Firebase Sign-In failed: Null user"))
                 } else {
-                    Result.failure(Exception("Unexpected credential type: \${credential.type}"))
+                    Result.failure(Exception("Unexpected credential type"))
                 }
             } catch (e: Exception) {
                 Result.failure(e)
@@ -91,4 +101,35 @@ class AuthRepositoryImpl
         override suspend fun signOut() {
             firebaseAuth.signOut()
         }
+
+        override suspend fun deleteAccount(context: Context): Result<Unit> =
+            try {
+                val user = firebaseAuth.currentUser
+                    ?: throw IllegalStateException("로그인 상태가 아닙니다.")
+
+                // 1. 서버 개인정보 파기 (실패하면 탈퇴 중단 — 서버에 데이터가 남으면 안 됨)
+                val response = api.deleteMe()
+                if (!response.isSuccessful) {
+                    throw Exception("서버 데이터 삭제 실패 (HTTP ${response.code()})")
+                }
+
+                // 2. Firebase 계정 삭제. 최근 로그인 필요 오류 시 구글 재인증 후 재시도
+                try {
+                    user.delete().await()
+                } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+                    val credential = getGoogleAuthCredential(context)
+                        ?: throw Exception("재인증에 실패했습니다.")
+                    user.reauthenticate(credential).await()
+                    user.delete().await()
+                }
+
+                // 3. 기기에 남은 개인 데이터(대화/기억/일정/페르소나) 삭제
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    database.clearAllTables()
+                }
+                firebaseAuth.signOut()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
     }

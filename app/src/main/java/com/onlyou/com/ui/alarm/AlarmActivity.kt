@@ -1,9 +1,7 @@
 package com.onlyou.com.ui.alarm
 
-import android.Manifest
 import android.app.KeyguardManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -43,9 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
-import com.google.android.gms.location.LocationServices
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.WeatherInfo
@@ -55,7 +51,6 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -156,34 +151,13 @@ class AlarmActivity : ComponentActivity() {
                         }
                     }
 
-                    // 만약 일정에 장소가 없거나, 장소 날씨 조회에 모두 실패했다면 GPS 사용
+                    // 일정에 장소가 없거나 장소 날씨 조회에 모두 실패하면 기본 지역 사용
+                    // (위치정보법상 위치기반서비스 신고 의무를 피하기 위해 기기 위치는 수집하지 않는다)
                     if (fetchedWeathers.isEmpty()) {
-                        var lat = 37.5665
-                        var lon = 126.9780
-                        var finalLocationName = "서울시 강남구"
-
-                        if (ContextCompat.checkSelfPermission(
-                                this@AlarmActivity,
-                                Manifest.permission.ACCESS_COARSE_LOCATION,
-                            ) == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            try {
-                                val locationClient =
-                                    LocationServices.getFusedLocationProviderClient(this@AlarmActivity)
-                                val location = locationClient.lastLocation.await()
-                                if (location != null) {
-                                    lat = location.latitude
-                                    lon = location.longitude
-                                    finalLocationName = "현재 위치"
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                        val result = weatherRepository.getCurrentWeather(lat, lon)
+                        val result = weatherRepository.getCurrentWeather(37.5665, 126.9780)
                         if (result.isSuccess) {
                             val w = result.getOrNull()!!
-                            fetchedWeathers.add(w.copy(locationName = finalLocationName))
+                            fetchedWeathers.add(w.copy(locationName = "서울"))
                         }
                     }
 

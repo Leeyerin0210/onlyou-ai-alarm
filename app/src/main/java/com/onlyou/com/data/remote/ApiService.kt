@@ -82,6 +82,10 @@ interface MiyaApiService {
     @retrofit2.http.PUT("users/me")
     suspend fun putMe(@Body body: UserProfilePutDto): Response<Unit>
 
+    // 회원 탈퇴: 서버에 저장된 내 개인정보(프로필/백업/일정/페르소나) 전체 파기
+    @DELETE("users/me")
+    suspend fun deleteMe(): Response<Unit>
+
     // Schedules
     @retrofit2.http.GET("schedules")
     suspend fun getSchedules(): List<ScheduleDto>

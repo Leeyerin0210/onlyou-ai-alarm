@@ -341,6 +341,11 @@ class MainActivity : ComponentActivity() {
                                             SettingsScreen(
                                                 onBack = { currentScreen = "chat" },
                                                 onNavigateTo = { route -> currentScreen = route },
+                                                onAccountDeleted = {
+                                                    // 다음 사용자를 위해 온보딩/동의 상태 초기화
+                                                    prefs.edit().clear().apply()
+                                                    currentScreen = "login"
+                                                },
                                             )
                                         }
 
@@ -387,9 +392,26 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         screenState == "settings_app_info" -> {
-                                            AppInfoScreen(onBack = {
-                                                currentScreen = "settings"
-                                            })
+                                            AppInfoScreen(
+                                                onBack = { currentScreen = "settings" },
+                                                onNavigateTo = { route -> currentScreen = route },
+                                            )
+                                        }
+
+                                        screenState == "legal_terms" -> {
+                                            com.onlyou.com.ui.legal.LegalDocumentScreen(
+                                                title = "서비스 이용약관",
+                                                body = com.onlyou.com.ui.legal.LegalTexts.TERMS_OF_SERVICE,
+                                                onBack = { currentScreen = "settings_app_info" },
+                                            )
+                                        }
+
+                                        screenState == "legal_privacy" -> {
+                                            com.onlyou.com.ui.legal.LegalDocumentScreen(
+                                                title = "개인정보 처리방침",
+                                                body = com.onlyou.com.ui.legal.LegalTexts.PRIVACY_POLICY,
+                                                onBack = { currentScreen = "settings_app_info" },
+                                            )
                                         }
 
                                         screenState == "login" -> {

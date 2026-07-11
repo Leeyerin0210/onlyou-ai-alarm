@@ -37,7 +37,6 @@
     <string name="signup_email_hint">이메일 주소</string>
     <string name="signup_password_hint">비밀번호 (8자 이상)</string>
     <string name="signup_password_confirm_hint">비밀번호 확인</string>
-    <string name="signup_terms">이용약관 및 개인정보 처리방침에 동의합니다.</string>
     <string name="signup_button">가입하기</string>
     <string name="signup_already_have_account">이미 계정이 있으신가요? <b>로그인</b></string>
     <string name="coming_soon">준비 중인 기능입니다.</string>
@@ -73,13 +72,9 @@
     <string name="permission_fullscreen_title">전체 화면 알림 권한이\n필요해요</string>
     <string name="permission_fullscreen_desc">알람이 울릴 때 화면을 깨워서\n보여드리려면 \'전체 화면 인텐트\' 권한이\n필요해요. 설정에서 권한을 허용해주세요.</string>
     <string name="permission_fullscreen_reason">권한을 허용해야\n알람 화면이 정상적으로 표시돼요.</string>
-    <string name="permission_location_title">위치 권한이 필요해요</string>
-    <string name="permission_location_desc">정확한 날씨와 위치 기반 정보를\n제공하기 위해 위치 권한이 필요해요.\n다음 화면에서 \'허용\'을 선택해주세요.</string>
-    <string name="permission_location_reason">권한을 허용해야 현재 위치의\n날씨를 정확하게 알려드려요.</string>
     <string name="permission_badge_noti">알림 권한 요청 (Android 13 이상)</string>
     <string name="permission_badge_alarm">정확한 알람 권한 필요</string>
     <string name="permission_badge_fullscreen">전체 화면 인텐트 권한 (Android 14 이상)</string>
-    <string name="permission_badge_location">위치 권한 요청</string>
     <string name="permission_btn_next">다음</string>
     <string name="permission_btn_settings">설정으로 이동</string>
     <string name="permission_btn_later">나중에 하기</string>

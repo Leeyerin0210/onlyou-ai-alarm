@@ -81,7 +81,6 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     implementation(libs.androidx.material3)
-    implementation(libs.play.services.location)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
@@ -115,9 +114,6 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
-
-    // Location
-    implementation("com.google.android.gms:play-services-location:21.0.1")
 
     // 루팅 탐지 (상업용 보이스 보호)
     implementation("com.scottyab:rootbeer-lib:0.1.2")

@@ -390,7 +390,10 @@ fun BriefingPreviewScreen(onBack: () -> Unit) {
 
 // 8. 앱 정보
 @Composable
-fun AppInfoScreen(onBack: () -> Unit) {
+fun AppInfoScreen(
+    onBack: () -> Unit,
+    onNavigateTo: (String) -> Unit = {},
+) {
     val colors = MiyaTheme.colors
     Column(Modifier.fillMaxSize().background(colors.background)) {
         com.onlyou.com.ui.components.MiyaTopAppBar("앱 정보", onBack)
@@ -402,11 +405,11 @@ fun AppInfoScreen(onBack: () -> Unit) {
             Text("버전 1.2.0", fontSize = 14.sp, color = colors.neutral)
             Spacer(Modifier.height(48.dp))
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(Modifier.fillMaxWidth().clickable { onNavigateTo("legal_terms") }.padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("서비스 이용약관", color = colors.onSurfaceA, fontSize = 16.sp); Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
                 }
                 HorizontalDivider(color = colors.surfaceB)
-                Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(Modifier.fillMaxWidth().clickable { onNavigateTo("legal_privacy") }.padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("개인정보 처리방침", color = colors.onSurfaceA, fontSize = 16.sp); Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
                 }
                 HorizontalDivider(color = colors.surfaceB)
