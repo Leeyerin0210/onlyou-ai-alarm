@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import os
 
 from fastapi import Header, HTTPException
 from firebase_admin import auth as fb_auth
@@ -36,11 +37,16 @@ def get_uid(authorization: str = Header(default="")) -> str:
     token = authorization.split(" ", 1)[1]
 
     # [로컬 개발 전용] serviceAccountKey.json 없이 테스트할 때만 서명 검증을 건너뛴다.
-    if settings.DEV_TRUST_TOKENS:
+    if settings.DEV_TRUST_TOKENS and not os.path.exists("serviceAccountKey.json"):
         logger.warning(
             "DEV_TRUST_TOKENS 활성: 서명 검증 없이 토큰 uid를 신뢰합니다 (로컬 개발 전용)."
         )
         return _uid_from_unverified_token(token)
+    if settings.DEV_TRUST_TOKENS:
+        logger.warning(
+            "DEV_TRUST_TOKENS가 켜져 있지만 serviceAccountKey.json이 존재하여 무시하고 "
+            "실제 서명 검증을 수행합니다 (오프 misconfig 방지)."
+        )
 
     try:
         decoded = fb_auth.verify_id_token(token)

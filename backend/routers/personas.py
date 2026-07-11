@@ -82,11 +82,15 @@ async def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
 async def select_persona(persona_id: str, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
+            "SELECT 1 FROM personas WHERE id = %s AND (is_private = FALSE OR creator_id = %s)",
+            (persona_id, uid),
+        )
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="persona not found")
+        cur.execute(
             "UPDATE personas SET usage_count = usage_count + 1 WHERE id = %s",
             (persona_id,),
         )
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="persona not found")
         cur.execute(
             "INSERT INTO users (uid, selected_persona_id) VALUES (%s, %s) "
             "ON CONFLICT (uid) DO UPDATE SET selected_persona_id = EXCLUDED.selected_persona_id",

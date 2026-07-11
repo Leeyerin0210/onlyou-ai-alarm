@@ -72,3 +72,10 @@ def test_put_cannot_hijack_others_persona(client):
 
 def test_select_nonexistent_persona_404(client):
     assert client.post("/personas/nope/select").status_code == 404
+
+
+def test_select_others_private_persona_404(client):
+    from core.rdb import get_conn
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO personas (id, name, creator_id, is_private) VALUES ('sec', 'x', 'other-uid', TRUE)")
+    assert client.post("/personas/sec/select").status_code == 404

@@ -69,7 +69,6 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 
 # Firebase
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 calendar-compose = { module = "com.kizitonwose.calendar:compose", version.ref = "calendarCompose" }
