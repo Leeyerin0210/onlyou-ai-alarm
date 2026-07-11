@@ -59,6 +59,9 @@ fun ShopScreen(
         else -> uiState.filteredPersonas
     }
 
+    // FAB이 콘텐츠 위에 겹쳐 뜨도록 전체를 하나의 Box로 감싼다.
+    // (감싸지 않으면 부모 레이아웃이 콘텐츠와 FAB을 세로로 쌓아 FAB이 화면 밖으로 밀린다)
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
@@ -146,12 +149,13 @@ fun ShopScreen(
 
     // FAB — 펼침 메뉴 (내 페르소나 관리 / 새 페르소나 생성)
     if (uiState.isOnline && !uiState.isLoading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-            Column(
-                modifier = Modifier.padding(end = 24.dp, bottom = 88.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 24.dp, bottom = 88.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
                 // 확장되는 메뉴 버튼들
                 AnimatedVisibility(
                     visible = isFabExpanded,
@@ -233,7 +237,6 @@ fun ShopScreen(
                     )
                 }
             }
-        }
     }
 
     // Bottom Sheet 상세
@@ -252,6 +255,7 @@ fun ShopScreen(
                 onPlayPreview = { id, url -> viewModel.playPreview(id, url) },
             )
         }
+    }
     }
 }
 
