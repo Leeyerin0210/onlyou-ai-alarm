@@ -17,6 +17,10 @@ local.properties
 /study
 /chroma_db/chroma.sqlite3
 /backend/serviceAccountKey.json
+# 릴리스 서명 비밀 — 절대 커밋 금지
+/keystore.properties
+*.jks
+*.keystore
 /.superpowers
 /.agents
 skills-lock.json
