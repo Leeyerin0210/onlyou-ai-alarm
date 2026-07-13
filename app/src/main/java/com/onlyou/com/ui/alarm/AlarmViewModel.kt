@@ -42,8 +42,10 @@ class AlarmViewModel
             viewModelScope.launch {
                 repository.getAllAlarms().collect { alarms ->
                     if (alarms.isEmpty()) {
-                        // 기본 알람 생성 (ID=1)
-                        val defaultAlarm = MiyaAlarm(id = 1, time = LocalTime.of(7, 0))
+                        // 기본 알람 자리표시자 생성 (ID=1). 사용자가 직접 켜기 전엔 울리면 안 되므로
+                        // 반드시 꺼진 상태로 만든다. (isEnabled=true면 재부팅 시 BootReceiver가
+                        // 유령 알람을 스케줄해 사용자가 설정 안 한 알람이 울리는 버그가 됨)
+                        val defaultAlarm = MiyaAlarm(id = 1, time = LocalTime.of(7, 0), isEnabled = false)
                         repository.insertAlarm(defaultAlarm)
                         _singleAlarm.value = defaultAlarm
                     } else {
