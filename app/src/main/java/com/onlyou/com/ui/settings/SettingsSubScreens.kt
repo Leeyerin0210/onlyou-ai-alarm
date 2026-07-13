@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -305,52 +306,114 @@ fun BackupSyncScreen(
 
 // 6. 방해 금지 시간
 @Composable
-fun DndTimeScreen(onBack: () -> Unit) {
+fun DndTimeScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val colors = MiyaTheme.colors
+    val dnd by viewModel.dnd.collectAsState()
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
+    val active = dnd.enabled
+
     Column(Modifier.fillMaxSize().background(colors.background)) {
         com.onlyou.com.ui.components.MiyaTopAppBar("방해 금지 시간", onBack)
         Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text("지정된 시간에는 알림이나 브리핑을\n보내지 않아요.", color = colors.onSurfaceA, fontSize = 14.sp)
-            Spacer(Modifier.height(32.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text("시작 시간", fontSize = 12.sp, color = colors.neutral)
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA).padding(16.dp)) {
-                        Text("오후 10:00", color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("종료 시간", fontSize = 12.sp, color = colors.neutral)
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA).padding(16.dp)) {
-                        Text("오전 7:00", color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
+            // 설명 + 우측 상단 적용 토글
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Text(
+                    "지정된 시간에는 알림이나 브리핑을\n보내지 않아요.",
+                    color = colors.onSurfaceA,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = active,
+                    onCheckedChange = { viewModel.setDndEnabled(it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = colors.primary),
+                )
             }
-            Spacer(Modifier.height(24.dp))
-            Text("반복", fontSize = 12.sp, color = colors.neutral)
-            Spacer(Modifier.height(8.dp))
-            val days = listOf("일", "월", "화", "수", "목", "금", "토")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                days.forEachIndexed { index, day ->
-                    val isSelected = index in 1..5 // 월~금 선택 예시
-                    Box(
-                        Modifier.size(40.dp).clip(CircleShape).background(if (isSelected) colors.primary else colors.surfaceA).clickable { },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(day, color = if (isSelected) Color.White else colors.onSurfaceA, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+
+            Spacer(Modifier.height(32.dp))
+
+            // 켜졌을 때만 설정 가능 (꺼지면 흐리게 + 비활성)
+            Column(Modifier.alpha(if (active) 1f else 0.4f)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text("시작 시간", fontSize = 12.sp, color = colors.neutral)
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA)
+                                .clickable(enabled = active) { showStartPicker = true }.padding(16.dp),
+                        ) {
+                            Text(formatKoreanTime(dnd.startHour, dnd.startMinute), color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("종료 시간", fontSize = 12.sp, color = colors.neutral)
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA)
+                                .clickable(enabled = active) { showEndPicker = true }.padding(16.dp),
+                        ) {
+                            Text(formatKoreanTime(dnd.endHour, dnd.endMinute), color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
-            }
-            Spacer(Modifier.height(32.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("적용", fontSize = 16.sp, color = colors.onSurfaceA)
-                Switch(checked = true, onCheckedChange = {}, colors = SwitchDefaults.colors(checkedTrackColor = colors.primary))
+                Spacer(Modifier.height(24.dp))
+                Text("반복", fontSize = 12.sp, color = colors.neutral)
+                Spacer(Modifier.height(8.dp))
+                val dayLabels = listOf("일", "월", "화", "수", "목", "금", "토")
+                val dayValues = listOf(7, 1, 2, 3, 4, 5, 6) // ISO: 월=1 … 일=7
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    dayLabels.forEachIndexed { index, day ->
+                        val value = dayValues[index]
+                        val isSelected = value in dnd.days
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape)
+                                .background(if (isSelected) colors.primary else colors.surfaceA)
+                                .clickable(enabled = active) {
+                                    viewModel.setDndDays(if (isSelected) dnd.days - value else dnd.days + value)
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(day, color = if (isSelected) Color.White else colors.onSurfaceA, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
             }
         }
     }
+
+    if (showStartPicker) {
+        EveningFeedbackTimePickerDialog(
+            initialHour = dnd.startHour,
+            initialMinute = dnd.startMinute,
+            onConfirm = { h, m ->
+                viewModel.setDndTime(h, m, dnd.endHour, dnd.endMinute)
+                showStartPicker = false
+            },
+            onDismiss = { showStartPicker = false },
+        )
+    }
+    if (showEndPicker) {
+        EveningFeedbackTimePickerDialog(
+            initialHour = dnd.endHour,
+            initialMinute = dnd.endMinute,
+            onConfirm = { h, m ->
+                viewModel.setDndTime(dnd.startHour, dnd.startMinute, h, m)
+                showEndPicker = false
+            },
+            onDismiss = { showEndPicker = false },
+        )
+    }
+}
+
+private fun formatKoreanTime(hour: Int, minute: Int): String {
+    val ampm = if (hour < 12) "오전" else "오후"
+    val h12 = when (val h = hour % 12) { 0 -> 12; else -> h }
+    return String.format(java.util.Locale.US, "%s %d:%02d", ampm, h12, minute)
 }
 
 // 7. 브리핑 미리 듣기

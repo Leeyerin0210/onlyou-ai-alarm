@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
 import com.onlyou.com.domain.repository.AuthRepository
 import com.onlyou.com.domain.repository.BackupRepository
+import com.onlyou.com.domain.repository.DndSettingsRepository
 import com.onlyou.com.domain.repository.FeedbackSettingsRepository
 import com.onlyou.com.domain.repository.ThemeMode
 import com.onlyou.com.domain.repository.ThemeRepository
@@ -31,6 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val themeRepository: ThemeRepository,
     private val backupRepository: BackupRepository,
     private val feedbackSettingsRepository: FeedbackSettingsRepository,
+    private val dndSettingsRepository: DndSettingsRepository,
     private val eveningFeedbackScheduler: EveningFeedbackScheduler,
     private val networkMonitor: NetworkMonitor,
     private val authRepository: AuthRepository,
@@ -91,6 +93,20 @@ class SettingsViewModel @Inject constructor(
                 eveningFeedbackScheduler.schedule(hour, minute, ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE)
             }
         }
+    }
+
+    val dnd = dndSettingsRepository.settings
+
+    fun setDndEnabled(enabled: Boolean) {
+        viewModelScope.launch { dndSettingsRepository.setEnabled(enabled) }
+    }
+
+    fun setDndTime(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+        viewModelScope.launch { dndSettingsRepository.setTime(startHour, startMinute, endHour, endMinute) }
+    }
+
+    fun setDndDays(days: Set<Int>) {
+        viewModelScope.launch { dndSettingsRepository.setDays(days) }
     }
 
     private val _deleteAccountState = MutableStateFlow<DeleteAccountState>(DeleteAccountState.Idle)

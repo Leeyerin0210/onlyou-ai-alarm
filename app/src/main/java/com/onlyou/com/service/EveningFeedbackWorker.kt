@@ -13,9 +13,11 @@ import androidx.work.WorkerParameters
 import com.onlyou.com.MainActivity
 import com.onlyou.com.R
 import com.onlyou.com.domain.repository.ChatRepository
+import com.onlyou.com.domain.repository.DndSettingsRepository
 import com.onlyou.com.domain.repository.FeedbackSettingsRepository
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.ScheduleRepository
+import com.onlyou.com.util.isWithinDnd
 import com.onlyou.com.util.isWithinSendWindow
 import com.onlyou.com.util.occursOn
 import dagger.assisted.Assisted
@@ -31,6 +33,7 @@ class EveningFeedbackWorker @AssistedInject constructor(
     private val personaRepository: PersonaRepository,
     private val chatRepository: ChatRepository,
     private val feedbackSettingsRepository: FeedbackSettingsRepository,
+    private val dndSettingsRepository: DndSettingsRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
     companion object {
@@ -47,6 +50,12 @@ class EveningFeedbackWorker @AssistedInject constructor(
         val now = LocalDateTime.now()
         if (!isWithinSendWindow(now, settings.hour, settings.minute)) {
             android.util.Log.d(TAG, "Outside send window ($now), skipping")
+            return Result.success()
+        }
+
+        // 방해 금지 시간대면 선톡을 보내지 않는다 (사용자 알람은 영향받지 않음)
+        if (isWithinDnd(now, dndSettingsRepository.settings.value)) {
+            android.util.Log.d(TAG, "Within Do-Not-Disturb window ($now), skipping")
             return Result.success()
         }
 

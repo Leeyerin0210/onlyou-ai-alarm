@@ -167,3 +167,26 @@ interface FeedbackSettingsRepository {
 
     suspend fun setTime(hour: Int, minute: Int)
 }
+
+/**
+ * 방해 금지 시간 설정. days 는 ISO 요일값(월=1 … 일=7) 집합.
+ * 로컬(SharedPreferences)에 저장되므로 오프라인에서도 즉시 적용된다.
+ */
+data class DndSettings(
+    val enabled: Boolean = false,
+    val startHour: Int = 22,
+    val startMinute: Int = 0,
+    val endHour: Int = 7,
+    val endMinute: Int = 0,
+    val days: Set<Int> = setOf(1, 2, 3, 4, 5, 6, 7),
+)
+
+interface DndSettingsRepository {
+    val settings: StateFlow<DndSettings>
+
+    suspend fun setEnabled(enabled: Boolean)
+
+    suspend fun setTime(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int)
+
+    suspend fun setDays(days: Set<Int>)
+}

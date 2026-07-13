@@ -86,6 +86,12 @@ abstract class RepositoryModule {
     abstract fun bindFeedbackSettingsRepository(
         feedbackSettingsRepositoryImpl: com.onlyou.com.data.repository.FeedbackSettingsRepositoryImpl,
     ): com.onlyou.com.domain.repository.FeedbackSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDndSettingsRepository(
+        dndSettingsRepositoryImpl: com.onlyou.com.data.repository.DndSettingsRepositoryImpl,
+    ): com.onlyou.com.domain.repository.DndSettingsRepository
 }
 
 @Module
