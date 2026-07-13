@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,7 +35,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 
 enum class PermissionType {
-    NOTIFICATION, EXACT_ALARM, FULL_SCREEN_INTENT
+    NOTIFICATION, EXACT_ALARM, BATTERY_OPTIMIZATION, FULL_SCREEN_INTENT
 }
 
 data class PermissionPageItem(
@@ -98,7 +99,27 @@ fun OnboardingPermissionScreen(
             }
         }
 
-        // 3. 전체 화면 인텐트 권한 (Android 14+)
+        // 3. 배터리 최적화 예외 (Doze/OEM 앱 강제종료로 알람이 씹히는 것 방지)
+        run {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val isIgnoring = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+            if (!isIgnoring) {
+                list.add(
+                    PermissionPageItem(
+                        type = PermissionType.BATTERY_OPTIMIZATION,
+                        badgeTextRes = R.string.permission_badge_battery,
+                        iconEmoji = "🔋",
+                        titleRes = R.string.permission_battery_title,
+                        descRes = R.string.permission_battery_desc,
+                        reasonIconEmoji = "😴",
+                        reasonTextRes = R.string.permission_battery_reason,
+                        buttonTextRes = R.string.permission_btn_battery
+                    )
+                )
+            }
+        }
+
+        // 4. 전체 화면 인텐트 권한 (Android 14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             // NotificationManager.canUseFullScreenIntent() is preferred, but for simplicity we check settings intent applicability
             // In Android 14, apps need this granted. Let's just prompt if we don't have it or can't be sure.
@@ -202,6 +223,21 @@ fun OnboardingPermissionScreen(
                                 settingsLauncher.launch(intent)
                             } else {
                                 onNextOrSkip()
+                            }
+                        }
+                        PermissionType.BATTERY_OPTIMIZATION -> {
+                            // 직접 요청 다이얼로그(허용/거부). 미지원 기기는 배터리 설정 목록으로 폴백.
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                settingsLauncher.launch(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    settingsLauncher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                } catch (e2: Exception) {
+                                    onNextOrSkip()
+                                }
                             }
                         }
                         PermissionType.FULL_SCREEN_INTENT -> {

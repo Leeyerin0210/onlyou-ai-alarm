@@ -1,5 +1,12 @@
 package com.onlyou.com.ui.settings
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -79,6 +86,7 @@ fun SettingsScreen(
             item { SettingsRowItem(Icons.Default.NotificationsNone, "푸시 알림", onClick = { /* TODO */ }) }
             item { SettingsRowItem(Icons.Default.Campaign, "브리핑 알림", onClick = { onNavigateTo("settings_briefing") }) }
             item { SettingsRowItem(Icons.Default.DoNotDisturb, "방해 금지 시간", onClick = { onNavigateTo("settings_dnd") }) }
+            item { BatteryOptimizationRow() }
             item {
                 val feedback by viewModel.eveningFeedback.collectAsState()
                 var showTimePicker by remember { mutableStateOf(false) }
@@ -196,6 +204,60 @@ fun SettingsRowItem(
         if (trailingText != null) {
             Text(trailingText, fontSize = 14.sp, color = colors.neutral)
         } else {
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+fun BatteryOptimizationRow() {
+    val colors = MiyaTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+
+    fun isIgnoringNow() = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+    var isIgnoring by remember { mutableStateOf(isIgnoringNow()) }
+
+    // 시스템 설정에서 돌아오면 최신 상태로 갱신
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { isIgnoring = isIgnoringNow() }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isIgnoring) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    launcher.launch(intent)
+                } catch (e: Exception) {
+                    // 직접 요청을 지원하지 않는 기기는 배터리 설정 목록으로 유도
+                    try {
+                        launcher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.BatteryChargingFull, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("배터리 최적화", fontSize = 16.sp, color = colors.onSurfaceA)
+            Text(
+                text = if (isIgnoring) "알람이 안정적으로 울려요" else "켜져 있으면 알람이 안 울릴 수 있어요",
+                fontSize = 12.sp,
+                color = colors.neutral,
+            )
+        }
+        if (isIgnoring) {
+            Text("제한 없음", fontSize = 14.sp, color = colors.primary)
+        } else {
+            Text("최적화 중", fontSize = 14.sp, color = androidx.compose.ui.graphics.Color(0xFFFF5252))
+            Spacer(modifier = Modifier.width(4.dp))
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(20.dp))
         }
     }
