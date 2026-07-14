@@ -1,10 +1,16 @@
 import re
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from core.ai import client, model_id
+from core.rate_limit import check_rate_limit
+from core.security import get_uid
 from models.schemas import AlarmScriptRequest, AlarmScriptResponse
 
-router = APIRouter(prefix="/alarm", tags=["alarm"])
+# LLM 스크립트 생성도 비용이 나가므로 인증 필수
+router = APIRouter(prefix="/alarm", tags=["alarm"], dependencies=[Depends(get_uid)])
+
+# 정상 사용은 하루 몇 회 수준 (알람 선생성 + 실시간 폴백)
+SCRIPT_DAILY_LIMIT = 30
 
 def build_prompt(request: AlarmScriptRequest, mem_str: str) -> str:
     return f"""
@@ -39,7 +45,8 @@ def build_prompt(request: AlarmScriptRequest, mem_str: str) -> str:
     """
 
 @router.post("/script", response_model=AlarmScriptResponse)
-async def generate_alarm_script(request: AlarmScriptRequest):
+async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     prompt = build_prompt(request, mem_str)
     
@@ -53,7 +60,8 @@ async def generate_alarm_script(request: AlarmScriptRequest):
     return AlarmScriptResponse(chunks=chunks)
 
 @router.post("/script/stream")
-async def generate_alarm_script_stream(request: AlarmScriptRequest):
+async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     async def event_generator():
         prompt = build_prompt(request, mem_str)

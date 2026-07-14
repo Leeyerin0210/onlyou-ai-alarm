@@ -290,16 +290,26 @@ fun AlarmScreenContent(
                             requireOverlayPermission saveGate@{
                             if (currentPersonaId != null) {
                                 val now = LocalDateTime.now()
-                                val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-                                val minMinutes = if (isDebug) 1L else 60L
                                 var targetDate: LocalDate? = null
 
-                                if (repeatDays.isEmpty()) {
-                                    val scheduledDateTime = LocalDateTime.of(now.toLocalDate(), time)
-                                    if (Duration.between(now, scheduledDateTime).toMinutes() < minMinutes) {
+                                // 다음 울림 시각 계산 — 이미 지난 시각이면 다음 날로 (일반 알람 관례).
+                                // 촉박한 알람도 그대로 제시간에 울리되, AI 음성이 준비 안 될 수 있음을 안내한다.
+                                val nextRing: LocalDateTime = if (repeatDays.isEmpty()) {
+                                    var candidate = LocalDateTime.of(now.toLocalDate(), time)
+                                    if (!candidate.isAfter(now)) {
                                         targetDate = now.toLocalDate().plusDays(1)
+                                        candidate = candidate.plusDays(1)
                                     }
+                                    candidate
+                                } else {
+                                    var candidate = LocalDateTime.of(now.toLocalDate(), time)
+                                    while (!candidate.isAfter(now) || !repeatDays.contains(candidate.dayOfWeek)) {
+                                        candidate = candidate.plusDays(1)
+                                    }
+                                    candidate
                                 }
+                                val isCloseToNow = Duration.between(now, nextRing).toMinutes() < 60
+
                                 try {
                                     onSaveAlarm(
                                         time,
@@ -309,7 +319,15 @@ fun AlarmScreenContent(
                                         targetDate,
                                         isWeatherEnabled,
                                     )
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("알람 설정이 저장되었습니다.") }
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (isCloseToNow) {
+                                                "알람이 저장되었습니다. 시간이 촉박해 AI 음성 준비가 늦으면 기본 알람음으로 울려요."
+                                            } else {
+                                                "알람 설정이 저장되었습니다."
+                                            },
+                                        )
+                                    }
                                 } catch (e: Exception) {
                                     coroutineScope.launch { snackbarHostState.showSnackbar("설정 저장 중 오류가 발생했습니다.") }
                                 }

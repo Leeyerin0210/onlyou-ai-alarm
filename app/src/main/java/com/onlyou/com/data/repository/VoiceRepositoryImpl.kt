@@ -232,6 +232,23 @@ class VoiceRepositoryImpl
         ): Boolean =
             withContext(Dispatchers.IO) {
                 runCatching {
+                    // 남용 방어: 최근에 같은 페르소나로 만든 캐시가 살아있으면 재생성하지 않는다.
+                    // (알람 시간을 반복해서 바꾸면 저장할 때마다 GPU 합성이 돌던 문제)
+                    val prefs = context.getSharedPreferences("voice_pregen_prefs", Context.MODE_PRIVATE)
+                    val lastGeneratedAt = prefs.getLong("alarm_${alarmId}_generated_at", 0L)
+                    val lastPersonaId = prefs.getString("alarm_${alarmId}_persona", null)
+                    val freshWindowMs = 60L * 60L * 1000L // 1시간
+                    if (lastPersonaId == persona.id &&
+                        System.currentTimeMillis() - lastGeneratedAt < freshWindowMs &&
+                        alarmVoiceChunkDao.getChunksForAlarm(alarmId).isNotEmpty()
+                    ) {
+                        android.util.Log.d(
+                            "VoiceRepository",
+                            "Fresh cache exists for alarm $alarmId (persona ${persona.id}); skipping regeneration",
+                        )
+                        return@runCatching true
+                    }
+
                     val today = LocalDate.now()
 
                     // 1. 최근 메모리 로드
@@ -357,6 +374,12 @@ class VoiceRepositoryImpl
                             }
                         }
                     }
+
+                    // 신선도 기록 (다음 재생성 판단용)
+                    prefs.edit()
+                        .putLong("alarm_${alarmId}_generated_at", System.currentTimeMillis())
+                        .putString("alarm_${alarmId}_persona", persona.id)
+                        .apply()
                     true
                 }.getOrElse {
                     it.printStackTrace()

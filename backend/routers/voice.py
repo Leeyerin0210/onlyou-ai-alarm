@@ -1,14 +1,21 @@
 import base64
 import asyncio
-from fastapi import APIRouter, Request, Response, HTTPException
+from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from services.voice_service import voice_engine
 from models.schemas import VoiceSynthesizeRequest, VoiceCloneRequest
 from core.ai import client, model_id
+from core.rate_limit import check_rate_limit
+from core.security import get_uid
 
-router = APIRouter(prefix="/voice", tags=["voice"])
+# GPU 합성은 실비용이 나가므로 전 라우트 인증 필수 + 합성 계열은 일일 한도 적용
+router = APIRouter(prefix="/voice", tags=["voice"], dependencies=[Depends(get_uid)])
+
+# 알람 선생성 1회당 청크 3~6개 합성 → 100회면 정상 사용엔 넉넉하고 남용만 걸린다
+VOICE_DAILY_LIMIT = 100
 
 @router.post("/synthesize")
-async def synthesize_voice(request: VoiceSynthesizeRequest):
+async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "voice", VOICE_DAILY_LIMIT)
     try:
         translated = request.instruct
         if request.instruct.strip():
@@ -32,7 +39,8 @@ async def save_voice_reference(persona_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/clone")
-async def clone_voice(request: VoiceCloneRequest):
+async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "voice", VOICE_DAILY_LIMIT)
     try:
         audio = await voice_engine.synthesize_clone(request.text, request.persona_id)
         return Response(content=audio, media_type="audio/wav")

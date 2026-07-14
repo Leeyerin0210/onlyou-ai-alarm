@@ -48,9 +48,11 @@ class AlarmScheduler
                 scheduledTime = LocalDateTime.of(alarm.date, alarm.time)
                 if (scheduledTime.isBefore(now)) return
             } else if (alarm.repeatDays.isNotEmpty()) {
-                // 요일 반복: 해당 요일 중 1시간 이상 남은 가장 가까운 날
+                // 요일 반복: 아직 안 지난 가장 가까운 해당 요일.
+                // (과거엔 1시간 버퍼로 당일 회차를 다음 날로 건너뛰었는데, 사용자가 방금 맞춘
+                //  알람이 말없이 안 울리는 버그였다. 촉박하면 실시간 음성 생성 폴백이 감당한다.)
                 var nextTime = scheduledTime
-                while (nextTime.isBefore(now.plusHours(1)) || !alarm.repeatDays.contains(nextTime.dayOfWeek)) {
+                while (nextTime.isBefore(now.plusMinutes(1)) || !alarm.repeatDays.contains(nextTime.dayOfWeek)) {
                     nextTime = nextTime.plusDays(1)
                 }
                 scheduledTime = nextTime
