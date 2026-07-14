@@ -178,6 +178,16 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 알람 화면이 실제로 떴음을 서비스에 알림 → 불필요한 헤드업 배너를 내린다
+        startService(
+            Intent(this, AlarmService::class.java).apply {
+                action = AlarmService.ACTION_ALARM_UI_VISIBLE
+            },
+        )
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(AlarmService.EXTRA_AI_SCRIPT)?.let {

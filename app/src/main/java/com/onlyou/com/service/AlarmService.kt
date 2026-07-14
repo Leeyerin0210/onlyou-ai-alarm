@@ -28,8 +28,10 @@ import com.onlyou.com.util.RootCheckUtil
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,10 +66,18 @@ class AlarmService :
     
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // 알람 화면(AlarmActivity)이 실제로 떠 있는지. 떠 있으면 헤드업 배너를 띄울 필요가 없다.
+    private var isRinging = false
+    private var uiVisible = false
+    private var fsiFallbackJob: Job? = null
+
     companion object {
-        const val CHANNEL_ID = "alarm_channel"
+        const val CHANNEL_ID = "alarm_channel" // 헤드업/전체화면용 (IMPORTANCE_HIGH)
+        const val SILENT_CHANNEL_ID = "alarm_ongoing_channel" // 상주 알림용 (배너 안 뜸)
         const val NOTIFICATION_ID = 1001
+        const val FSI_NOTIFICATION_ID = 1002
         const val ACTION_STOP_ALARM = "com.onlyou.com.STOP_ALARM"
+        const val ACTION_ALARM_UI_VISIBLE = "com.onlyou.com.ALARM_UI_VISIBLE"
         const val ACTION_UPDATE_SCRIPT = "com.onlyou.com.UPDATE_SCRIPT"
         const val EXTRA_ALARM_ID = "ALARM_ID"
         const val EXTRA_ALARM_TITLE = "ALARM_TITLE"
@@ -123,18 +133,54 @@ class AlarmService :
             return START_NOT_STICKY
         }
 
+        // 알람 화면이 떴다는 신호: 헤드업 배너가 필요 없어졌으므로 내린다
+        if (intent?.action == ACTION_ALARM_UI_VISIBLE) {
+            if (!isRinging) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            uiVisible = true
+            fsiFallbackJob?.cancel()
+            getSystemService(NotificationManager::class.java).cancel(FSI_NOTIFICATION_ID)
+            return START_NOT_STICKY
+        }
+
         val alarmId = intent?.getIntExtra(EXTRA_ALARM_ID, -1) ?: -1
         val alarmTitle = intent?.getStringExtra(EXTRA_ALARM_TITLE) ?: "알람"
         val personaId = intent?.getStringExtra(EXTRA_PERSONA_ID) ?: ""
 
+        isRinging = true
+        uiVisible = false
+
         // ① Foreground Service를 먼저 시작 (Android 14+에서 백그라운드 Activity 실행 허용 전제조건)
-        startForeground(NOTIFICATION_ID, buildNotification(alarmTitle, alarmId))
+        //    상주 알림은 조용한 채널 → 알람 화면 위에 헤드업 배너가 겹치지 않는다
+        startForeground(NOTIFICATION_ID, buildOngoingNotification(alarmTitle, alarmId))
 
         // ② 소리/진동 즉시 시작
         startVibration()
         playSystemAlarmSound()
 
-        // ③ AlarmActivity를 즉시 실행 (Foreground Service 시작 후에 호출해야 Android 14+에서 동작)
+        // ③ 전체화면/헤드업 알림은 '알람 화면을 직접 못 띄우는 상황'에서만 사용
+        //    - 잠금/꺼짐: 즉시 게시 → 시스템이 fullScreenIntent로 알람 화면을 띄움
+        //    - 사용 중: 직접 실행이 먼저 성공하면 배너 불필요. 1.5초 내 화면이 안 뜨면
+        //      (다른 앱 사용 중 등으로 직접 실행이 차단된 경우) 헤드업으로 폴백
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+        val screenInUse = pm.isInteractive && !keyguard.isKeyguardLocked
+        if (!screenInUse) {
+            getSystemService(NotificationManager::class.java)
+                .notify(FSI_NOTIFICATION_ID, buildFullScreenNotification(alarmTitle, alarmId))
+        } else {
+            fsiFallbackJob = serviceScope.launch {
+                delay(1500)
+                if (!uiVisible && isRinging) {
+                    getSystemService(NotificationManager::class.java)
+                        .notify(FSI_NOTIFICATION_ID, buildFullScreenNotification(alarmTitle, alarmId))
+                }
+            }
+        }
+
+        // ④ AlarmActivity를 즉시 실행 (Foreground Service 시작 후에 호출해야 Android 14+에서 동작)
         launchAlarmActivity(alarmId, alarmTitle, personaId, script = null)
 
         // ④ AI 스크립트 생성 후 Activity에 추가 업데이트
@@ -319,12 +365,15 @@ class AlarmService :
     }
 
     private fun stopAlarm() {
+        isRinging = false
+        fsiFallbackJob?.cancel()
         releaseMediaPlayer()
         tts?.stop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
         }
         vibrator?.cancel()
+        getSystemService(NotificationManager::class.java).cancel(FSI_NOTIFICATION_ID)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -337,34 +386,56 @@ class AlarmService :
         mediaPlayer = null
     }
 
-    private fun buildNotification(
-        title: String,
-        alarmId: Int,
-    ): Notification {
-        // 알람 끄기 (Notification 액션)
+    private fun stopPendingIntent(alarmId: Int): PendingIntent {
         val stopIntent = Intent(this, AlarmService::class.java).apply {
             action = ACTION_STOP_ALARM
         }
-        val stopPendingIntent = PendingIntent.getService(
+        return PendingIntent.getService(
             this,
             alarmId,
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+    }
 
-        // 알람 화면으로 이동 (탭 시 / fullScreenIntent)
+    private fun alarmActivityPendingIntent(title: String, alarmId: Int): PendingIntent {
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
             putExtra(EXTRA_ALARM_ID, alarmId)
             putExtra(EXTRA_ALARM_TITLE, title)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val fullScreenPendingIntent = PendingIntent.getActivity(
+        return PendingIntent.getActivity(
             this,
             alarmId + 1000,
             fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+    }
 
+    /** 상주 알림 (조용한 채널) — 배너 없이 상태바에만 표시. Foreground Service 유지용. */
+    private fun buildOngoingNotification(
+        title: String,
+        alarmId: Int,
+    ): Notification =
+        NotificationCompat
+            .Builder(this, SILENT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_alarm_notification)
+            .setContentTitle(title)
+            .setContentText("알람이 울리고 있습니다. 탭해서 끄세요.")
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(alarmActivityPendingIntent(title, alarmId))
+            .addAction(0, "알람 끄기", stopPendingIntent(alarmId))
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .build()
+
+    /** 전체화면/헤드업 알림 — 알람 화면을 직접 못 띄우는 상황(잠금·다른 앱)에서만 게시. */
+    private fun buildFullScreenNotification(
+        title: String,
+        alarmId: Int,
+    ): Notification {
+        val contentPendingIntent = alarmActivityPendingIntent(title, alarmId)
         return NotificationCompat
             .Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_alarm_notification)
@@ -373,26 +444,37 @@ class AlarmService :
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(fullScreenPendingIntent) // 탭 시 AlarmActivity
-            .setFullScreenIntent(fullScreenPendingIntent, true) // 잠금화면/백그라운드에서 강제 표시
-            .addAction(0, "알람 끄기", stopPendingIntent)
+            .setContentIntent(contentPendingIntent) // 탭 시 AlarmActivity
+            .setFullScreenIntent(contentPendingIntent, true) // 잠금화면/백그라운드에서 강제 표시
+            .addAction(0, "알람 끄기", stopPendingIntent(alarmId))
             .setAutoCancel(false)
-            .setOngoing(true)
             .build()
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "알람",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = "알람 알림 채널"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            setBypassDnd(true)
-        }
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                "알람",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "알람 알림 채널"
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
+            },
+        )
+        // 알람 화면이 이미 떠 있을 때 쓰는 조용한 상주 채널 — 헤드업 배너를 만들지 않는다
+        manager.createNotificationChannel(
+            NotificationChannel(
+                SILENT_CHANNEL_ID,
+                "알람 진행 중",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "알람이 울리는 동안 상태바에 표시되는 알림"
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            },
+        )
     }
 
     override fun onDestroy() {
