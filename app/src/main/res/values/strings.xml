@@ -72,20 +72,11 @@
     <string name="permission_fullscreen_title">전체 화면 알림 권한이\n필요해요</string>
     <string name="permission_fullscreen_desc">알람이 울릴 때 화면을 깨워서\n보여드리려면 \'전체 화면 인텐트\' 권한이\n필요해요. 설정에서 권한을 허용해주세요.</string>
     <string name="permission_fullscreen_reason">권한을 허용해야\n알람 화면이 정상적으로 표시돼요.</string>
-    <string name="permission_battery_title">배터리 최적화를\n꺼주세요</string>
-    <string name="permission_battery_desc">일부 휴대폰은 안 쓰는 앱을 잠재워\n알람이 울리지 않을 수 있어요.\n\'제한 없음\'으로 설정해주세요.</string>
-    <string name="permission_battery_reason">배터리 최적화를 꺼두지 않으면\n앱이 잠들어 알람이\n울리지 않을 수 있어요.</string>
-    <string name="permission_overlay_title">다른 앱 위에 표시를\n허용해주세요</string>
-    <string name="permission_overlay_desc">다른 앱을 쓰는 중에도 알람 화면이\n바로 뜨려면 \'다른 앱 위에 표시\'\n권한이 필요해요.</string>
-    <string name="permission_overlay_reason">권한이 없으면 다른 앱 사용 중엔\n알람 화면이 자동으로 뜨지 않아요.</string>
     <string name="permission_badge_noti">알림 권한 요청 (Android 13 이상)</string>
     <string name="permission_badge_alarm">정확한 알람 권한 필요</string>
     <string name="permission_badge_fullscreen">전체 화면 인텐트 권한 (Android 14 이상)</string>
-    <string name="permission_badge_battery">배터리 최적화 예외 권장</string>
-    <string name="permission_badge_overlay">알람 화면 표시 권한</string>
     <string name="permission_btn_next">다음</string>
     <string name="permission_btn_settings">설정으로 이동</string>
-    <string name="permission_btn_battery">배터리 최적화 끄기</string>
     <string name="permission_btn_later">나중에 하기</string>
     <string name="permission_bottom_info">권한은 언제든지 설정 > 앱 > %1$s > 권한에서 변경할 수 있어요.</string>
 

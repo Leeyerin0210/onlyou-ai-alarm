@@ -642,6 +642,8 @@ fun SignUpContent(
     onLoginClick: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("miya_prefs", Context.MODE_PRIVATE) }
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -821,7 +823,12 @@ fun SignUpContent(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = onSignUpComplete,
+                onClick = {
+                    // 여기서 이미 만14세/약관/개인정보 동의를 받았으므로 로컬에 기록해,
+                    // 같은 기기에서 나중에 구글 로그인을 시도해도 동의를 또 묻지 않게 한다.
+                    prefs.edit().putBoolean(PREF_LEGAL_CONSENT, true).apply()
+                    onSignUpComplete()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
