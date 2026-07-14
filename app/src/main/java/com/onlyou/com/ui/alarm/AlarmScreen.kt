@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,8 +27,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
@@ -122,6 +126,69 @@ fun AlarmScreenContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
+    // '다른 앱 위에 표시' 권한 게이트 — 없으면 알람을 켤 수 없다.
+    // (권한이 없으면 다른 앱 사용 중 알람 화면이 자동으로 뜨지 못하기 때문)
+    var showOverlayDialog by remember { mutableStateOf(false) }
+    var pendingEnableAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val overlayLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (Settings.canDrawOverlays(context)) {
+            pendingEnableAction?.invoke()
+        } else {
+            coroutineScope.launch { snackbarHostState.showSnackbar("권한이 허용되지 않아 알람을 켤 수 없어요.") }
+        }
+        pendingEnableAction = null
+    }
+
+    fun requireOverlayPermission(action: () -> Unit) {
+        if (Settings.canDrawOverlays(context)) {
+            action()
+        } else {
+            pendingEnableAction = action
+            showOverlayDialog = true
+        }
+    }
+
+    if (showOverlayDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showOverlayDialog = false
+                pendingEnableAction = null
+            },
+            containerColor = colors.surfaceA,
+            title = { Text("알람 화면 표시 권한", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "다른 앱을 쓰는 중에도 알람 화면이 바로 뜨려면 '다른 앱 위에 표시' 권한이 필요해요.\n\n" +
+                        "다음 화면에서 온리유를 허용해주세요.",
+                    color = colors.neutral,
+                    fontSize = 14.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showOverlayDialog = false
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        "package:${context.packageName}".toUri(),
+                    )
+                    overlayLauncher.launch(intent)
+                }) {
+                    Text("설정으로 이동", color = colors.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showOverlayDialog = false
+                    pendingEnableAction = null
+                }) {
+                    Text("취소", color = colors.neutral)
+                }
+            },
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -167,7 +234,13 @@ fun AlarmScreenContent(
 
                 Switch(
                     checked = singleAlarm?.isEnabled == true,
-                    onCheckedChange = { onToggleAlarm(it) },
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            requireOverlayPermission { onToggleAlarm(true) }
+                        } else {
+                            onToggleAlarm(false)
+                        }
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = colors.background,
                         checkedTrackColor = colors.primary,
@@ -213,6 +286,8 @@ fun AlarmScreenContent(
 
                     Button(
                         onClick = {
+                            // 저장은 알람을 켜는 행위(isEnabled=true)이므로 오버레이 권한이 선행돼야 한다
+                            requireOverlayPermission saveGate@{
                             if (currentPersonaId != null) {
                                 val now = LocalDateTime.now()
                                 val isDebug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -240,6 +315,7 @@ fun AlarmScreenContent(
                                 }
                             } else {
                                 coroutineScope.launch { snackbarHostState.showSnackbar("페르소나 정보가 없어 저장할 수 없습니다.") }
+                            }
                             }
                         },
                         modifier = Modifier

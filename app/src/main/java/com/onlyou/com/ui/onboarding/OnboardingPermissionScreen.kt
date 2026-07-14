@@ -35,7 +35,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 
 enum class PermissionType {
-    NOTIFICATION, EXACT_ALARM, BATTERY_OPTIMIZATION, FULL_SCREEN_INTENT
+    NOTIFICATION, EXACT_ALARM, OVERLAY, BATTERY_OPTIMIZATION, FULL_SCREEN_INTENT
 }
 
 data class PermissionPageItem(
@@ -99,7 +99,23 @@ fun OnboardingPermissionScreen(
             }
         }
 
-        // 3. 배터리 최적화 예외 (Doze/OEM 앱 강제종료로 알람이 씹히는 것 방지)
+        // 3. 다른 앱 위에 표시 (다른 앱 사용 중에도 알람 화면을 즉시 띄우기 위함)
+        if (!Settings.canDrawOverlays(context)) {
+            list.add(
+                PermissionPageItem(
+                    type = PermissionType.OVERLAY,
+                    badgeTextRes = R.string.permission_badge_overlay,
+                    iconEmoji = "🖥️",
+                    titleRes = R.string.permission_overlay_title,
+                    descRes = R.string.permission_overlay_desc,
+                    reasonIconEmoji = "🚀",
+                    reasonTextRes = R.string.permission_overlay_reason,
+                    buttonTextRes = R.string.permission_btn_settings
+                )
+            )
+        }
+
+        // 4. 배터리 최적화 예외 (Doze/OEM 앱 강제종료로 알람이 씹히는 것 방지)
         run {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             val isIgnoring = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
@@ -119,7 +135,7 @@ fun OnboardingPermissionScreen(
             }
         }
 
-        // 4. 전체 화면 인텐트 권한 (Android 14+)
+        // 5. 전체 화면 인텐트 권한 (Android 14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             // NotificationManager.canUseFullScreenIntent() is preferred, but for simplicity we check settings intent applicability
             // In Android 14, apps need this granted. Let's just prompt if we don't have it or can't be sure.
@@ -224,6 +240,12 @@ fun OnboardingPermissionScreen(
                             } else {
                                 onNextOrSkip()
                             }
+                        }
+                        PermissionType.OVERLAY -> {
+                            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            settingsLauncher.launch(intent)
                         }
                         PermissionType.BATTERY_OPTIMIZATION -> {
                             // 직접 요청 다이얼로그(허용/거부). 미지원 기기는 배터리 설정 목록으로 폴백.
