@@ -106,18 +106,30 @@ fun LoginScreen(
     // 어떤 버튼이 로딩 중인지 추적 ("login", "google" 등)
     var loadingSource by remember { mutableStateOf<String?>(null) }
     var showConsentDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var verificationEmail by remember { mutableStateOf("") }
     val prefs = remember { context.getSharedPreferences("miya_prefs", Context.MODE_PRIVATE) }
 
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // 로그인(=가입) 전에 이용약관·개인정보 수집 동의와 만 14세 확인을 먼저 받는다
+    // 구글 로그인은 가입을 겸하므로, 최초 1회 약관·개인정보·만 14세 동의를 먼저 받는다
     val startGoogleSignIn: (String) -> Unit = { source ->
         if (prefs.getBoolean(PREF_LEGAL_CONSENT, false)) {
             loadingSource = source
             viewModel.signInWithGoogle(context)
         } else {
             showConsentDialog = true
+        }
+    }
+
+    // 이메일 로그인 (동의는 가입 시점에 이미 받았으므로 게이트 없음)
+    val startEmailSignIn: (String, String) -> Unit = { email, password ->
+        if (email.isBlank() || password.isBlank()) {
+            coroutineScope.launch { snackbarHostState.showSnackbar("이메일과 비밀번호를 입력해주세요.") }
+        } else {
+            loadingSource = "login"
+            viewModel.signInWithEmail(email, password)
         }
     }
 
@@ -133,6 +145,23 @@ fun LoginScreen(
         )
     }
 
+    if (showResetDialog) {
+        PasswordResetDialog(
+            onSend = { email ->
+                showResetDialog = false
+                viewModel.sendPasswordReset(email)
+            },
+            onDismiss = { showResetDialog = false },
+        )
+    }
+
+    // 일회성 안내 메시지 (인증 대기, 재발송, 재설정 메일 등)
+    LaunchedEffect(Unit) {
+        viewModel.messages.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
+
     LaunchedEffect(uiState) {
         val state = uiState
         when (state) {
@@ -140,9 +169,15 @@ fun LoginScreen(
                 onLoginSuccess()
             }
 
+            is LoginState.VerificationRequired -> {
+                loadingSource = null
+                verificationEmail = state.email
+                subScreen = LoginSubScreen.EmailVerification
+            }
+
             is LoginState.Error -> {
                 loadingSource = null
-                coroutineScope.launch { snackbarHostState.showSnackbar("로그인에 실패했습니다.") }
+                coroutineScope.launch { snackbarHostState.showSnackbar(state.message) }
             }
 
             is LoginState.Idle -> {
@@ -169,7 +204,7 @@ fun LoginScreen(
                     LoginContent(
                         uiState = uiState,
                         loadingSource = loadingSource,
-                        onLoginClick = { startGoogleSignIn("login") },
+                        onLoginClick = { email, password -> startEmailSignIn(email, password) },
                         onGoogleSignInClick = { startGoogleSignIn("google") },
                         onAppleSignInClick = {
                             coroutineScope.launch {
@@ -190,30 +225,31 @@ fun LoginScreen(
                             }
                         },
                         onSignUpClick = { subScreen = LoginSubScreen.SignUp },
-                        onForgotPasswordClick = {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    context.getString(
-                                        R.string.coming_soon,
-                                    ),
-                                )
-                            }
-                        },
+                        onForgotPasswordClick = { showResetDialog = true },
                     )
                 }
 
                 is LoginSubScreen.SignUp -> {
                     SignUpContent(
+                        isLoading = uiState is LoginState.Loading,
                         onBackClick = { subScreen = LoginSubScreen.Login },
-                        onSignUpComplete = { subScreen = LoginSubScreen.EmailVerification },
+                        onSignUpSubmit = { name, email, password ->
+                            viewModel.signUpWithEmail(name, email, password)
+                        },
                         onLoginClick = { subScreen = LoginSubScreen.Login },
                     )
                 }
 
                 is LoginSubScreen.EmailVerification -> {
                     EmailVerificationContent(
-                        onBackClick = { subScreen = LoginSubScreen.SignUp },
-                        onConfirmClick = { onLoginSuccess() },
+                        email = verificationEmail,
+                        onBackClick = {
+                            // 미인증 세션을 정리해 유령 로그인 상태를 막는다
+                            viewModel.abandonVerification()
+                            subScreen = LoginSubScreen.Login
+                        },
+                        onConfirmClick = { viewModel.confirmEmailVerified() },
+                        onResendClick = { viewModel.resendVerificationEmail() },
                     )
                 }
             }
@@ -233,7 +269,7 @@ fun LoginScreen(
 fun LoginContent(
     uiState: LoginState,
     loadingSource: String?,
-    onLoginClick: () -> Unit,
+    onLoginClick: (String, String) -> Unit,
     onGoogleSignInClick: () -> Unit,
     onAppleSignInClick: () -> Unit,
     onKakaoSignInClick: () -> Unit,
@@ -245,7 +281,6 @@ fun LoginContent(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var rememberMe by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -299,29 +334,13 @@ fun LoginContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ─── 로그인 유지 + 비밀번호 찾기 ───
+            // ─── 비밀번호 찾기 ───
+            // (로그인 세션은 기본으로 유지되므로 별도의 '로그인 유지' 옵션은 두지 않는다)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        checked = rememberMe,
-                        onCheckedChange = { rememberMe = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = colors.primary,
-                            uncheckedColor = colors.neutral,
-                        ),
-                    )
-                    Text(
-                        text = stringResource(R.string.login_remember_me),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.neutral,
-                    )
-                }
                 TextButton(onClick = onForgotPasswordClick) {
                     Text(
                         text = stringResource(R.string.login_forgot_password),
@@ -335,7 +354,7 @@ fun LoginContent(
 
             // ─── 로그인 버튼 ───
             Button(
-                onClick = onLoginClick,
+                onClick = { onLoginClick(email, password) },
                 enabled = !isAnyLoading,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -438,17 +457,17 @@ fun LoginContent(
 // ──────────────────────────────────────────────────────
 @Composable
 fun EmailVerificationContent(
+    email: String,
     onBackClick: () -> Unit,
     onConfirmClick: () -> Unit,
+    onResendClick: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
-    val otpLength = 6
-    val otpValues = remember { Array(otpLength) { mutableStateOf("") } }
     var remainingSeconds by remember { mutableStateOf(45) }
-    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        while (remainingSeconds > 0) {
+    // 재발송 쿨다운 타이머
+    LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds > 0) {
             delay(1000L)
             remainingSeconds--
         }
@@ -493,122 +512,65 @@ fun EmailVerificationContent(
                 color = colors.neutral,
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // ─── OTP 입력 박스 6개 ───
+            // ─── 발송 대상 이메일 + 안내 ───
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(colors.surfaceA)
+                    .padding(20.dp),
+            ) {
+                Text(
+                    text = "📮  $email",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "위 주소로 인증 메일을 보냈어요.\n메일함에서 링크를 누르면 인증이 완료돼요.\n\n메일이 안 보이면 스팸함도 확인해주세요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.neutral,
+                    lineHeight = 22.sp,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ─── 재발송 (쿨다운) ───
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                repeat(otpLength) { index ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(64.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (otpValues[index].value.isNotEmpty()) {
-                                    colors.primary.copy(alpha = 0.15f)
-                                } else {
-                                    colors.surfaceA
-                                },
-                            ).border(
-                                width = 1.5.dp,
-                                color = if (otpValues[index].value.isNotEmpty()) {
-                                    colors.primary
-                                } else {
-                                    colors.surfaceB
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                if (remainingSeconds > 0) {
+                    val mm = remainingSeconds / 60
+                    val ss = remainingSeconds % 60
+                    Text(
+                        text = "${stringResource(R.string.email_verify_resend)}  %02d:%02d".format(mm, ss),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.neutral,
+                    )
+                } else {
+                    TextButton(onClick = {
+                        onResendClick()
+                        remainingSeconds = 45
+                    }) {
                         Text(
-                            text = otpValues[index].value,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = colors.onSurfaceA,
+                            text = stringResource(R.string.email_verify_resend),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.primary,
                             fontWeight = FontWeight.Bold,
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ─── 재전송 타이머 ───
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${stringResource(R.string.email_verify_resend)}  ",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.neutral,
-                )
-                val mm = remainingSeconds / 60
-                val ss = remainingSeconds % 60
-                Text(
-                    text = "%02d:%02d".format(mm, ss),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // ─── 숫자 키패드 (간이 구현) ───
-            val digits = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫")
-            var currentIndex = otpValues
-                .indexOfFirst { it.value.isEmpty() }
-                .let { if (it == -1) otpLength - 1 else it }
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                digits.chunked(3).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        row.forEach { digit ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(60.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(
-                                        if (digit.isEmpty()) Color.Transparent else colors.surfaceA,
-                                    ).clickable(enabled = digit.isNotEmpty()) {
-                                        val idx = otpValues.indexOfFirst { it.value.isEmpty() }
-                                        if (digit == "⌫") {
-                                            val lastFilled =
-                                                otpValues.indexOfLast { it.value.isNotEmpty() }
-                                            if (lastFilled >= 0) otpValues[lastFilled].value = ""
-                                        } else if (idx >= 0) {
-                                            otpValues[idx].value = digit
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (digit.isNotEmpty()) {
-                                    Text(
-                                        text = digit,
-                                        style = MaterialTheme.typography.headlineMedium.copy(
-                                            fontSize = 22.sp,
-                                        ),
-                                        color = colors.onSurfaceA,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.weight(1f))
 
-            // ─── 확인 버튼 ───
+            // ─── 인증 완료 확인 버튼 ───
             Button(
                 onClick = onConfirmClick,
                 modifier = Modifier
@@ -633,12 +595,61 @@ fun EmailVerificationContent(
 }
 
 // ──────────────────────────────────────────────────────
+// 비밀번호 재설정 다이얼로그
+// ──────────────────────────────────────────────────────
+@Composable
+private fun PasswordResetDialog(
+    onSend: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    var email by remember { mutableStateOf("") }
+    val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surfaceA,
+        title = { Text("비밀번호 재설정", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "가입한 이메일 주소를 입력하면\n재설정 링크를 보내드려요.",
+                    color = colors.neutral,
+                    fontSize = 14.sp,
+                )
+                Spacer(Modifier.height(16.dp))
+                MiyaOutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    placeholder = stringResource(R.string.login_email_hint),
+                    keyboardType = KeyboardType.Email,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSend(email) },
+                enabled = isEmailValid,
+            ) {
+                Text("메일 보내기", color = if (isEmailValid) colors.primary else colors.neutral)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소", color = colors.neutral)
+            }
+        },
+    )
+}
+
+// ──────────────────────────────────────────────────────
 // 4. 회원가입 화면
 // ──────────────────────────────────────────────────────
 @Composable
 fun SignUpContent(
+    isLoading: Boolean = false,
     onBackClick: () -> Unit,
-    onSignUpComplete: () -> Unit,
+    onSignUpSubmit: (name: String, email: String, password: String) -> Unit,
     onLoginClick: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
@@ -827,7 +838,7 @@ fun SignUpContent(
                     // 여기서 이미 만14세/약관/개인정보 동의를 받았으므로 로컬에 기록해,
                     // 같은 기기에서 나중에 구글 로그인을 시도해도 동의를 또 묻지 않게 한다.
                     prefs.edit().putBoolean(PREF_LEGAL_CONSENT, true).apply()
-                    onSignUpComplete()
+                    onSignUpSubmit(name, email, password)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -836,18 +847,28 @@ fun SignUpContent(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.primary,
                     contentColor = Color.White,
+                    disabledContainerColor = colors.primary.copy(alpha = 0.6f),
+                    disabledContentColor = Color.White.copy(alpha = 0.7f),
                 ),
-                enabled = over14 && termsAgreed && privacyAgreed &&
+                enabled = !isLoading && over14 && termsAgreed && privacyAgreed &&
                     name.isNotBlank() && !isNameError &&
                     email.isNotBlank() && !isEmailError &&
                     password.isNotBlank() && !isPasswordError &&
                     passwordConfirm.isNotBlank() && !isPasswordConfirmError,
             ) {
-                Text(
-                    text = stringResource(R.string.signup_button),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(22.dp),
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.signup_button),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -1135,7 +1156,7 @@ fun LoginContentPreview() {
         LoginContent(
             uiState = LoginState.Idle,
             loadingSource = null,
-            onLoginClick = {},
+            onLoginClick = { _, _ -> },
             onGoogleSignInClick = {},
             onAppleSignInClick = {},
             onKakaoSignInClick = {},
@@ -1152,7 +1173,7 @@ fun LoginContentLoadingPreview() {
         LoginContent(
             uiState = LoginState.Loading,
             loadingSource = "google",
-            onLoginClick = {},
+            onLoginClick = { _, _ -> },
             onGoogleSignInClick = {},
             onAppleSignInClick = {},
             onKakaoSignInClick = {},
@@ -1167,8 +1188,10 @@ fun LoginContentLoadingPreview() {
 fun EmailVerificationContentPreview() {
     MiyaTheme {
         EmailVerificationContent(
+            email = "you@example.com",
             onBackClick = {},
             onConfirmClick = {},
+            onResendClick = {},
         )
     }
 }
@@ -1179,7 +1202,7 @@ fun SignUpContentPreview() {
     MiyaTheme {
         SignUpContent(
             onBackClick = {},
-            onSignUpComplete = {},
+            onSignUpSubmit = { _, _, _ -> },
             onLoginClick = {},
         )
     }

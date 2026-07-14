@@ -68,6 +68,23 @@ class AuthRepositoryImpl
             }
         }
 
+        // 프로필 기록 실패해도 로그인 세션 자체는 성공으로 간주해 앱 진입 허용
+        private suspend fun recordProfileBestEffort(user: FirebaseUser) {
+            try {
+                kotlinx.coroutines.withTimeout(5000L) {
+                    api.putMe(
+                        com.onlyou.com.data.remote.UserProfilePutDto(
+                            displayName = user.displayName ?: "User",
+                            email = user.email ?: "",
+                            photoUrl = user.photoUrl?.toString() ?: "",
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         override suspend fun signInWithGoogle(context: Context): Result<FirebaseUser> =
             try {
                 val authCredential = getGoogleAuthCredential(context)
@@ -75,25 +92,94 @@ class AuthRepositoryImpl
                     val authResult = firebaseAuth.signInWithCredential(authCredential).await()
 
                     authResult.user?.let { user ->
-                        try {
-                            // 프로필 기록 실패해도 로그인 세션 자체는 성공으로 간주해 앱 진입 허용
-                            kotlinx.coroutines.withTimeout(5000L) {
-                                api.putMe(
-                                    com.onlyou.com.data.remote.UserProfilePutDto(
-                                        displayName = user.displayName ?: "User",
-                                        email = user.email ?: "",
-                                        photoUrl = user.photoUrl?.toString() ?: "",
-                                    ),
-                                )
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
+                        recordProfileBestEffort(user)
                         Result.success(user)
                     } ?: Result.failure(Exception("Firebase Sign-In failed: Null user"))
                 } else {
                     Result.failure(Exception("Unexpected credential type"))
                 }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+
+        override suspend fun signUpWithEmail(
+            name: String,
+            email: String,
+            password: String,
+        ): Result<FirebaseUser> =
+            try {
+                val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+                val user = authResult.user ?: throw Exception("계정 생성에 실패했습니다.")
+
+                // 표시 이름 설정 (실패해도 가입 자체는 유효)
+                try {
+                    user.updateProfile(
+                        com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                            .setDisplayName(name)
+                            .build(),
+                    ).await()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                user.sendEmailVerification().await()
+                Result.success(user)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+
+        override suspend fun signInWithEmail(
+            email: String,
+            password: String,
+        ): Result<FirebaseUser> =
+            try {
+                val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
+                val user = authResult.user ?: throw Exception("로그인에 실패했습니다.")
+
+                if (!user.isEmailVerified) {
+                    // 인증 화면에서 바로 확인할 수 있도록 메일을 재발송해 준다 (실패 무시)
+                    try {
+                        user.sendEmailVerification().await()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    Result.failure(com.onlyou.com.domain.repository.EmailNotVerifiedException())
+                } else {
+                    recordProfileBestEffort(user)
+                    Result.success(user)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+
+        override suspend fun reloadAndCheckEmailVerified(): Result<Boolean> =
+            try {
+                val user = firebaseAuth.currentUser
+                    ?: throw IllegalStateException("로그인 상태가 아닙니다.")
+                user.reload().await()
+                val verified = firebaseAuth.currentUser?.isEmailVerified == true
+                if (verified) {
+                    firebaseAuth.currentUser?.let { recordProfileBestEffort(it) }
+                }
+                Result.success(verified)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+
+        override suspend fun resendVerificationEmail(): Result<Unit> =
+            try {
+                val user = firebaseAuth.currentUser
+                    ?: throw IllegalStateException("로그인 상태가 아닙니다.")
+                user.sendEmailVerification().await()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+
+        override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
+            try {
+                firebaseAuth.sendPasswordResetEmail(email).await()
+                Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
             }

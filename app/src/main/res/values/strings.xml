@@ -26,9 +26,9 @@
 
     <!-- 이메일 인증 -->
     <string name="email_verify_title">이메일 인증</string>
-    <string name="email_verify_subtitle">입력하신 이메일로 인증 코드를 보냈어요.</string>
-    <string name="email_verify_resend">코드 재전송</string>
-    <string name="email_verify_confirm">확인</string>
+    <string name="email_verify_subtitle">메일함에서 인증 링크를 눌러주세요.</string>
+    <string name="email_verify_resend">인증 메일 다시 보내기</string>
+    <string name="email_verify_confirm">인증을 완료했어요</string>
 
     <!-- 회원가입 -->
     <string name="signup_title">새 계정 만들기</string>

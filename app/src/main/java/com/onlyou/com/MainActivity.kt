@@ -265,7 +265,17 @@ class MainActivity : ComponentActivity() {
                                                 // first()로 AuthStateListener의 첫 콜백을 실제로 기다려야
                                                 // 스플래시 라우팅이 진짜 로그인 상태를 근거로 결정된다.
                                                 val resolvedUser = authRepository.currentUser.first()
-                                                if (resolvedUser != null) {
+                                                // 이메일 가입 후 인증을 마치지 않은 세션은 로그인으로 취급하지 않는다
+                                                // (구글 로그인은 isEmailVerified=true라 영향 없음)
+                                                val isVerifiedUser = resolvedUser != null &&
+                                                    (
+                                                        resolvedUser.isEmailVerified ||
+                                                            resolvedUser.providerData.none { it.providerId == "password" }
+                                                    )
+                                                if (resolvedUser != null && !isVerifiedUser) {
+                                                    authRepository.signOut()
+                                                }
+                                                if (isVerifiedUser) {
                                                     // 라우팅이 결정되기 전에 스플래시를 내리면 빈 화면이 보이므로
                                                     // 여기서 동기적으로 기다리되, 네트워크 지연에 대비해 타임아웃을 둔다.
                                                     try {
