@@ -35,8 +35,8 @@ def test_buckets_and_users_are_isolated():
     check_rate_limit("u2", "voice", 3)
 
 
-def test_voice_and_alarm_require_auth():
-    """토큰 없이 호출하면 비싼 생성 로직에 닿기 전에 401로 차단돼야 한다."""
+def test_sensitive_routes_require_auth():
+    """토큰 없이 호출하면 비싼 생성/개인정보 로직에 닿기 전에 401로 차단돼야 한다."""
     from main import app
 
     # get_uid 오버라이드 없는 순수 클라이언트 (conftest의 client 픽스처와 달리 인증 실제 동작)
@@ -55,3 +55,13 @@ def test_voice_and_alarm_require_auth():
         ).status_code
         == 401
     )
+    # 개인정보(기억) 관련 라우트도 무인증 차단
+    assert (
+        client.post(
+            "/chat/stream",
+            json={"system_prompt": "s", "history": [], "message": "안녕"},
+        ).status_code
+        == 401
+    )
+    assert client.delete("/memory/clear").status_code == 401
+    assert client.get("/weather/", params={"location": "서울"}).status_code == 401

@@ -41,13 +41,20 @@ class PgMemoryCollection:
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         cur.execute(
             f"CREATE TABLE IF NOT EXISTS user_memories ("
-            f"id TEXT PRIMARY KEY, document TEXT NOT NULL, "
+            f"id TEXT PRIMARY KEY, uid TEXT, document TEXT NOT NULL, "
             f"metadata JSONB, embedding vector({dim}))"
         )
+        # 기존 배포 테이블(uid 컬럼 없음) 호환: 없으면 추가.
+        # 기존 무주공산 기억은 uid=NULL이라 어떤 사용자 조회에도 걸리지 않는다(격리 안전 기본값).
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS uid TEXT")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid ON user_memories (uid)")
 
-    def add(self, documents, metadatas=None, ids=None):
+    def add(self, uid, documents, metadatas=None, ids=None):
         if not self.dsn:
             print("Memory add skipped: DATABASE_URL not configured")
+            return
+        if not uid:
+            print("Memory add skipped: missing uid")
             return
         embeddings = _embed(documents)
         dim = len(embeddings[0])
@@ -56,25 +63,27 @@ class PgMemoryCollection:
             self._ensure_table(cur, dim)
             for doc, meta, _id, emb in zip(documents, metadatas, ids, embeddings):
                 cur.execute(
-                    "INSERT INTO user_memories (id, document, metadata, embedding) "
-                    "VALUES (%s, %s, %s::jsonb, %s::vector) "
+                    "INSERT INTO user_memories (id, uid, document, metadata, embedding) "
+                    "VALUES (%s, %s, %s, %s::jsonb, %s::vector) "
                     "ON CONFLICT (id) DO UPDATE SET "
-                    "document = EXCLUDED.document, metadata = EXCLUDED.metadata, "
-                    "embedding = EXCLUDED.embedding",
-                    (_id, doc, json.dumps(meta), _vec_literal(emb)),
+                    "uid = EXCLUDED.uid, document = EXCLUDED.document, "
+                    "metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding",
+                    (_id, uid, doc, json.dumps(meta), _vec_literal(emb)),
                 )
 
-    def query(self, query_texts, n_results: int = 3):
+    def query(self, uid, query_texts, n_results: int = 3):
         empty = {"documents": [[]], "metadatas": [[]]}
-        if not self.dsn:
+        if not self.dsn or not uid:
             return empty
         try:
             emb = _embed(query_texts)[0]
             with closing(self._conn()) as conn, conn.cursor() as cur:
+                # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
                 cur.execute(
                     "SELECT document, metadata FROM user_memories "
+                    "WHERE uid = %s "
                     "ORDER BY embedding <=> %s::vector LIMIT %s",
-                    (_vec_literal(emb), n_results),
+                    (uid, _vec_literal(emb), n_results),
                 )
                 rows = cur.fetchall()
             docs = [r[0] for r in rows]
@@ -85,12 +94,12 @@ class PgMemoryCollection:
             print(f"Memory query warning: {e}")
             return empty
 
-    def get(self):
-        if not self.dsn:
+    def get(self, uid):
+        if not self.dsn or not uid:
             return {"ids": []}
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
-                cur.execute("SELECT id FROM user_memories")
+                cur.execute("SELECT id FROM user_memories WHERE uid = %s", (uid,))
                 return {"ids": [r[0] for r in cur.fetchall()]}
         except Exception as e:
             print(f"Memory get warning: {e}")
@@ -101,6 +110,13 @@ class PgMemoryCollection:
             return
         with closing(self._conn()) as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM user_memories WHERE id = ANY(%s)", (list(ids),))
+
+    def delete_by_uid(self, uid):
+        """해당 사용자의 벡터 기억만 전부 삭제."""
+        if not self.dsn or not uid:
+            return
+        with closing(self._conn()) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM user_memories WHERE uid = %s", (uid,))
 
 
 # 벡터 기억 (PostgreSQL + pgvector)

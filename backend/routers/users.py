@@ -61,4 +61,14 @@ async def delete_me(uid: str = Depends(get_uid)):
         cur.execute("DELETE FROM schedules WHERE user_id = %s", (uid,))
         cur.execute("DELETE FROM backups WHERE user_id = %s", (uid,))
         cur.execute("DELETE FROM users WHERE uid = %s", (uid,))
+
+    # 벡터/그래프 기억도 파기 (제21조). DB 밖 저장소라 실패해도 탈퇴는 진행.
+    try:
+        from core.database import collection, neo4j_driver
+        collection.delete_by_uid(uid)
+        with neo4j_driver.session() as session:
+            session.run("MATCH (n:Entity {uid: $uid}) DETACH DELETE n", uid=uid)
+    except Exception as e:
+        print(f"delete_me: memory cleanup failed for {uid}: {e}")
+
     return {"ok": True}

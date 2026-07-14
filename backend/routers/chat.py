@@ -1,34 +1,35 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 from datetime import datetime
 import dateparser
 from google import genai
 from core.ai import client, model_id
 from core.database import collection, neo4j_driver
+from core.security import get_uid
 from models.schemas import ChatRequest
 from services.memory_service import process_and_save_memory
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)])
 
 @router.post("/stream")
-async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
+async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, uid: str = Depends(get_uid)):
     now = datetime.now()
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
-    # 1. 벡터 검색 (ChromaDB)
-    results = collection.query(query_texts=[request.message], n_results=3)
+    # 1. 벡터 검색 (uid 스코프)
+    results = collection.query(uid=uid, query_texts=[request.message], n_results=3)
 
-    # 2. 그래프 검색 (Neo4j)
+    # 2. 그래프 검색 (Neo4j) — 반드시 uid로 스코프해 본인 그래프만 조회
     graph_context = ""
     try:
         with neo4j_driver.session() as session:
             graph_results = session.run("""
-                MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                MATCH (s:Entity {uid: $uid})-[r:RELATION]->(o:Entity {uid: $uid})
                 WHERE s.name CONTAINS '유저' OR o.name CONTAINS '유저' OR s.name IN $keywords OR o.name IN $keywords
                 RETURN s.name, r.type, o.name
                 LIMIT 10
-            """, keywords=[request.message])
+            """, keywords=[request.message], uid=uid)
             nodes = [f"({record['s.name']}) -[{record['r.type']}]-> ({record['o.name']})" for record in graph_results]
             if nodes:
                 graph_context = "\n[연관 지식 그래프 정보]\n" + "\n".join(nodes)
@@ -46,7 +47,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks):
     relevant_memories += graph_context
 
     if not request.skip_side_effects:
-        background_tasks.add_task(process_and_save_memory, request.message, current_date_str, timestamp_iso)
+        background_tasks.add_task(process_and_save_memory, uid, request.message, current_date_str, timestamp_iso)
 
     async def event_generator():
         try:

@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from services.weather_service import get_weather
+from core.security import get_uid
 
+# 외부 날씨 API 남용 방지 — 인증된 사용자만 (앱은 모든 요청에 토큰 부착)
 router = APIRouter(
     prefix="/weather",
-    tags=["Weather"]
+    tags=["Weather"],
+    dependencies=[Depends(get_uid)]
 )
 
 @router.get("/")
