@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from core.ai import client, model_id
 from core.rate_limit import check_rate_limit
 from core.security import get_uid
+from core.sse import sse_data
 from models.schemas import AlarmScriptRequest, AlarmScriptResponse
 
 # LLM 스크립트 생성도 비용이 나가므로 인증 필수
@@ -67,5 +68,5 @@ async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = D
         prompt = build_prompt(request, mem_str)
         stream = client.models.generate_content_stream(model=model_id, contents=prompt)
         for chunk in stream:
-            if chunk.text: yield f"data: {chunk.text}\n\n"
+            if chunk.text: yield sse_data(chunk.text)
     return StreamingResponse(event_generator(), media_type="text/event-stream")

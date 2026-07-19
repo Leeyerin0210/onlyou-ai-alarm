@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 from datetime import datetime
@@ -6,6 +8,7 @@ from google import genai
 from core.ai import client, model_id
 from core.database import collection, neo4j_driver
 from core.security import get_uid
+from core.sse import sse_data
 from models.schemas import ChatRequest
 from services.memory_service import process_and_save_memory
 
@@ -95,11 +98,10 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
 
             for chunk in stream:
                 if chunk.text:
-                    yield f"data: {chunk.text}\n\n"
+                    yield sse_data(chunk.text)
 
             # 일정 추출 (선톡 등 side-effect를 원치 않는 호출은 건너뜀)
             if not request.skip_side_effects:
-                import json
                 parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
                 date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
                 sched_prompt = f"""
@@ -131,12 +133,17 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
                 if "{" in sched_res.text:
                     s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
                     json_str = sched_res.text[s:e]
+                    # LLM이 JSON을 여러 줄로 예쁘게 출력해도 한 줄로 압축해 SSE 프레임을 지킨다
+                    try:
+                        json_str = json.dumps(json.loads(json_str), ensure_ascii=False)
+                    except Exception:
+                        pass  # 파싱 실패 시 원문 유지 — sse_data가 개행은 이스케이프한다
                     if '"action": "UPDATE"' in json_str or '"action":"UPDATE"' in json_str:
-                        yield f"data: [UPDATE_SCHEDULE]{json_str}\n\n"
+                        yield sse_data(f"[UPDATE_SCHEDULE]{json_str}")
                     else:
-                        yield f"data: [SCHEDULE]{json_str}\n\n"
+                        yield sse_data(f"[SCHEDULE]{json_str}")
 
         except Exception as e:
-            yield f"data: [ERROR] {str(e)}\n\n"
+            yield sse_data(f"[ERROR] {str(e)}")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -212,7 +212,8 @@ class VoiceRepositoryImpl
                             while (!source.exhausted()) {
                                 val line = source.readUtf8Line() ?: continue
                                 if (line.startsWith("data: ")) {
-                                    val dataStr = line.substring(6).trim()
+                                    // 서버가 SSE 프레임 보호를 위해 이스케이프한 개행을 복원
+                                    val dataStr = line.substring(6).replace("\\n", "\n").trim()
                                     emit(dataStr)
                                 }
                             }

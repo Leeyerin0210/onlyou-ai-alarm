@@ -112,11 +112,15 @@ class SettingsViewModel @Inject constructor(
     private val _deleteAccountState = MutableStateFlow<DeleteAccountState>(DeleteAccountState.Idle)
     val deleteAccountState: StateFlow<DeleteAccountState> = _deleteAccountState
 
-    fun deleteAccount(context: Context) {
+    /** 이메일/비밀번호 계정이면 탈퇴 확인 다이얼로그에서 비밀번호를 받아야 한다. */
+    val requiresPasswordForDeletion: Boolean
+        get() = authRepository.isPasswordAccount()
+
+    fun deleteAccount(context: Context, password: String? = null) {
         if (_deleteAccountState.value == DeleteAccountState.Loading) return
         viewModelScope.launch {
             _deleteAccountState.value = DeleteAccountState.Loading
-            authRepository.deleteAccount(context)
+            authRepository.deleteAccount(context, password)
                 .onSuccess { _deleteAccountState.value = DeleteAccountState.Success }
                 .onFailure {
                     _deleteAccountState.value =

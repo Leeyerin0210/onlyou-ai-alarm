@@ -188,10 +188,30 @@ class AuthRepositoryImpl
             firebaseAuth.signOut()
         }
 
-        override suspend fun deleteAccount(context: Context): Result<Unit> =
+        override fun isPasswordAccount(): Boolean =
+            firebaseAuth.currentUser?.providerData?.any { it.providerId == "password" } == true
+
+        override suspend fun deleteAccount(context: Context, password: String?): Result<Unit> =
             try {
                 val user = firebaseAuth.currentUser
                     ?: throw IllegalStateException("로그인 상태가 아닙니다.")
+
+                // 0. 이메일 계정은 서버 데이터를 파기하기 전에 비밀번호로 먼저 재인증한다.
+                //    (서버 파기 후 Firebase 삭제가 '최근 로그인 필요'로 실패하면
+                //     데이터만 사라지고 계정은 남는 어정쩡한 상태가 되기 때문)
+                if (isPasswordAccount()) {
+                    val email = user.email
+                    if (email.isNullOrBlank() || password.isNullOrBlank()) {
+                        throw IllegalArgumentException("탈퇴하려면 비밀번호 확인이 필요합니다.")
+                    }
+                    try {
+                        user.reauthenticate(
+                            com.google.firebase.auth.EmailAuthProvider.getCredential(email, password),
+                        ).await()
+                    } catch (e: com.google.firebase.auth.FirebaseAuthInvalidCredentialsException) {
+                        throw Exception("비밀번호가 올바르지 않아요.")
+                    }
+                }
 
                 // 1. 서버 개인정보 파기 (실패하면 탈퇴 중단 — 서버에 데이터가 남으면 안 됨)
                 val response = api.deleteMe()
@@ -199,12 +219,17 @@ class AuthRepositoryImpl
                     throw Exception("서버 데이터 삭제 실패 (HTTP ${response.code()})")
                 }
 
-                // 2. Firebase 계정 삭제. 최근 로그인 필요 오류 시 구글 재인증 후 재시도
+                // 2. Firebase 계정 삭제. 최근 로그인 필요 오류 시 계정 종류에 맞게 재인증 후 재시도
                 try {
                     user.delete().await()
                 } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
-                    val credential = getGoogleAuthCredential(context)
-                        ?: throw Exception("재인증에 실패했습니다.")
+                    val email = user.email
+                    val credential = if (isPasswordAccount() && !email.isNullOrBlank() && !password.isNullOrBlank()) {
+                        com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
+                    } else {
+                        getGoogleAuthCredential(context)
+                            ?: throw Exception("재인증에 실패했습니다.")
+                    }
                     user.reauthenticate(credential).await()
                     user.delete().await()
                 }

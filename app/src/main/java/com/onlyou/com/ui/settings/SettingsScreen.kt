@@ -57,7 +57,8 @@ fun SettingsScreen(
     if (showDeleteDialog) {
         DeleteAccountDialog(
             isLoading = deleteAccountState == DeleteAccountState.Loading,
-            onConfirm = { viewModel.deleteAccount(context) },
+            requirePassword = viewModel.requiresPasswordForDeletion,
+            onConfirm = { password -> viewModel.deleteAccount(context, password) },
             onDismiss = { showDeleteDialog = false },
         )
     }
@@ -133,25 +134,48 @@ fun SettingsScreen(
 @Composable
 private fun DeleteAccountDialog(
     isLoading: Boolean,
-    onConfirm: () -> Unit,
+    requirePassword: Boolean,
+    onConfirm: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val colors = MiyaTheme.colors
+    var password by remember { mutableStateOf("") }
+    val canConfirm = !isLoading && (!requirePassword || password.isNotBlank())
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         containerColor = colors.surfaceA,
         title = { Text("회원 탈퇴", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
         text = {
-            Text(
-                "탈퇴하면 계정과 함께 서버에 저장된 대화, 기억, 일정, " +
-                    "직접 만든 페르소나와 음성 데이터가 모두 삭제되며 복구할 수 없어요.\n\n" +
-                    "정말 탈퇴하시겠어요?",
-                color = colors.neutral,
-                fontSize = 14.sp,
-            )
+            Column {
+                Text(
+                    "탈퇴하면 계정과 함께 서버에 저장된 대화, 기억, 일정, " +
+                        "직접 만든 페르소나와 음성 데이터가 모두 삭제되며 복구할 수 없어요.\n\n" +
+                        "정말 탈퇴하시겠어요?",
+                    color = colors.neutral,
+                    fontSize = 14.sp,
+                )
+                if (requirePassword) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        enabled = !isLoading,
+                        singleLine = true,
+                        placeholder = { Text("비밀번호 확인", fontSize = 14.sp) },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isLoading) {
+            TextButton(
+                onClick = { onConfirm(if (requirePassword) password else null) },
+                enabled = canConfirm,
+            ) {
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),

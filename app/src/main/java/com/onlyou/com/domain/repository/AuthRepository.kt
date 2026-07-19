@@ -36,6 +36,13 @@ interface AuthRepository {
 
     suspend fun signOut()
 
-    /** 회원 탈퇴: 서버 개인정보 파기 → Firebase 계정 삭제 → 로컬 데이터 삭제. */
-    suspend fun deleteAccount(context: Context): Result<Unit>
+    /** 현재 계정이 이메일/비밀번호 계정인지 — 탈퇴 시 비밀번호 재확인이 필요한지 판단용. */
+    fun isPasswordAccount(): Boolean
+
+    /**
+     * 회원 탈퇴: (이메일 계정이면 [password]로 선재인증) → 서버 개인정보 파기 →
+     * Firebase 계정 삭제 → 로컬 데이터 삭제.
+     * 이메일 계정인데 [password]가 없거나 틀리면 서버 데이터를 건드리기 전에 실패한다.
+     */
+    suspend fun deleteAccount(context: Context, password: String? = null): Result<Unit>
 }
