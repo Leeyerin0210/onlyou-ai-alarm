@@ -9,7 +9,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from routers import auth, chat, voice, memory, alarm, weather, personas, users, schedules, backups
+from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups
 from core.rdb import init_schema, cleanup_removed_personas
 
 app = FastAPI(title="Onlyou Backend")
@@ -35,7 +35,6 @@ app.include_router(chat.router)
 app.include_router(voice.router)
 app.include_router(memory.router)
 app.include_router(alarm.router)
-app.include_router(weather.router)
 app.include_router(personas.router)
 app.include_router(users.router)
 app.include_router(schedules.router)

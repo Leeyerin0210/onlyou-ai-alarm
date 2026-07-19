@@ -24,7 +24,6 @@ import com.onlyou.com.R
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.VoiceRepository
 import com.onlyou.com.ui.alarm.AlarmActivity
-import com.onlyou.com.util.RootCheckUtil
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,8 +48,6 @@ class AlarmService :
 
     @Inject lateinit var personaRepository: PersonaRepository
 
-    @Inject lateinit var rootCheckUtil: RootCheckUtil
-
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var audioManager: AudioManager? = null
@@ -70,6 +67,7 @@ class AlarmService :
     private var isRinging = false
     private var uiVisible = false
     private var fsiFallbackJob: Job? = null
+    private var autoStopJob: Job? = null
 
     companion object {
         const val CHANNEL_ID = "alarm_channel" // 헤드업/전체화면용 (IMPORTANCE_HIGH)
@@ -83,6 +81,9 @@ class AlarmService :
         const val EXTRA_ALARM_TITLE = "ALARM_TITLE"
         const val EXTRA_PERSONA_ID = "PERSONA_ID"
         const val EXTRA_AI_SCRIPT = "AI_SCRIPT"
+
+        // 방치 시 자동 종료까지의 시간
+        const val AUTO_STOP_AFTER_MS = 10 * 60 * 1000L
     }
 
     override fun onCreate() {
@@ -159,6 +160,16 @@ class AlarmService :
         // ② 소리/진동 즉시 시작
         startVibration()
         playSystemAlarmSound()
+
+        // 방치된 알람이 무한히 울리지 않도록 자동 종료 (WakeLock 10분과 동일한 상한)
+        autoStopJob?.cancel()
+        autoStopJob = serviceScope.launch {
+            delay(AUTO_STOP_AFTER_MS)
+            if (isRinging) {
+                android.util.Log.d("MiyaAlarm", "Alarm auto-stopped after timeout")
+                stopAlarm()
+            }
+        }
 
         // ③ 전체화면/헤드업 알림은 '알람 화면을 직접 못 띄우는 상황'에서만 사용
         //    - 잠금/꺼짐: 즉시 게시 → 시스템이 fullScreenIntent로 알람 화면을 띄움
@@ -367,6 +378,7 @@ class AlarmService :
     private fun stopAlarm() {
         isRinging = false
         fsiFallbackJob?.cancel()
+        autoStopJob?.cancel()
         releaseMediaPlayer()
         tts?.stop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -14,13 +14,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * 기기 재부팅 시 등록된 알람을 복구하는 리시버.
+ * 알람 복구 리시버.
  *
- * AlarmManager의 알람은 기기 재부팅 시 초기화됩니다.
- * RECEIVE_BOOT_COMPLETED 인텐트를 받아 Room DB에서 활성 알람 목록을 조회하고
- * AlarmScheduler를 통해 재등록합니다.
- *
- * 추후 로그인 구현 후에도 이 로직은 변경 불필요합니다.
+ * AlarmManager 등록은 재부팅 시 초기화되고, 앱 업데이트나 기기 시간/시간대 변경
+ * 시에도 어긋날 수 있습니다. 아래 이벤트를 받아 Room DB의 활성 알람을
+ * AlarmScheduler로 전부 재등록합니다.
+ * - BOOT_COMPLETED: 재부팅
+ * - MY_PACKAGE_REPLACED: 앱 업데이트 (일부 OEM은 업데이트 시 알람을 날림)
+ * - TIME_SET / TIMEZONE_CHANGED: 벽시계 기준으로 다음 발화 시각 재계산
  */
 @AndroidEntryPoint
 class BootReceiver : BroadcastReceiver() {
@@ -32,9 +33,15 @@ class BootReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val supportedActions = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED, // == android.intent.action.TIME_SET
+            Intent.ACTION_TIMEZONE_CHANGED,
+        )
+        if (intent.action !in supportedActions) return
 
-        Log.d("MiyaAlarm", "Boot completed — 활성 알람 재등록 시작")
+        Log.d("MiyaAlarm", "${intent.action} — 활성 알람 재등록 시작")
 
         // BroadcastReceiver에서 coroutine 사용 시 goAsync() 패턴 필요
         val pendingResult = goAsync()

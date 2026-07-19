@@ -73,7 +73,15 @@ class AlarmScheduler
             )
 
             val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, showPendingIntent)
-            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            // API 31~32에서 사용자가 '알람 및 리마인더' 권한을 끄면 정확 알람이
+            // SecurityException을 던진다 (BootReceiver 경로에서 크래시 방지).
+            // 크래시 대신 부정확 알람으로라도 울리게 폴백한다.
+            try {
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            } catch (e: SecurityException) {
+                android.util.Log.e("AlarmScheduler", "Exact alarm not permitted; falling back to inexact", e)
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+            }
 
             // 2. 알람 보이스 사전 생성(Pre-generation) 스케줄링 (20분 전)
             // 알람까지 5분 이상 남아있을 때만 사전 생성 (촉박하면 AlarmService 실시간 생성 Fallback 사용)
@@ -98,11 +106,20 @@ class AlarmScheduler
                     System.currentTimeMillis() + 10_000
                 }
 
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    preGenTimeInMillis,
-                    preGenPendingIntent
-                )
+                try {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        preGenTimeInMillis,
+                        preGenPendingIntent
+                    )
+                } catch (e: SecurityException) {
+                    // 사전 생성은 부정확해도 무방 (알람 시점 실시간 생성 폴백이 있음)
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        preGenTimeInMillis,
+                        preGenPendingIntent
+                    )
+                }
             } else {
                 android.util.Log.d("AlarmScheduler", "Alarm is within 5 minutes, skipping pre-generation (AlarmService will handle it)")
             }

@@ -3,6 +3,7 @@ import json
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import dateparser
 from google import genai
 from core.ai import client, model_id
@@ -22,7 +23,8 @@ CHAT_DAILY_LIMIT = 500
 @router.post("/stream")
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, uid: str = Depends(get_uid)):
     check_rate_limit(uid, "chat", CHAT_DAILY_LIMIT)
-    now = datetime.now()
+    # 서버가 UTC여도 '오늘 날짜'와 상대 날짜 해석은 사용자 기준(KST)이어야 한다
+    now = datetime.now(ZoneInfo("Asia/Seoul"))
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
@@ -108,7 +110,8 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
 
             # 일정 추출 (선톡 등 side-effect를 원치 않는 호출은 건너뜀)
             if not request.skip_side_effects:
-                parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now})
+                # dateparser는 naive 기준시각이 안전하다 (KST 벽시계 그대로 사용)
+                parsed_date = dateparser.parse(request.message, languages=['ko'], settings={'RELATIVE_BASE': now.replace(tzinfo=None)})
                 date_hint = f"(참고: 문맥상 날짜는 {parsed_date.strftime('%Y-%m-%d')}일 수 있음)" if parsed_date else ""
                 sched_prompt = f"""
                 오늘: {current_date_str}. {date_hint}. 유저 메시지: '{request.message}'.

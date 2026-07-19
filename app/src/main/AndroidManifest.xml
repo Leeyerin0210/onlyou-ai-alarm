@@ -72,12 +72,16 @@
             android:name=".receiver.AlarmPreGenReceiver"
             android:exported="false" />
 
-        <!-- 재부팅 시 알람 복구 리시버 -->
+        <!-- 알람 복구 리시버: 재부팅·앱 업데이트·시간/시간대 변경 시 재등록
+             (TIME_SET/TIMEZONE_CHANGED는 알람 재조정 목적의 암시적 브로드캐스트 예외 대상) -->
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
 

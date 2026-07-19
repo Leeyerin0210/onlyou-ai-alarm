@@ -64,7 +64,6 @@ def test_sensitive_routes_require_auth():
         == 401
     )
     assert client.delete("/memory/clear").status_code == 401
-    assert client.get("/weather/", params={"location": "서울"}).status_code == 401
 
 
 def test_voice_reference_rejects_non_owner(client):

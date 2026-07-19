@@ -19,13 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Umbrella
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
@@ -280,47 +277,6 @@ fun MorningBriefingContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Actions Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier.clickable { /* TTS Play */ },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Default.GraphicEq,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "AI 브리핑 듣기",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             // Weather Card LazyRow
@@ -389,17 +345,12 @@ fun MorningBriefingContent(
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
                                 ) {
                                     WeatherExtraInfo(
                                         Icons.Default.WaterDrop,
                                         "습도 ${info.humidity}%",
                                         Color(0xFF4FC3F7),
-                                    )
-                                    WeatherExtraInfo(
-                                        Icons.Default.Air,
-                                        "미세먼지 좋음",
-                                        Color(0xFF9CCC65),
                                     )
                                     WeatherExtraInfo(
                                         Icons.Default.Umbrella,
@@ -484,16 +435,14 @@ fun MorningBriefingContent(
                                     .height(1.dp)
                                     .background(Color(0xFFEEEEEE)),
                             )
-                            TextButton(
-                                onClick = { /* View More */ },
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "이 외 일정 ${schedules.size - 4}개",
+                                color = Color(0xFF8B75D6),
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(
-                                    "+ 일정 ${schedules.size - 4}개 더 보기",
-                                    color = Color(0xFF8B75D6),
-                                    fontSize = 13.sp,
-                                )
-                            }
+                            )
                         }
                     }
                 }
@@ -624,7 +573,8 @@ fun ScheduleBriefingTimelineItem(
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "${schedule.description ?: "일정"} · 60분",
+                    text = schedule.location?.takeIf { it.isNotBlank() }
+                        ?: schedule.description ?: "일정",
                     fontSize = 13.sp,
                     color = Color(0xFF777777),
                 )

@@ -31,10 +31,20 @@ class WeatherRepositoryImpl @Inject constructor() : WeatherRepository {
                 val hourly = json.getJSONObject("hourly")
                 val humidityList = hourly.getJSONArray("relative_humidity_2m")
                 val precipitationList = hourly.getJSONArray("precipitation_probability")
-                
-                // 간단히 현재 시간에 해당하는 인덱스(0)를 사용 (정확한 시간 매핑은 복잡하므로 단순화)
-                val humidity = if (humidityList.length() > 0) humidityList.getInt(0) else 50
-                val precipitation = if (precipitationList.length() > 0) precipitationList.getInt(0) else 0
+
+                // hourly 배열은 (timezone=auto 기준) 오늘 00시부터 1시간 간격 —
+                // 현재 시각의 값을 쓴다. 0번을 쓰면 항상 자정 값이 나온다.
+                val hourIndex = java.time.LocalTime.now().hour
+                val humidity = if (humidityList.length() > hourIndex) {
+                    humidityList.getInt(hourIndex)
+                } else if (humidityList.length() > 0) {
+                    humidityList.getInt(humidityList.length() - 1)
+                } else 50
+                val precipitation = if (precipitationList.length() > hourIndex) {
+                    precipitationList.getInt(hourIndex)
+                } else if (precipitationList.length() > 0) {
+                    precipitationList.getInt(precipitationList.length() - 1)
+                } else 0
 
                 Result.success(
                     WeatherInfo(

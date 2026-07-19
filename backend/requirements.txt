@@ -9,5 +9,4 @@ firebase-admin
 dateparser
 neo4j
 google-genai
-cachetools
 httpx
