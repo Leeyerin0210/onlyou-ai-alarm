@@ -24,11 +24,13 @@ async def fetch_weather_from_api(location: str) -> str:
     # API 키가 등록되어 있고 더미가 아니면 실제 OpenWeatherMap 호출
     if api_key and api_key != "your_openweathermap_api_key_here":
         logger.info(f"[Weather API] OpenWeatherMap API로 {location} 날씨를 요청합니다...")
-        url = f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=metric&lang=kr"
-        
+        # https 필수(API 키가 쿼리에 실림) + params로 넘겨 location의 특수문자(&, 공백 등) 주입 방지
+        url = "https://api.openweathermap.org/data/2.5/weather"
+        params = {"q": location, "appid": api_key, "units": "metric", "lang": "kr"}
+
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, timeout=5.0)
+                response = await client.get(url, params=params, timeout=5.0)
                 if response.status_code == 200:
                     data = response.json()
                     desc = data["weather"][0]["description"]

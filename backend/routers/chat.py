@@ -7,6 +7,7 @@ import dateparser
 from google import genai
 from core.ai import client, model_id
 from core.database import collection, neo4j_driver
+from core.rate_limit import check_rate_limit
 from core.security import get_uid
 from core.sse import sse_data
 from models.schemas import ChatRequest
@@ -14,8 +15,13 @@ from services.memory_service import process_and_save_memory
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)])
 
+# 메시지 1건당 LLM 호출이 최대 4회(응답+기억 2회+일정 추출)라 무제한이면 비용 남용 통로가 된다.
+# 헤비 유저의 정상 사용(수백 건)에는 넉넉하고 봇/루프 남용만 걸리는 수준.
+CHAT_DAILY_LIMIT = 500
+
 @router.post("/stream")
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "chat", CHAT_DAILY_LIMIT)
     now = datetime.now()
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()

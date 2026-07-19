@@ -57,9 +57,11 @@ async def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(ge
             "image_url=EXCLUDED.image_url, primary_hex=EXCLUDED.primary_hex, "
             "secondary_hex=EXCLUDED.secondary_hex, is_private=EXCLUDED.is_private, "
             "updated_at=EXCLUDED.updated_at",
+            # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
+            # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
             (persona_id, body.name, body.prompt, body.description, body.voiceTone,
              body.voiceSpeed, body.voicePrompt, body.userCallSign, body.imageUrl,
-             body.primaryHex, body.secondaryHex, uid, body.usageCount,
+             body.primaryHex, body.secondaryHex, uid, 0,
              body.isPrivate, body.updatedAt),
         )
     return {"ok": True}

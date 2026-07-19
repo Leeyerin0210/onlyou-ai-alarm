@@ -37,6 +37,7 @@ image = (
 with image.imports():
     import base64
     import hashlib
+    import hmac
     import io
     import os
     import tempfile
@@ -82,6 +83,9 @@ class QwenTTS:
         cache_key = hashlib.sha256((ref_audio_b64 + ref_text).encode()).hexdigest()
         prompt_items = self.prompt_cache.get(cache_key)
         if prompt_items is None:
+            # 참조 음성 프롬프트 캐시가 무한히 자라 컨테이너 메모리를 잠식하지 않도록 상한
+            if len(self.prompt_cache) >= 32:
+                self.prompt_cache.clear()
             audio_bytes = base64.b64decode(ref_audio_b64)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(audio_bytes)
@@ -105,7 +109,8 @@ class QwenTTS:
         from pydantic import BaseModel
 
         def check_api_key(x_api_key: str = Header(default="")):
-            if x_api_key != os.environ["TTS_API_KEY"]:
+            # 상수 시간 비교 — 문자열 == 는 타이밍 차이로 키를 유추할 여지를 준다
+            if not hmac.compare_digest(x_api_key, os.environ["TTS_API_KEY"]):
                 raise HTTPException(status_code=401, detail="Invalid API key")
 
         class SynthesizeRequest(BaseModel):

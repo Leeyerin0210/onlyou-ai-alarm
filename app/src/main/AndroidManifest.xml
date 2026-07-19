@@ -55,9 +55,11 @@
             </intent-filter>
         </activity>
 
+        <!-- 자기 앱(AlarmService/알림 PendingIntent)에서만 실행 — 외부 앱이 잠금화면 위로
+             임의 문구를 띄우지 못하도록 반드시 비공개(exported=false)로 유지 -->
         <activity
             android:name=".ui.alarm.AlarmActivity"
-            android:exported="true"
+            android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:launchMode="singleTop" />

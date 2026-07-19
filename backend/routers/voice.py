@@ -15,6 +15,11 @@ router = APIRouter(prefix="/voice", tags=["voice"], dependencies=[Depends(get_ui
 # 알람 선생성 1회당 청크 3~6개 합성 → 100회면 정상 사용엔 넉넉하고 남용만 걸린다
 VOICE_DAILY_LIMIT = 100
 
+# 참조 음성 업로드: 녹음 수십 초 분량 WAV면 충분 — 디스크/스토리지 폭식 방지
+REF_UPLOAD_DAILY_LIMIT = 20
+MAX_REF_AUDIO_BYTES = 15 * 1024 * 1024  # 디코딩 후 15MB
+MAX_REF_TEXT_LEN = 1_000
+
 
 def _persona_owner_info(persona_id: str):
     """(creator_id, is_private) 반환. 아직 저장 안 된 페르소나면 None."""
@@ -55,10 +60,19 @@ async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(g
 @router.post("/save_reference/{persona_id}")
 async def save_voice_reference(persona_id: str, request: Request, uid: str = Depends(get_uid)):
     _require_persona_owner(persona_id, uid)
+    check_rate_limit(uid, "voice-ref", REF_UPLOAD_DAILY_LIMIT)
     data = await request.json()
+    ref_text = data.get("ref_text", "")
+    if not isinstance(ref_text, str) or len(ref_text) > MAX_REF_TEXT_LEN:
+        raise HTTPException(status_code=422, detail="ref_text too long")
     try:
         audio = base64.b64decode(data.get("audio"))
-        await asyncio.to_thread(voice_engine.save_master_wav, persona_id, audio, data.get("ref_text", ""))
+    except Exception:
+        raise HTTPException(status_code=422, detail="invalid audio payload")
+    if len(audio) > MAX_REF_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="audio too large")
+    try:
+        await asyncio.to_thread(voice_engine.save_master_wav, persona_id, audio, ref_text)
         return {"status": "success"}
     except Exception as e:
         print(f"Save Voice Reference Error: {e}")

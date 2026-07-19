@@ -5,10 +5,14 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from core.ai import client, model_id
 from core.database import collection, neo4j_driver
+from core.rate_limit import check_rate_limit
 from core.security import get_uid
 from models.schemas import MemoryExtractRequest
 
 router = APIRouter(prefix="/memory", tags=["memory"], dependencies=[Depends(get_uid)])
+
+# 앱이 사용자 메시지 1건당 1회 호출하므로 채팅 한도와 같은 수준이면 충분하다
+EXTRACT_DAILY_LIMIT = 500
 
 # 앱(MemoryExtractor.kt)의 MemoryType enum과 반드시 일치해야 한다 —
 # 여기 없는 type을 반환하면 앱이 해당 항목을 통째로 버린다.
@@ -40,7 +44,8 @@ type 선택 기준:
 
 
 @router.post("/extract")
-async def extract_memory(request: MemoryExtractRequest):
+async def extract_memory(request: MemoryExtractRequest, uid: str = Depends(get_uid)):
+    check_rate_limit(uid, "memory-extract", EXTRACT_DAILY_LIMIT)
     res = client.models.generate_content(
         model=model_id, contents=build_extract_prompt(request.message)
     )
