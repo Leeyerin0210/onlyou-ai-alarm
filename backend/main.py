@@ -12,7 +12,7 @@ if current_dir not in sys.path:
 from routers import auth, chat, voice, memory, alarm, weather, personas, users, schedules, backups
 from core.rdb import init_schema, cleanup_removed_personas
 
-app = FastAPI(title="Conne Backend")
+app = FastAPI(title="Onlyou Backend")
 
 @app.get("/health")
 async def health():

@@ -7,7 +7,7 @@
     <style name="Theme.Miya.Starting" parent="Theme.SplashScreen">
         <!-- Dark Theme: Set splash screen background -->
         <item name="windowSplashScreenBackground">#160D33</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_conne_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_onlyou_logo</item>
         <!-- Required to restore the actual app theme -->
         <item name="postSplashScreenTheme">@style/Theme.Miya</item>
     </style>

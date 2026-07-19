@@ -33,8 +33,8 @@
 
 **Interfaces:**
 - Produces: `docker compose up` 한 방으로 로컬 Postgres(호스트 포트 5433) + 백엔드(호스트 포트 8080) 기동. 이후 모든 백엔드 태스크의 테스트가 이 스택을 사용.
-- DB DSN(호스트에서): `postgresql://conne:conne@localhost:5433/conne`
-- DB DSN(컨테이너 내 백엔드): `postgresql://conne:conne@db:5432/conne`
+- DB DSN(호스트에서): `postgresql://onlyou:onlyou@localhost:5433/onlyou`
+- DB DSN(컨테이너 내 백엔드): `postgresql://onlyou:onlyou@db:5432/onlyou`
 
 - [ ] **Step 1: backend/Dockerfile.dev 작성**
 
@@ -58,13 +58,13 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: conne
-      POSTGRES_PASSWORD: conne
-      POSTGRES_DB: conne
+      POSTGRES_USER: onlyou
+      POSTGRES_PASSWORD: onlyou
+      POSTGRES_DB: onlyou
     ports:
       - "5433:5432"   # 호스트 5433 → 로컬 psql/pytest 접근용
     volumes:
-      - conne_pgdata:/var/lib/postgresql/data
+      - onlyou_pgdata:/var/lib/postgresql/data
 
   api:
     build:
@@ -73,7 +73,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://conne:conne@db:5432/conne
+      DATABASE_URL: postgresql://onlyou:onlyou@db:5432/onlyou
       # GEMINI_API_KEY / NEO4J_* 는 로컬에서 채팅 테스트할 때만 필요 (없으면 채팅만 동작 안 함)
     ports:
       - "8080:8080"
@@ -81,7 +81,7 @@ services:
       - ./backend:/app   # serviceAccountKey.json 포함 (gitignored 파일이 마운트로 전달됨)
 
 volumes:
-  conne_pgdata:
+  onlyou_pgdata:
 ```
 
 - [ ] **Step 3: 기동 확인**
@@ -107,7 +107,7 @@ git commit -m "chore: 로컬 개발 스택 docker-compose (Postgres + 백엔드)
 - Modify: `backend/main.py` (startup에서 `init_schema()` 호출)
 
 **Interfaces:**
-- Produces: `rdb.get_conn()` → psycopg2 connection(autocommit). `rdb.init_schema()` → 4개 테이블 생성(멱등). 이후 라우터 태스크(4~7)가 `get_conn()` 사용.
+- Produces: `rdb.get_conn()` → psycopg2 onlyouction(autocommit). `rdb.init_schema()` → 4개 테이블 생성(멱등). 이후 라우터 태스크(4~7)가 `get_conn()` 사용.
 
 - [ ] **Step 1: backend/core/rdb.py 작성**
 
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS backups (
 def get_conn():
     if not settings.DATABASE_URL:
         raise RuntimeError("DATABASE_URL not configured")
-    conn = psycopg2.connect(settings.DATABASE_URL)
+    conn = psycopg2.onlyouct(settings.DATABASE_URL)
     conn.autocommit = True
     return conn
 
@@ -207,7 +207,7 @@ async def startup():
 - [ ] **Step 3: 스키마 생성 확인**
 
 Run: `docker compose up -d --build api` 후
-`docker compose exec db psql -U conne -d conne -c "\dt"`
+`docker compose exec db psql -U onlyou -d onlyou -c "\dt"`
 Expected: `personas`, `users`, `schedules`, `backups`, (기존) `user_memories` 테이블 목록 출력
 
 - [ ] **Step 4: Commit**
@@ -270,7 +270,7 @@ DATABASE_URL을 테스트용으로 강제한 뒤 앱을 import한다.
 import os
 
 os.environ["DATABASE_URL"] = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://conne:conne@localhost:5433/conne"
+    "TEST_DATABASE_URL", "postgresql://onlyou:onlyou@localhost:5433/onlyou"
 )
 
 import pytest
@@ -939,7 +939,7 @@ PERSONAS = [
     {
         "id": "miya_default", "name": "미야",
         "prompt": "너는 친절하고 다정한 개인 비서 '미야'야. 주인의 일정을 관리하고 항상 밝은 모습으로 응원해줘.",
-        "description": "코네(Conne)의 기본 비서입니다. 다정한 성격으로 당신의 하루를 챙겨줍니다.",
+        "description": "온리유의 기본 비서입니다. 다정한 성격으로 당신의 하루를 챙겨줍니다.",
         "voice_prompt": "다정하고 친절한 어조로", "user_call_sign": "주인님",
         "image_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200",
         "primary_hex": "#FFB7C5", "secondary_hex": "#FFF0F5",
@@ -980,7 +980,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: 실행 확인**
 
 Run: `docker compose exec api python seed_personas.py`
-Expected: `seeded 2 personas`. `docker compose exec db psql -U conne -d conne -c "SELECT id, name FROM personas"`로 확인.
+Expected: `seeded 2 personas`. `docker compose exec db psql -U onlyou -d onlyou -c "SELECT id, name FROM personas"`로 확인.
 
 - [ ] **Step 3: seed_firestore.py 삭제 + Commit**
 
@@ -1089,7 +1089,7 @@ import com.onlyou.com.data.remote.AuthInterceptor
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .readTimeout(60, TimeUnit.SECONDS)
-            .connectTimeout(60, TimeUnit.SECONDS)
+            .onlyouctTimeout(60, TimeUnit.SECONDS)
             .build()
     }
 
