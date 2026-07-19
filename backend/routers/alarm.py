@@ -3,7 +3,8 @@ import re
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from core.ai import client, model_id
-from core.rate_limit import check_rate_limit
+from core.config import settings
+from core.rate_limit import check_rate_limit, check_global_budget
 from core.security import get_uid
 from core.sse import sse_data
 from models.schemas import AlarmScriptRequest, AlarmScriptResponse
@@ -49,6 +50,7 @@ def build_prompt(request: AlarmScriptRequest, mem_str: str) -> str:
 @router.post("/script", response_model=AlarmScriptResponse)
 async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
+    await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     prompt = build_prompt(request, mem_str)
 
@@ -64,6 +66,7 @@ async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(
 @router.post("/script/stream")
 async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
+    await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     async def event_generator():
         prompt = build_prompt(request, mem_str)

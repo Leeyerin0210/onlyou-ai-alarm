@@ -1,8 +1,65 @@
 import asyncio
 import os
 import json
-from core.ai import client, model_id
+from google import genai
+from core.ai import client, extract_model_id
 from core.database import collection, neo4j_driver
+
+
+def build_memory_extract_prompt(message: str, current_date: str) -> str:
+    """사실 추출 + 그래프 트리플 추출을 한 호출로 통합한 프롬프트.
+
+    과거엔 LLM 2회(사실 1회 + 트리플 1회)였다 — 같은 문장을 두 번 보내는
+    구조라 호출 수·토큰이 이중으로 나갔다. 비용/레이트리밋 절감을 위해
+    하나의 JSON 응답으로 통합한다. (일정 추출은 결과를 SSE로 클라이언트에
+    돌려줘야 해서 chat.py에 남아 있다 — 여기 합치면 안 됨.)
+    """
+    return f"""기준 날짜: {current_date}. 아래 유저 문장에서 두 가지를 동시에 추출해 JSON 객체 하나로만 답하세요.
+
+1. "fact": 장기 기억할 가치가 있는 중요한 사실을 한 문장으로. "오늘", "내일" 같은 상대 날짜는 기준 날짜로 계산해 절대 날짜로 변환하세요. 기억할 사실이 없으면 null.
+2. "triples": (주체, 관계, 객체) 지식 그래프 트리플 배열. 유저 본인이 주체면 "유저"로 표기. 추출할 관계가 없으면 빈 배열 [].
+
+출력 형식 (JSON 외 다른 텍스트 금지):
+{{"fact": "..." 또는 null, "triples": [{{"subject": "유저", "predicate": "좋아함", "object": "민초"}}]}}
+
+유저 문장: '{message}'"""
+
+
+def parse_memory_extract(raw_text: str) -> tuple[str | None, list[dict]]:
+    """LLM 응답에서 (fact, triples)를 최대한 건져낸다.
+
+    통합 호출은 파싱 실패 시 사실·트리플이 함께 소실되는 게 약점이라
+    코드펜스/앞뒤 잡음 섞인 응답도 중괄호 범위를 잘라 복구를 시도한다.
+    """
+    if not raw_text:
+        return None, []
+    text = raw_text.strip()
+    start, end = text.find("{"), text.rfind("}") + 1
+    if start == -1 or end <= start:
+        return None, []
+    try:
+        data = json.loads(text[start:end])
+    except (json.JSONDecodeError, ValueError):
+        return None, []
+    if not isinstance(data, dict):
+        return None, []
+
+    fact = data.get("fact")
+    if not isinstance(fact, str) or not fact.strip() or fact.strip().lower() == "none":
+        fact = None
+    else:
+        fact = fact.strip()
+
+    triples = []
+    raw_triples = data.get("triples")
+    if isinstance(raw_triples, list):
+        for t in raw_triples:
+            if (
+                isinstance(t, dict)
+                and all(isinstance(t.get(k), str) and t[k].strip() for k in ("subject", "predicate", "object"))
+            ):
+                triples.append({k: t[k].strip() for k in ("subject", "predicate", "object")})
+    return fact, triples
 
 
 def _save_graph_triples(uid: str, triples: list, timestamp: str) -> None:
@@ -24,26 +81,32 @@ async def process_and_save_memory(uid: str, message: str, current_date: str, tim
         print("Memory Save skipped: missing uid")
         return
     try:
-        # 1. 벡터 기억 저장 (uid 스코프)
-        fact_prompt = f"기준 날짜: {current_date}. 다음 문장에서 중요한 사실만 추출해 절대 날짜 문장으로 변환: '{message}'. 없으면 None."
-        res = await client.aio.models.generate_content(model=model_id, contents=fact_prompt)
-        if res.text and "None" not in res.text:
+        res = await client.aio.models.generate_content(
+            model=extract_model_id,
+            contents=build_memory_extract_prompt(message, current_date),
+            config=genai.types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        fact, triples = parse_memory_extract(res.text)
+    except Exception as e:
+        print(f"Memory Extract Error: {e}")
+        return
+
+    # 저장은 서로 격리 — 벡터 저장이 실패해도 그래프 저장은 시도한다
+    if fact:
+        try:
             await asyncio.to_thread(
                 collection.add,
                 uid,
-                [res.text.strip()],
+                [fact],
                 [{"timestamp": timestamp, "uid": uid}],
                 [f"mem_{uid}_{os.urandom(4).hex()}"],
             )
+        except Exception as e:
+            print(f"Vector Memory Save Error: {e}")
 
-        # 2. 그래프 기억 저장 (Neo4j) — 모든 노드/관계를 uid로 스코프해 사용자 간 격리
-        graph_prompt = f"다음 문장에서 (주체, 관계, 객체) 트리플 추출(JSON 배열): '{message}'. 예: [ {{\"subject\": \"유저\", \"predicate\": \"좋아함\", \"object\": \"민초\"}} ]"
-        graph_res = await client.aio.models.generate_content(model=model_id, contents=graph_prompt)
-        if graph_res.text and "[" in graph_res.text:
-            start = graph_res.text.find("[")
-            end = graph_res.text.rfind("]") + 1
-            triples = json.loads(graph_res.text[start:end])
+    if triples:
+        try:
             await asyncio.to_thread(_save_graph_triples, uid, triples, timestamp)
             print(f"[Graph Memory Saved] {len(triples)} triples for {uid}.")
-    except Exception as e:
-        print(f"Memory Save Error: {e}")
+        except Exception as e:
+            print(f"Graph Memory Save Error: {e}")

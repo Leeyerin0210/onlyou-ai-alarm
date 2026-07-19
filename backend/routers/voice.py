@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from services.voice_service import voice_engine
 from models.schemas import VoiceSynthesizeRequest, VoiceCloneRequest
 from core.ai import client, model_id
-from core.rate_limit import check_rate_limit
+from core.config import settings
+from core.rate_limit import check_rate_limit, check_global_budget
 from core.rdb import get_conn
 from core.security import get_uid
 
@@ -46,13 +47,14 @@ def _require_persona_usable(persona_id: str, uid: str):
 @router.post("/synthesize")
 async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
+    await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
     try:
         translated = request.instruct
         if request.instruct.strip():
             res = await client.aio.models.generate_content(model=model_id, contents=f"Translate to Chinese: {request.instruct}")
             translated = (res.text or "").strip() or request.instruct
-        audio = await voice_engine.synthesize_design(request.text, translated)
-        return Response(content=audio, media_type="audio/wav")
+        audio, media_type = await voice_engine.synthesize_design(request.text, translated)
+        return Response(content=audio, media_type=media_type)
     except Exception as e:
         print(f"Voice Synthesize Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -82,9 +84,10 @@ async def save_voice_reference(persona_id: str, request: Request, uid: str = Dep
 async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(_require_persona_usable, request.persona_id, uid)
     await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
+    await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
     try:
-        audio = await voice_engine.synthesize_clone(request.text, request.persona_id)
-        return Response(content=audio, media_type="audio/wav")
+        audio, media_type = await voice_engine.synthesize_clone(request.text, request.persona_id)
+        return Response(content=audio, media_type=media_type)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

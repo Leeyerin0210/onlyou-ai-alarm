@@ -83,7 +83,9 @@ class AlarmScheduler
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
             }
 
-            // 2. 알람 보이스 사전 생성(Pre-generation) 스케줄링 (20분 전)
+            // 2. 알람 보이스 사전 생성(Pre-generation) 스케줄링 (T-120~T-20분 랜덤)
+            // 아침 시간대에 알람이 몰리면 고정 오프셋(예: 일괄 20분 전)으로는 서버 GPU 합성이
+            // 같은 20분 창에 폭주한다. 유저마다 랜덤 시점으로 분산해 피크 동시성을 ~1/5로 낮춘다.
             // 알람까지 5분 이상 남아있을 때만 사전 생성 (촉박하면 AlarmService 실시간 생성 Fallback 사용)
             val minutesUntilAlarm = java.time.Duration.between(LocalDateTime.now(), scheduledTime).toMinutes()
             if (minutesUntilAlarm >= 5) {
@@ -98,11 +100,17 @@ class AlarmScheduler
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
 
-                val preGenTime = scheduledTime.minusMinutes(20)
+                var preGenTime = scheduledTime.minusMinutes((20..120).random().toLong())
+                // 자정을 넘어 전날로 가면 사전 생성 시점의 '오늘 일정'이 전날 기준이 되므로
+                // 알람 당일 자정 이후로 클램프한다 (새벽 알람 케이스)
+                val alarmDayStart = scheduledTime.toLocalDate().atStartOfDay()
+                if (preGenTime.isBefore(alarmDayStart)) {
+                    preGenTime = alarmDayStart
+                }
                 val preGenTimeInMillis = if (preGenTime.isAfter(LocalDateTime.now())) {
                     preGenTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 } else {
-                    // 20분 이내지만 5분 이상 남아있으면 지금부터 10초 뒤에 실행
+                    // 분산 창을 이미 지났지만 5분 이상 남아있으면 지금부터 10초 뒤에 실행
                     System.currentTimeMillis() + 10_000
                 }
 

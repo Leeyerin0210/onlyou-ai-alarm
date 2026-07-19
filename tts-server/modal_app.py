@@ -12,8 +12,8 @@ Qwen3-TTS 서버리스 GPU 서버 (Modal)
 
 엔드포인트:
     GET  /health                     인증 불필요, 웜업 겸용
-    POST /synthesize {text, instruct}                    -> audio/wav
-    POST /clone {text, ref_text, ref_audio_b64}          -> audio/wav
+    POST /synthesize {text, instruct}                    -> audio/ogg (Opus, 인코딩 실패 시 audio/wav)
+    POST /clone {text, ref_text, ref_audio_b64}          -> audio/ogg (Opus, 인코딩 실패 시 audio/wav)
 """
 
 import modal
@@ -40,6 +40,7 @@ with image.imports():
     import hmac
     import io
     import os
+    import subprocess
     import tempfile
 
     import soundfile as sf
@@ -66,20 +67,37 @@ class QwenTTS:
         hf_cache.commit()  # 첫 다운로드를 볼륨에 저장해 다음 콜드 스타트를 단축
         self.prompt_cache = {}
 
-    def _wav_bytes(self, wavs, sr) -> bytes:
+    def _encode_audio(self, wavs, sr) -> tuple[bytes, str]:
+        """합성 결과를 Ogg/Opus로 압축해 (bytes, media_type) 반환.
+
+        음성 32kbps Opus는 비압축 WAV(~768kbps) 대비 1/20 수준 —
+        Modal→백엔드→앱 전 구간 전송량과 알람 전 다운로드 시간을 줄인다.
+        ffmpeg 실패 시 WAV로 폴백한다 (알람 경로는 실패보다 비압축이 낫다).
+        """
         buf = io.BytesIO()
         sf.write(buf, wavs[0], sr, format="WAV")
-        return buf.getvalue()
+        wav = buf.getvalue()
+        try:
+            proc = subprocess.run(
+                ["ffmpeg", "-loglevel", "error", "-i", "pipe:0",
+                 "-c:a", "libopus", "-b:a", "32k", "-f", "ogg", "pipe:1"],
+                input=wav, capture_output=True, check=True, timeout=60,
+            )
+            if proc.stdout:
+                return proc.stdout, "audio/ogg"
+        except Exception:
+            pass
+        return wav, "audio/wav"
 
     @modal.method()
-    def synthesize_design(self, text: str, instruct: str) -> bytes:
+    def synthesize_design(self, text: str, instruct: str) -> tuple[bytes, str]:
         wavs, sr = self.design_model.generate_voice_design(
             text=text, language="Korean", instruct=instruct
         )
-        return self._wav_bytes(wavs, sr)
+        return self._encode_audio(wavs, sr)
 
     @modal.method()
-    def synthesize_clone(self, text: str, ref_text: str, ref_audio_b64: str) -> bytes:
+    def synthesize_clone(self, text: str, ref_text: str, ref_audio_b64: str) -> tuple[bytes, str]:
         cache_key = hashlib.sha256((ref_audio_b64 + ref_text).encode()).hexdigest()
         prompt_items = self.prompt_cache.get(cache_key)
         if prompt_items is None:
@@ -100,7 +118,7 @@ class QwenTTS:
         wavs, sr = self.clone_model.generate_voice_clone(
             text=text, language="Korean", voice_clone_prompt=prompt_items
         )
-        return self._wav_bytes(wavs, sr)
+        return self._encode_audio(wavs, sr)
 
     @modal.asgi_app()
     def web(self):
@@ -130,12 +148,12 @@ class QwenTTS:
 
         @api.post("/synthesize", dependencies=[Depends(check_api_key)])
         def synthesize(req: SynthesizeRequest):
-            audio = self.synthesize_design.local(req.text, req.instruct)
-            return Response(content=audio, media_type="audio/wav")
+            audio, media_type = self.synthesize_design.local(req.text, req.instruct)
+            return Response(content=audio, media_type=media_type)
 
         @api.post("/clone", dependencies=[Depends(check_api_key)])
         def clone(req: CloneRequest):
-            audio = self.synthesize_clone.local(req.text, req.ref_text, req.ref_audio_b64)
-            return Response(content=audio, media_type="audio/wav")
+            audio, media_type = self.synthesize_clone.local(req.text, req.ref_text, req.ref_audio_b64)
+            return Response(content=audio, media_type=media_type)
 
         return api

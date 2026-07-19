@@ -68,6 +68,29 @@ def check_rate_limit(uid: str, bucket: str, daily_limit: int) -> None:
     _check_in_memory(uid, bucket, daily_limit, today)
 
 
+# 전역 카운터용 가상 uid — 실제 uid와 충돌하지 않는 예약 문자열
+_GLOBAL_UID = "__global__"
+
+
+def check_global_budget(bucket: str, daily_limit: int) -> None:
+    """전 사용자 합산 일일 상한 (청구 사고 방지 서킷브레이커).
+
+    유저별 한도는 유저 수에 비례해 총액이 늘어나므로, LLM/GPU 비용이 나가는
+    엔드포인트는 이 전역 상한을 함께 걸어 폭주 시 피해 폭을 제한한다.
+    DATABASE_URL이 있으면 rate_limits 테이블을 공유하므로 다중 워커·인스턴스에서도
+    정확하게 합산된다. daily_limit이 0 이하면 비활성화.
+    """
+    if daily_limit <= 0:
+        return
+    try:
+        check_rate_limit(_GLOBAL_UID, f"global-{bucket}", daily_limit)
+    except HTTPException:
+        raise HTTPException(
+            status_code=429,
+            detail="지금 서비스 전체 사용량이 많아요. 잠시 후 다시 시도해주세요.",
+        )
+
+
 def reset_counters() -> None:
     """테스트 전용: 카운터 초기화."""
     with _lock:

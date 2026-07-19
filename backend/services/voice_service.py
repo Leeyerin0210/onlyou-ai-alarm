@@ -23,7 +23,11 @@ class RemoteVoiceEngine:
 
     # ---------- 원격 TTS 호출 ----------
 
-    async def _post(self, path: str, payload: dict) -> bytes:
+    async def _post(self, path: str, payload: dict) -> Tuple[bytes, str]:
+        """TTS 서버 호출 — (오디오 bytes, media_type) 반환.
+
+        서버가 Opus(audio/ogg)로 압축해 보내므로 media_type을 그대로 전파한다
+        (인코딩 실패 폴백 시 audio/wav가 올 수 있다)."""
         if not settings.TTS_SERVER_URL:
             raise RuntimeError("TTS_SERVER_URL is not configured")
         url = settings.TTS_SERVER_URL.rstrip("/") + path
@@ -33,12 +37,13 @@ class RemoteVoiceEngine:
         async with httpx.AsyncClient(timeout=timeout) as client:
             res = await client.post(url, json=payload, headers=headers)
             res.raise_for_status()
-            return res.content
+            media_type = res.headers.get("content-type", "audio/wav").split(";")[0]
+            return res.content, media_type
 
-    async def synthesize_design(self, text: str, instruct: str) -> bytes:
+    async def synthesize_design(self, text: str, instruct: str) -> Tuple[bytes, str]:
         return await self._post("/synthesize", {"text": text, "instruct": instruct})
 
-    async def synthesize_clone(self, text: str, persona_id: str) -> bytes:
+    async def synthesize_clone(self, text: str, persona_id: str) -> Tuple[bytes, str]:
         audio, ref_text = self.load_reference(persona_id)
         return await self._post(
             "/clone",
