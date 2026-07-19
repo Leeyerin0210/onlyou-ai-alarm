@@ -10,7 +10,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/me")
-async def get_me(uid: str = Depends(get_uid)):
+def get_me(uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT display_name, email, photo_url, selected_persona_id "
@@ -26,7 +26,7 @@ async def get_me(uid: str = Depends(get_uid)):
 
 
 @router.put("/me")
-async def put_me(body: UserProfileIn, uid: str = Depends(get_uid)):
+def put_me(body: UserProfileIn, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO users (uid, display_name, email, photo_url) "
@@ -39,7 +39,7 @@ async def put_me(body: UserProfileIn, uid: str = Depends(get_uid)):
 
 
 @router.delete("/me")
-async def delete_me(uid: str = Depends(get_uid)):
+def delete_me(uid: str = Depends(get_uid)):
     """회원 탈퇴: 서버에 저장된 해당 사용자의 개인정보를 모두 파기한다.
 
     개인정보보호법 제21조(개인정보의 파기) 대응 — 프로필, 백업(대화/기억/일정),

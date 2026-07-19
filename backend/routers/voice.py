@@ -45,12 +45,12 @@ def _require_persona_usable(persona_id: str, uid: str):
 
 @router.post("/synthesize")
 async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(get_uid)):
-    check_rate_limit(uid, "voice", VOICE_DAILY_LIMIT)
+    await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
     try:
         translated = request.instruct
         if request.instruct.strip():
-            res = client.models.generate_content(model=model_id, contents=f"Translate to Chinese: {request.instruct}")
-            translated = res.text.strip()
+            res = await client.aio.models.generate_content(model=model_id, contents=f"Translate to Chinese: {request.instruct}")
+            translated = (res.text or "").strip() or request.instruct
         audio = await voice_engine.synthesize_design(request.text, translated)
         return Response(content=audio, media_type="audio/wav")
     except Exception as e:
@@ -59,8 +59,8 @@ async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(g
 
 @router.post("/save_reference/{persona_id}")
 async def save_voice_reference(persona_id: str, request: Request, uid: str = Depends(get_uid)):
-    _require_persona_owner(persona_id, uid)
-    check_rate_limit(uid, "voice-ref", REF_UPLOAD_DAILY_LIMIT)
+    await asyncio.to_thread(_require_persona_owner, persona_id, uid)
+    await asyncio.to_thread(check_rate_limit, uid, "voice-ref", REF_UPLOAD_DAILY_LIMIT)
     data = await request.json()
     ref_text = data.get("ref_text", "")
     if not isinstance(ref_text, str) or len(ref_text) > MAX_REF_TEXT_LEN:
@@ -80,8 +80,8 @@ async def save_voice_reference(persona_id: str, request: Request, uid: str = Dep
 
 @router.post("/clone")
 async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
-    _require_persona_usable(request.persona_id, uid)
-    check_rate_limit(uid, "voice", VOICE_DAILY_LIMIT)
+    await asyncio.to_thread(_require_persona_usable, request.persona_id, uid)
+    await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
     try:
         audio = await voice_engine.synthesize_clone(request.text, request.persona_id)
         return Response(content=audio, media_type="audio/wav")
@@ -93,7 +93,7 @@ async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
 
 @router.get("/reference/{persona_id}")
 async def get_voice_reference(persona_id: str, uid: str = Depends(get_uid)):
-    _require_persona_usable(persona_id, uid)
+    await asyncio.to_thread(_require_persona_usable, persona_id, uid)
     audio = await asyncio.to_thread(voice_engine.get_reference_audio, persona_id)
     if audio is None:
         raise HTTPException(status_code=404, detail="Not found")
@@ -101,7 +101,7 @@ async def get_voice_reference(persona_id: str, uid: str = Depends(get_uid)):
 
 @router.delete("/reference/{persona_id}")
 async def delete_voice_reference(persona_id: str, uid: str = Depends(get_uid)):
-    _require_persona_owner(persona_id, uid)
+    await asyncio.to_thread(_require_persona_owner, persona_id, uid)
     try:
         await asyncio.to_thread(voice_engine.delete_reference, persona_id)
         return {"status": "success"}

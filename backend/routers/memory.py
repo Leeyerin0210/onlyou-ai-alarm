@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -45,8 +46,8 @@ type 선택 기준:
 
 @router.post("/extract")
 async def extract_memory(request: MemoryExtractRequest, uid: str = Depends(get_uid)):
-    check_rate_limit(uid, "memory-extract", EXTRACT_DAILY_LIMIT)
-    res = client.models.generate_content(
+    await asyncio.to_thread(check_rate_limit, uid, "memory-extract", EXTRACT_DAILY_LIMIT)
+    res = await client.aio.models.generate_content(
         model=model_id, contents=build_extract_prompt(request.message)
     )
     try:
@@ -65,13 +66,17 @@ async def extract_memory(request: MemoryExtractRequest, uid: str = Depends(get_u
         and item["content"].strip()
     ]
 
+def _delete_graph_memory(uid: str) -> None:
+    with neo4j_driver.session() as session:
+        session.run("MATCH (n:Entity {uid: $uid}) DETACH DELETE n", uid=uid)
+
+
 @router.delete("/clear")
 async def clear_memory(uid: str = Depends(get_uid)):
     # 반드시 본인(uid) 기억만 삭제 — 과거엔 전체 사용자 기억을 통째로 지웠음
     try:
-        collection.delete_by_uid(uid)
-        with neo4j_driver.session() as session:
-            session.run("MATCH (n:Entity {uid: $uid}) DETACH DELETE n", uid=uid)
+        await asyncio.to_thread(collection.delete_by_uid, uid)
+        await asyncio.to_thread(_delete_graph_memory, uid)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

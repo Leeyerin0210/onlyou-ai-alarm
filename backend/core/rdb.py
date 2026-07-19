@@ -1,11 +1,15 @@
 """관계형 데이터(personas/users/schedules/backups)용 PostgreSQL 접근 헬퍼.
 
-기존 PgMemoryCollection(core/database.py)과 동일하게 raw psycopg2를 사용한다.
+요청마다 새 커넥션을 열면 커넥션 수립 지연 + max_connections 고갈로
+트래픽 스파이크(아침 알람 폭주) 때 DB가 먼저 죽는다 → 스레드 안전 풀 사용.
 DATABASE_URL 미설정 시 명확히 실패시킨다(관계형 API는 no-op이 의미 없음).
 """
+import os
 from contextlib import closing
+from datetime import date
 
 import psycopg2
+from psycopg2 import pool as pg_pool
 
 from .config import settings
 
@@ -58,15 +62,77 @@ CREATE TABLE IF NOT EXISTS backups (
     data                JSONB NOT NULL,
     updated_at          BIGINT NOT NULL DEFAULT 0
 );
+
+-- 일일 레이트리밋 카운터 (워커/인스턴스 간 공유 — core/rate_limit.py)
+CREATE TABLE IF NOT EXISTS rate_limits (
+    uid                 TEXT NOT NULL,
+    bucket              TEXT NOT NULL,
+    day                 TEXT NOT NULL,
+    count               INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (uid, bucket, day)
+);
 """
+
+_pool: pg_pool.ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> pg_pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        if not settings.DATABASE_URL:
+            raise RuntimeError("DATABASE_URL not configured")
+        _pool = pg_pool.ThreadedConnectionPool(
+            minconn=1,
+            maxconn=int(os.getenv("DB_POOL_MAX", "10")),
+            dsn=settings.DATABASE_URL,
+        )
+    return _pool
+
+
+class _PooledConnection:
+    """풀 커넥션 프록시 — close()가 실제로 끊지 않고 풀에 반납한다.
+
+    기존 호출부의 `with closing(get_conn()) as conn, conn.cursor() as cur`
+    패턴을 바꾸지 않고 풀링을 적용하기 위한 래퍼.
+    """
+
+    def __init__(self, pool, conn):
+        self._pool = pool
+        self._conn = conn
+        self._returned = False
+
+    def close(self):
+        if self._returned:
+            return
+        self._returned = True
+        try:
+            self._pool.putconn(self._conn, close=self._conn.closed)
+        except Exception:
+            pass
+
+    def __enter__(self):
+        self._conn.__enter__()
+        return self
+
+    def __exit__(self, *exc):
+        return self._conn.__exit__(*exc)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __del__(self):
+        self.close()
 
 
 def get_conn():
-    if not settings.DATABASE_URL:
-        raise RuntimeError("DATABASE_URL not configured")
-    conn = psycopg2.connect(settings.DATABASE_URL)
+    pool = _get_pool()
+    conn = pool.getconn()
+    if conn.closed:
+        # DB 재시작 등으로 죽은 커넥션이면 버리고 새로 받는다
+        pool.putconn(conn, close=True)
+        conn = pool.getconn()
     conn.autocommit = True
-    return conn
+    return _PooledConnection(pool, conn)
 
 
 def init_schema():
@@ -76,6 +142,8 @@ def init_schema():
         return
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(SCHEMA_SQL)
+        # 지난 날짜의 레이트리밋 카운터는 재기동 시 정리 (무한 증식 방지)
+        cur.execute("DELETE FROM rate_limits WHERE day < %s", (date.today().isoformat(),))
 
 
 # 시드에서 제거된 기본 페르소나 — 서버 기동 시 DB에서 자동 정리된다.

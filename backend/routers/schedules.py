@@ -11,7 +11,7 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 
 
 @router.get("")
-async def list_schedules(uid: str = Depends(get_uid)):
+def list_schedules(uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT id, date, end_date, start_time, time_hint, repeat_days, "
@@ -31,7 +31,7 @@ async def list_schedules(uid: str = Depends(get_uid)):
 
 
 @router.put("/{schedule_id}")
-async def upsert_schedule(schedule_id: str, body: ScheduleIn, uid: str = Depends(get_uid)):
+def upsert_schedule(schedule_id: str, body: ScheduleIn, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO schedules (id, user_id, date, end_date, start_time, "

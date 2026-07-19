@@ -26,7 +26,7 @@ def _row_to_dict(r):
 
 
 @router.get("")
-async def list_personas(uid: str = Depends(get_uid)):
+def list_personas(uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             f"SELECT {COLS} FROM personas "
@@ -37,7 +37,7 @@ async def list_personas(uid: str = Depends(get_uid)):
 
 
 @router.put("/{persona_id}")
-async def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)):
+def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         # Check ownership if persona exists
         cur.execute("SELECT creator_id FROM personas WHERE id = %s", (persona_id,))
@@ -68,7 +68,7 @@ async def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(ge
 
 
 @router.delete("/{persona_id}")
-async def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
+def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute("SELECT creator_id FROM personas WHERE id = %s", (persona_id,))
         row = cur.fetchone()
@@ -81,7 +81,7 @@ async def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
 
 
 @router.post("/{persona_id}/select")
-async def select_persona(persona_id: str, uid: str = Depends(get_uid)):
+def select_persona(persona_id: str, uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT 1 FROM personas WHERE id = %s AND (is_private = FALSE OR creator_id = %s)",

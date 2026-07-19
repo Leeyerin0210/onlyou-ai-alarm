@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -20,30 +21,39 @@ router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)
 # 헤비 유저의 정상 사용(수백 건)에는 넉넉하고 봇/루프 남용만 걸리는 수준.
 CHAT_DAILY_LIMIT = 500
 
+def _graph_search(uid: str, keywords: list[str]) -> list[str]:
+    """Neo4j 그래프 검색 (동기 드라이버 — 반드시 to_thread로 호출할 것)."""
+    with neo4j_driver.session() as session:
+        graph_results = session.run("""
+            MATCH (s:Entity {uid: $uid})-[r:RELATION]->(o:Entity {uid: $uid})
+            WHERE s.name CONTAINS '유저' OR o.name CONTAINS '유저' OR s.name IN $keywords OR o.name IN $keywords
+            RETURN s.name, r.type, o.name
+            LIMIT 10
+        """, keywords=keywords, uid=uid)
+        return [f"({record['s.name']}) -[{record['r.type']}]-> ({record['o.name']})" for record in graph_results]
+
+
 @router.post("/stream")
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, uid: str = Depends(get_uid)):
-    check_rate_limit(uid, "chat", CHAT_DAILY_LIMIT)
+    # 동기 DB/드라이버 호출은 전부 to_thread로 — 이벤트 루프를 막으면
+    # 워커 하나가 응답을 기다리는 동안 다른 모든 요청이 멈춘다
+    await asyncio.to_thread(check_rate_limit, uid, "chat", CHAT_DAILY_LIMIT)
     # 서버가 UTC여도 '오늘 날짜'와 상대 날짜 해석은 사용자 기준(KST)이어야 한다
     now = datetime.now(ZoneInfo("Asia/Seoul"))
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
     # 1. 벡터 검색 (uid 스코프)
-    results = collection.query(uid=uid, query_texts=[request.message], n_results=3)
+    results = await asyncio.to_thread(
+        collection.query, uid, [request.message], 3
+    )
 
     # 2. 그래프 검색 (Neo4j) — 반드시 uid로 스코프해 본인 그래프만 조회
     graph_context = ""
     try:
-        with neo4j_driver.session() as session:
-            graph_results = session.run("""
-                MATCH (s:Entity {uid: $uid})-[r:RELATION]->(o:Entity {uid: $uid})
-                WHERE s.name CONTAINS '유저' OR o.name CONTAINS '유저' OR s.name IN $keywords OR o.name IN $keywords
-                RETURN s.name, r.type, o.name
-                LIMIT 10
-            """, keywords=[request.message], uid=uid)
-            nodes = [f"({record['s.name']}) -[{record['r.type']}]-> ({record['o.name']})" for record in graph_results]
-            if nodes:
-                graph_context = "\n[연관 지식 그래프 정보]\n" + "\n".join(nodes)
+        nodes = await asyncio.to_thread(_graph_search, uid, [request.message])
+        if nodes:
+            graph_context = "\n[연관 지식 그래프 정보]\n" + "\n".join(nodes)
     except Exception as e:
         print(f"Graph Search Warning: {e}")
 
@@ -98,13 +108,13 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
 """
             contents.append(genai.types.Content(role="user", parts=[genai.types.Part(text=full_input)]))
 
-            stream = client.models.generate_content_stream(
+            stream = await client.aio.models.generate_content_stream(
                 model=model_id,
                 contents=contents,
                 config=genai.types.GenerateContentConfig(system_instruction=request.system_prompt)
             )
 
-            for chunk in stream:
+            async for chunk in stream:
                 if chunk.text:
                     yield sse_data(chunk.text)
 
@@ -138,7 +148,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
 
                 일정이 아니거나 수정 대상이 애매하면 None을 반환하세요.
                 """
-                sched_res = client.models.generate_content(model=model_id, contents=sched_prompt)
+                sched_res = await client.aio.models.generate_content(model=model_id, contents=sched_prompt)
                 if "{" in sched_res.text:
                     s, e = sched_res.text.find("{"), sched_res.text.rfind("}") + 1
                     json_str = sched_res.text[s:e]

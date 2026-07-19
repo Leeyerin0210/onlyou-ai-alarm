@@ -2,12 +2,12 @@ import os
 import json
 from contextlib import closing
 
-import psycopg2
 from neo4j import GraphDatabase
 import firebase_admin
 from firebase_admin import credentials
 from .config import settings
 from .ai import client
+from .rdb import get_conn as _pooled_conn
 
 
 def _embed(texts):
@@ -33,9 +33,8 @@ class PgMemoryCollection:
         self.dsn = dsn
 
     def _conn(self):
-        conn = psycopg2.connect(self.dsn)
-        conn.autocommit = True
-        return conn
+        # core.rdb의 스레드 안전 커넥션 풀 공유 (요청마다 새 커넥션 금지)
+        return _pooled_conn()
 
     def _ensure_table(self, cur, dim: int):
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
@@ -127,6 +126,20 @@ neo4j_driver = GraphDatabase.driver(
     settings.NEO4J_URI,
     auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
 )
+
+
+def ensure_neo4j_indexes():
+    """서버 기동 시 호출(멱등). Entity 복합 인덱스가 없으면 MERGE/조회가
+    노드 전체 스캔이 되어 데이터가 쌓일수록 채팅이 수 초씩 느려진다."""
+    try:
+        with neo4j_driver.session() as session:
+            session.run(
+                "CREATE INDEX entity_uid_name IF NOT EXISTS "
+                "FOR (e:Entity) ON (e.uid, e.name)"
+            )
+    except Exception as e:
+        # Neo4j 미기동(로컬 개발 등)이어도 서버 부팅은 막지 않는다
+        print(f"Neo4j index setup skipped: {e}")
 
 # Firebase
 if not firebase_admin._apps:

@@ -10,6 +10,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups
+from core.database import ensure_neo4j_indexes
 from core.rdb import init_schema, cleanup_removed_personas
 
 app = FastAPI(title="Onlyou Backend")
@@ -22,6 +23,7 @@ async def health():
 async def startup():
     init_schema()
     cleanup_removed_personas()
+    ensure_neo4j_indexes()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -41,5 +43,8 @@ app.include_router(schedules.router)
 app.include_router(backups.router)
 
 if __name__ == "__main__":
-    # 실행 시 모듈 이름을 파일명(main)으로 지정하여 경로 문제 방지
-    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
+    # 개발: DEV_RELOAD=1 로 자동 리로드(워커 1개 강제).
+    # 운영: WEB_CONCURRENCY 만큼 워커를 띄워 코어를 활용한다 (reload 금지).
+    dev_reload = os.getenv("DEV_RELOAD", "").strip() == "1"
+    workers = 1 if dev_reload else int(os.getenv("WEB_CONCURRENCY", "2"))
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=dev_reload, workers=workers)

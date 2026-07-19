@@ -12,6 +12,8 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql://onlyou:onlyou@localhost:5432/onlyou_test"
 )
 
+from contextlib import closing
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -25,9 +27,9 @@ TEST_UID = "test-uid"
 @pytest.fixture()
 def client():
     init_schema()
-    # 각 테스트 전 관련 테이블 초기화
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE personas, users, schedules, backups")
+    # 각 테스트 전 관련 테이블 초기화 (closing으로 풀에 커넥션 반납)
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("TRUNCATE personas, users, schedules, backups, rate_limits")
     app.dependency_overrides[get_uid] = lambda: TEST_UID
     yield TestClient(app)
     app.dependency_overrides.clear()

@@ -1,3 +1,4 @@
+import asyncio
 import re
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -47,12 +48,12 @@ def build_prompt(request: AlarmScriptRequest, mem_str: str) -> str:
 
 @router.post("/script", response_model=AlarmScriptResponse)
 async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
-    check_rate_limit(uid, "alarm-script", SCRIPT_DAILY_LIMIT)
+    await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     prompt = build_prompt(request, mem_str)
-    
-    res = client.models.generate_content(model=model_id, contents=prompt)
-    full_text = res.text.strip()
+
+    res = await client.aio.models.generate_content(model=model_id, contents=prompt)
+    full_text = (res.text or "").strip()
     
     # 글자 수 제한 없이 문장 기호(. ! ? \n)를 기준으로만 분할
     raw_chunks = re.split(r'(?<=[.!?\n])', full_text)
@@ -62,11 +63,11 @@ async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(
 
 @router.post("/script/stream")
 async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
-    check_rate_limit(uid, "alarm-script", SCRIPT_DAILY_LIMIT)
+    await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     mem_str = "\n".join([m.content for m in request.recent_memories])
     async def event_generator():
         prompt = build_prompt(request, mem_str)
-        stream = client.models.generate_content_stream(model=model_id, contents=prompt)
-        for chunk in stream:
+        stream = await client.aio.models.generate_content_stream(model=model_id, contents=prompt)
+        async for chunk in stream:
             if chunk.text: yield sse_data(chunk.text)
     return StreamingResponse(event_generator(), media_type="text/event-stream")

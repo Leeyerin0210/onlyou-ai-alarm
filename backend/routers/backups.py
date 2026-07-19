@@ -11,7 +11,7 @@ router = APIRouter(prefix="/backups", tags=["backups"])
 
 
 @router.get("")
-async def get_backup(uid: str = Depends(get_uid)):
+def get_backup(uid: str = Depends(get_uid)):
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute("SELECT data FROM backups WHERE user_id = %s", (uid,))
         row = cur.fetchone()
@@ -21,7 +21,7 @@ async def get_backup(uid: str = Depends(get_uid)):
 
 
 @router.put("")
-async def put_backup(body: BackupIn, uid: str = Depends(get_uid)):
+def put_backup(body: BackupIn, uid: str = Depends(get_uid)):
     data = {"chats": body.chats, "schedules": body.schedules,
             "memories": body.memories, "timestamp": body.timestamp}
     with closing(get_conn()) as conn, conn.cursor() as cur:

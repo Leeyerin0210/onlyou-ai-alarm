@@ -26,10 +26,13 @@ def test_sse_data_plain_text_unchanged():
 
 
 def _fake_gemini(text):
-    """routers.memory의 genai client를 흉내 내는 스텁."""
+    """routers.memory의 genai client(aio)를 흉내 내는 스텁."""
+    async def generate_content(**kwargs):
+        return types.SimpleNamespace(text=text)
+
     return types.SimpleNamespace(
-        models=types.SimpleNamespace(
-            generate_content=lambda **kwargs: types.SimpleNamespace(text=text)
+        aio=types.SimpleNamespace(
+            models=types.SimpleNamespace(generate_content=generate_content)
         )
     )
 

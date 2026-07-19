@@ -17,6 +17,23 @@ def _persona_body(**overrides):
     return body
 
 
+def test_rate_limit_persisted_in_db(client):
+    """레이트리밋이 프로세스 메모리가 아니라 DB에 기록돼야 한다(다중 워커/인스턴스 공유)."""
+    from contextlib import closing
+    from core.rate_limit import check_rate_limit, _counters
+    from core.rdb import get_conn
+
+    for _ in range(3):
+        check_rate_limit("u-db", "test-bucket", 10)
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT count FROM rate_limits WHERE uid = 'u-db' AND bucket = 'test-bucket'"
+        )
+        assert cur.fetchone()[0] == 3
+    # 인메모리 폴백 경로를 타지 않았다는 증거
+    assert ("u-db", "test-bucket") not in _counters
+
+
 def test_persona_create_ignores_client_usage_count(client):
     """신규 페르소나의 usage_count는 클라이언트 값과 무관하게 0이어야 한다."""
     res = client.put("/personas/p1", json=_persona_body(usageCount=999_999))
@@ -91,11 +108,14 @@ def test_memory_extract_rate_limited(client, monkeypatch):
     import types
     import routers.memory as memory_router
 
+    async def _fake_generate(**kwargs):
+        return types.SimpleNamespace(text="[]")
+
     monkeypatch.setattr(memory_router, "EXTRACT_DAILY_LIMIT", 1)
     monkeypatch.setattr(
         memory_router, "client",
-        types.SimpleNamespace(models=types.SimpleNamespace(
-            generate_content=lambda **kwargs: types.SimpleNamespace(text="[]")
+        types.SimpleNamespace(aio=types.SimpleNamespace(
+            models=types.SimpleNamespace(generate_content=_fake_generate)
         )),
     )
     assert client.post("/memory/extract", json={"message": "m"}).status_code == 200
