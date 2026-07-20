@@ -29,4 +29,18 @@ class Settings:
     # JWT payload에서 uid만 추출한다. 운영에서는 절대 설정하지 말 것.
     DEV_TRUST_TOKENS = os.getenv("DEV_TRUST_TOKENS", "").strip().lower() in ("1", "true", "yes")
 
+    # ---- 수익화 (스펙: docs/superpowers/specs/2026-07-20-revenue-structure-design.md) ----
+    # 무료 티어 게이팅 스위치. 앱에 광고/페이월 UI가 배포되기 전에 켜면 유저가
+    # 한도에 막혀도 빠져나갈 길이 없으므로 기본 OFF — 앱 업데이트 배포 후에만 켤 것.
+    MONETIZATION_ENFORCE = os.getenv("MONETIZATION_ENFORCE", "").strip().lower() in ("1", "true", "yes")
+    FREE_CHAT_DAILY_LIMIT = int(os.getenv("FREE_CHAT_DAILY_LIMIT", "25"))
+    SUB_CHAT_DAILY_LIMIT = int(os.getenv("SUB_CHAT_DAILY_LIMIT", "200"))  # 구독자 내부 남용 가드
+    REWARD_CHAT_MSGS = int(os.getenv("REWARD_CHAT_MSGS", "15"))    # 광고 1편 = +15msg (하향 조정 금지 — 스펙 참조)
+    REWARD_VOICE_DAYS = int(os.getenv("REWARD_VOICE_DAYS", "1"))   # 광고 1편 = AI 보이스 1일
+    VOICE_CREDIT_CAP = int(os.getenv("VOICE_CREDIT_CAP", "7"))     # AI 보이스 적립 상한
+    REWARD_DAILY_CAP = int(os.getenv("REWARD_DAILY_CAP", "30"))    # 리워드 봇 가드 (상품 한도 아님)
+    VOICE_TRIAL_DAYS = int(os.getenv("VOICE_TRIAL_DAYS", "7"))     # 신규 무료 체험
+    # [로컬 개발 전용] AdMob SSV 서명 검증 스킵. 운영에서 켜면 보상 위조가 가능해진다.
+    DEV_SKIP_SSV_VERIFY = os.getenv("DEV_SKIP_SSV_VERIFY", "").strip().lower() in ("1", "true", "yes")
+
 settings = Settings()

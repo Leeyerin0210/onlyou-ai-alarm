@@ -4,6 +4,7 @@ from contextlib import closing
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from services.voice_service import voice_engine
 from models.schemas import VoiceSynthesizeRequest, VoiceCloneRequest
+from services.monetization_service import use_voice_credit
 from core.ai import client, model_id
 from core.config import settings
 from core.rate_limit import check_rate_limit, check_global_budget
@@ -85,6 +86,13 @@ async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(_require_persona_usable, request.persona_id, uid)
     await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
+    # AI 클론 보이스는 원가가 나가는 프리미엄 기능 — 게이팅 ON일 때 이용권 필요.
+    # 402를 받은 앱은 기기 TTS로 폴백해야 한다 (앱 업데이트 전에는 게이팅을 켜지 말 것).
+    if settings.MONETIZATION_ENFORCE and not await asyncio.to_thread(use_voice_credit, uid):
+        raise HTTPException(
+            status_code=402,
+            detail="AI 보이스 이용권이 없어요. 광고를 보고 충전하거나 구독하면 이용할 수 있어요.",
+        )
     try:
         audio, media_type = await voice_engine.synthesize_clone(request.text, request.persona_id)
         return Response(content=audio, media_type=media_type)

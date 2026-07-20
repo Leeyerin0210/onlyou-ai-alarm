@@ -6,7 +6,7 @@ DATABASE_URL 미설정 시 명확히 실패시킨다(관계형 API는 no-op이 �
 """
 import os
 from contextlib import closing
-from datetime import date
+from datetime import date, timedelta
 
 import psycopg2
 from psycopg2 import pool as pg_pool
@@ -70,6 +70,25 @@ CREATE TABLE IF NOT EXISTS rate_limits (
     day                 TEXT NOT NULL,
     count               INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (uid, bucket, day)
+);
+
+-- 리워드 지갑 (services/monetization_service.py)
+-- premium_until: 구독/체험 만료일(ISO) — Play Billing 연동 전까지의 엔타이틀먼트 원장
+CREATE TABLE IF NOT EXISTS reward_wallets (
+    uid                 TEXT PRIMARY KEY,
+    voice_credit_days   INTEGER NOT NULL DEFAULT 0,
+    voice_last_used_day TEXT,
+    chat_extra_day      TEXT,
+    chat_extra_msgs     INTEGER NOT NULL DEFAULT 0,
+    premium_until       TEXT
+);
+
+-- AdMob SSV 트랜잭션 원장 — transaction_id 중복 지급(재전송 공격) 차단
+CREATE TABLE IF NOT EXISTS reward_transactions (
+    transaction_id      TEXT PRIMARY KEY,
+    uid                 TEXT NOT NULL,
+    reward_type         TEXT NOT NULL,
+    created_day         TEXT NOT NULL
 );
 """
 
@@ -144,6 +163,11 @@ def init_schema():
         cur.execute(SCHEMA_SQL)
         # 지난 날짜의 레이트리밋 카운터는 재기동 시 정리 (무한 증식 방지)
         cur.execute("DELETE FROM rate_limits WHERE day < %s", (date.today().isoformat(),))
+        # SSV 트랜잭션 원장은 재전송 방지용 — AdMob 재시도 창을 훨씬 넘긴 것만 정리
+        cur.execute(
+            "DELETE FROM reward_transactions WHERE created_day < %s",
+            ((date.today() - timedelta(days=30)).isoformat(),),
+        )
 
 
 # 시드에서 제거된 기본 페르소나 — 서버 기동 시 DB에서 자동 정리된다.

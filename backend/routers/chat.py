@@ -15,6 +15,7 @@ from core.security import get_uid
 from core.sse import sse_data
 from models.schemas import ChatRequest
 from services.memory_service import is_memory_worthy, process_and_save_memory
+from services.monetization_service import chat_allowance
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)])
 
@@ -86,7 +87,13 @@ def _graph_search(uid: str, keywords: list[str]) -> list[str]:
 async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, uid: str = Depends(get_uid)):
     # 동기 DB/드라이버 호출은 전부 to_thread로 — 이벤트 루프를 막으면
     # 워커 하나가 응답을 기다리는 동안 다른 모든 요청이 멈춘다
-    await asyncio.to_thread(check_rate_limit, uid, "chat", CHAT_DAILY_LIMIT)
+    # 수익화 게이팅이 켜져 있으면 무료 25 + 리워드 연장분(구독자는 내부 가드 200)이 한도,
+    # 꺼져 있으면 기존 남용 가드(500)만 적용된다. 앱에 광고/페이월 UI가 배포된 뒤에만 켤 것.
+    if settings.MONETIZATION_ENFORCE:
+        allowance = await asyncio.to_thread(chat_allowance, uid)
+        await asyncio.to_thread(check_rate_limit, uid, "chat", allowance)
+    else:
+        await asyncio.to_thread(check_rate_limit, uid, "chat", CHAT_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "chat", settings.GLOBAL_CHAT_DAILY_LIMIT)
     # 서버가 UTC여도 '오늘 날짜'와 상대 날짜 해석은 사용자 기준(KST)이어야 한다
     now = datetime.now(ZoneInfo("Asia/Seoul"))

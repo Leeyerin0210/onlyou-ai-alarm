@@ -68,6 +68,27 @@ def check_rate_limit(uid: str, bucket: str, daily_limit: int) -> None:
     _check_in_memory(uid, bucket, daily_limit, today)
 
 
+def get_count(uid: str, bucket: str) -> int:
+    """오늘 사용량 조회 (카운트 증가 없음) — 지갑/잔여량 표시용."""
+    today = date.today().isoformat()
+    if settings.DATABASE_URL:
+        try:
+            from .rdb import get_conn
+
+            with closing(get_conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT count FROM rate_limits WHERE uid = %s AND bucket = %s AND day = %s",
+                    (uid, bucket, today),
+                )
+                row = cur.fetchone()
+                return row[0] if row else 0
+        except Exception as e:
+            print(f"Rate limit DB read error (falling back to in-memory): {e}")
+    with _lock:
+        day, count = _counters.get((uid, bucket), (today, 0))
+        return count if day == today else 0
+
+
 # 전역 카운터용 가상 uid — 실제 uid와 충돌하지 않는 예약 문자열
 _GLOBAL_UID = "__global__"
 

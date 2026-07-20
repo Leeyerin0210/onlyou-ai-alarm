@@ -10,3 +10,4 @@ dateparser
 neo4j
 google-genai
 httpx
+cryptography
