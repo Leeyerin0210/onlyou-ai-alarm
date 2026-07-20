@@ -151,6 +151,74 @@ def test_global_budget_disabled_when_nonpositive():
         check_global_budget("chat", -1)
 
 
+# ---------- 2차 절감: 이력 윈도잉 / 조건부 추출 / 출력 캡 / 스크립트 상한 ----------
+
+
+def test_window_history_keeps_recent_tail():
+    from routers.chat import HISTORY_WINDOW, window_history
+
+    history = list(range(100))
+    windowed = window_history(history)
+    assert len(windowed) == HISTORY_WINDOW
+    assert windowed[-1] == 99  # 최신 메시지는 반드시 유지
+    # 짧은 이력은 그대로
+    assert window_history([1, 2, 3]) == [1, 2, 3]
+
+
+def test_schedule_hint_filter():
+    from routers.chat import has_schedule_hint
+
+    # 날짜가 파싱됐으면 무조건 호출
+    assert has_schedule_hint("아무말", object()) is True
+    # 일정 단서 키워드
+    assert has_schedule_hint("약속 잡자", None) is True
+    assert has_schedule_hint("여덟 시에 공부할게", None) is True
+    assert has_schedule_hint("주말에 등산 가기로 했어", None) is True
+    assert has_schedule_hint("그 일정 취소해줘", None) is True
+    # 단서가 전혀 없는 일상 대화는 스킵
+    assert has_schedule_hint("ㅋㅋㅋ 진짜 웃겨", None) is False
+    assert has_schedule_hint("고마워 덕분에 기분 좋아졌어", None) is False
+
+
+def test_is_memory_worthy_filters_trivial_messages():
+    from services.memory_service import is_memory_worthy
+
+    assert is_memory_worthy("ㅋㅋㅋㅋㅋㅋ") is False
+    assert is_memory_worthy("ㅠㅠ") is False
+    assert is_memory_worthy("응") is False
+    assert is_memory_worthy("  ~~!! ") is False
+    assert is_memory_worthy("민초 좋아해") is True
+    assert is_memory_worthy("내일 치과 가야 해") is True
+
+
+def test_chat_guide_asks_for_concise_replies():
+    from routers.chat import STATIC_CHAT_GUIDE
+
+    assert "간결한" in STATIC_CHAT_GUIDE
+
+
+def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch):
+    import routers.alarm as alarm_router
+    from routers.alarm import MAX_SCRIPT_CHUNKS, build_prompt
+    from models.schemas import AlarmScriptRequest
+
+    prompt = build_prompt(
+        AlarmScriptRequest(persona_name="p", persona_prompt="", user_call_sign="u", recent_memories=[]),
+        "",
+    )
+    assert "6문장 이내" in prompt
+
+    # 모델이 지시를 어기고 12문장을 뱉어도 서버가 상한에서 자른다
+    long_script = " ".join(f"문장 {'하나' * (i % 3 + 1)}입니다." for i in range(12))
+    monkeypatch.setattr(alarm_router, "client", _fake_gemini(long_script))
+    res = client.post(
+        "/alarm/script",
+        json={"persona_name": "p", "persona_prompt": "", "user_call_sign": "u", "recent_memories": []},
+    )
+    assert res.status_code == 200
+    assert len(res.json()["chunks"]) == MAX_SCRIPT_CHUNKS
+
+
 # ---------- 캐싱용 프롬프트 재배치 ----------
 
 

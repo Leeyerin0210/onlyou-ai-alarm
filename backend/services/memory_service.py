@@ -1,9 +1,24 @@
 import asyncio
 import os
 import json
+import re
 from google import genai
 from core.ai import client, extract_model_id
 from core.database import collection, neo4j_driver
+
+# 초성/모음(웃음·감탄), 공백, 기본 문장부호만으로 이뤄진 메시지 — 추출할 정보가 없다
+_TRIVIAL_MESSAGE_RE = re.compile(r"^[ㄱ-ㅎㅏ-ㅣ\s~!?.,;^]*$")
+
+
+def is_memory_worthy(message: str) -> bool:
+    """기억 추출 LLM을 부를 가치가 있는 메시지인지 — "ㅋㅋㅋ", "응" 같은
+    메시지를 걸러 호출 수를 줄인다. 놓침이 손해이므로 애매하면 True (보수적)."""
+    text = message.strip()
+    if len(text) < 4:
+        return False
+    if _TRIVIAL_MESSAGE_RE.match(text):
+        return False
+    return True
 
 
 def build_memory_extract_prompt(message: str, current_date: str) -> str:
