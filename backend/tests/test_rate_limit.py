@@ -46,12 +46,7 @@ def test_sensitive_routes_require_auth():
     assert (
         client.post(
             "/alarm/script",
-            json={
-                "persona_name": "p",
-                "persona_prompt": "",
-                "user_call_sign": "u",
-                "recent_memories": [],
-            },
+            json={"recent_memories": []},
         ).status_code
         == 401
     )

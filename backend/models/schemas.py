@@ -4,7 +4,6 @@ from typing import List, Optional
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
 # 정상 사용에는 전부 넉넉한 값이다.
 MAX_MESSAGE_LEN = 4_000          # 채팅 메시지 1건
-MAX_SYSTEM_PROMPT_LEN = 40_000   # 페르소나 프롬프트 + 공통 지침 + 누적 유저 노트 (여유 있게)
 MAX_HISTORY_ITEMS = 40           # 앱은 최근 10건만 보냄
 MAX_TTS_TEXT_LEN = 1_500         # 음성 합성 1회 (문장 단위 청크)
 MAX_BACKUP_FIELD_LEN = 5_000_000 # 백업 JSON 문자열 (수 MB 수준)
@@ -57,9 +56,7 @@ class MemoryItem(BaseModel):
     time: Optional[str] = Field(default=None, max_length=32)
 
 class AlarmScriptRequest(BaseModel):
-    persona_name: str = Field(max_length=100)
-    persona_prompt: str = Field(max_length=MAX_SYSTEM_PROMPT_LEN)
-    user_call_sign: str = Field(max_length=100)
+    # persona_name·persona_prompt·user_call_sign은 받지 않는다 — 서버가 조립한다.
     recent_memories: List[MemoryItem] = Field(max_length=50)
 
 class AlarmScriptResponse(BaseModel):
