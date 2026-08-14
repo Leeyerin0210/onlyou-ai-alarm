@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS personas (
     creator_id          TEXT,
     usage_count         INTEGER NOT NULL DEFAULT 0,
     is_private          BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_at          BIGINT NOT NULL DEFAULT 0
+    updated_at          BIGINT NOT NULL DEFAULT 0,
+    preset_key          TEXT
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -90,6 +91,10 @@ CREATE TABLE IF NOT EXISTS reward_transactions (
     reward_type         TEXT NOT NULL,
     created_day         TEXT NOT NULL
 );
+
+-- 기존 DB용 증분 마이그레이션. prompt/voice_prompt/image_url/voice_tone/voice_speed는
+-- 여기서 DROP하지 않는다 — 구버전 앱이 붙어 있는 동안 깨진다 (4번 단위에서 정리).
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS preset_key TEXT;
 """
 
 _pool: pg_pool.ThreadedConnectionPool | None = None

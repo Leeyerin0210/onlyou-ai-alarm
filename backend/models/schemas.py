@@ -63,17 +63,15 @@ class AlarmScriptResponse(BaseModel):
     chunks: List[str]
 
 class PersonaIn(BaseModel):
+    # 자유 프롬프트(prompt·voicePrompt)와 imageUrl은 받지 않는다.
+    # 톤·속도(voiceTone·voiceSpeed)는 연결된 적이 없는 배관이라 제거했다.
+    # 구버전 앱이 계속 보내지만 Pydantic이 조용히 버린다 (extra="forbid" 금지).
     name: str = Field(max_length=100)
-    prompt: str = Field(default="", max_length=MAX_SYSTEM_PROMPT_LEN)
     description: str = Field(default="", max_length=2_000)
-    voiceTone: float = 1.0
-    voiceSpeed: float = 1.0
-    voicePrompt: Optional[str] = Field(default=None, max_length=1_000)
+    presetKey: str = Field(max_length=64)
     userCallSign: Optional[str] = Field(default=None, max_length=100)
-    imageUrl: Optional[str] = Field(default=None, max_length=2_000)
     primaryHex: Optional[str] = Field(default=None, max_length=16)
     secondaryHex: Optional[str] = Field(default=None, max_length=16)
-    usageCount: int = 0
     isPrivate: bool = False
     updatedAt: int = 0
 
