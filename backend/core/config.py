@@ -5,9 +5,6 @@ load_dotenv()
 
 class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
     MODEL_ID = "gemini-3-flash-preview"
     # 추출 계열(사실/그래프/일정) 전용 모델 — 단순 구조화 작업이라 저가 모델로 내릴 수 있다.
     # 미설정 시 MODEL_ID를 그대로 쓴다. GA 전환 때 flash-lite급으로 낮춰 추출 단가 절감.

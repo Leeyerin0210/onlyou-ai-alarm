@@ -10,7 +10,6 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization
-from core.database import ensure_neo4j_indexes
 from core.rdb import init_schema, cleanup_removed_personas
 
 app = FastAPI(title="Onlyou Backend")
@@ -23,7 +22,6 @@ async def health():
 async def startup():
     init_schema()
     cleanup_removed_personas()
-    ensure_neo4j_indexes()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
