@@ -61,3 +61,48 @@ def test_query_ranks_insight_above_equally_similar_fact():
     collection.add("u1", ["카페인에 예민한 편이다"], [{"timestamp": "t", "uid": "u1", "type": "insight"}], ["i1"])
     result = collection.query("u1", ["카페인"], 2)
     assert result["types"][0][0] == "insight"
+
+
+def test_get_active_uids_since_returns_only_fact_and_triple_uids_after_cutoff():
+    collection.add("u1", ["오래된 사실"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["old1"])
+    collection.add("u2", ["오늘 사실"], [{"timestamp": "2026-08-07T10:00:00+09:00", "uid": "u2", "type": "fact"}], ["new1"])
+    collection.add("u3", ["오늘 통찰"], [{"timestamp": "2026-08-07T10:00:00+09:00", "uid": "u3", "type": "insight"}], ["ins1"])
+
+    uids = collection.get_active_uids_since("2026-08-07T00:00:00+09:00")
+
+    assert uids == ["u2"]  # u1은 컷오프 이전, u3는 insight라 제외
+
+
+def test_last_insight_timestamp_returns_none_when_no_insight():
+    collection.add("u1", ["사실"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    assert collection.last_insight_timestamp("u1") is None
+
+
+def test_last_insight_timestamp_returns_latest():
+    collection.add("u1", ["통찰1"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i1"])
+    collection.add("u1", ["통찰2"], [{"timestamp": "2026-08-05T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i2"])
+    assert collection.last_insight_timestamp("u1") == "2026-08-05T00:00:00+09:00"
+
+
+def test_pending_importance_sums_fact_and_triple_only():
+    collection.add("u1", ["사실"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "fact", "importance": 6}], ["f1"])
+    collection.add("u1", ["트리플문장"], [{"timestamp": "2026-08-02T00:00:00+09:00", "uid": "u1", "type": "triple", "importance": 4}], ["t1"])
+    collection.add("u1", ["통찰"], [{"timestamp": "2026-08-03T00:00:00+09:00", "uid": "u1", "type": "insight", "importance": 9}], ["i1"])
+
+    assert collection.pending_importance("u1", None) == 10  # insight는 제외
+
+
+def test_pending_importance_only_counts_after_since():
+    collection.add("u1", ["옛사실"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "fact", "importance": 6}], ["f1"])
+    collection.add("u1", ["새사실"], [{"timestamp": "2026-08-05T00:00:00+09:00", "uid": "u1", "type": "fact", "importance": 4}], ["f2"])
+
+    assert collection.pending_importance("u1", "2026-08-03T00:00:00+09:00") == 4
+
+
+def test_recent_memory_texts_orders_newest_first_and_respects_limit():
+    collection.add("u1", ["첫번째"], [{"timestamp": "2026-08-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    collection.add("u1", ["두번째"], [{"timestamp": "2026-08-02T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f2"])
+
+    texts = collection.recent_memory_texts("u1", None, 1)
+
+    assert texts == ["두번째"]

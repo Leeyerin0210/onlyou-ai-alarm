@@ -138,6 +138,76 @@ class PgMemoryCollection:
         with closing(self._conn()) as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM user_memories WHERE uid = %s", (uid,))
 
+    def get_active_uids_since(self, start_iso: str) -> list[str]:
+        """지정 시각 이후 fact/triple(=실제 대화에서 나온 raw 기억)이 있는 uid 목록.
+        reflection 배치가 '오늘 채팅한 유저만' 고르는 데 쓴다."""
+        if not self.dsn:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT uid FROM user_memories "
+                    "WHERE type IN ('fact','triple') AND metadata->>'timestamp' >= %s",
+                    (start_iso,),
+                )
+                return [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            print(f"get_active_uids_since warning: {e}")
+            return []
+
+    def last_insight_timestamp(self, uid: str) -> str | None:
+        """이 유저의 가장 최근 insight 생성 시각 (없으면 None)."""
+        if not self.dsn:
+            return None
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT MAX(metadata->>'timestamp') FROM user_memories "
+                    "WHERE uid = %s AND type = 'insight'",
+                    (uid,),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            print(f"last_insight_timestamp warning: {e}")
+            return None
+
+    def pending_importance(self, uid: str, since: str | None) -> int:
+        """마지막 insight(since) 이후 쌓인 fact/triple importance 합.
+        reflection 트리거 임계값 비교에 쓴다."""
+        if not self.dsn:
+            return 0
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COALESCE(SUM(importance), 0) FROM user_memories "
+                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "AND (%s::text IS NULL OR metadata->>'timestamp' > %s)",
+                    (uid, since, since),
+                )
+                return cur.fetchone()[0]
+        except Exception as e:
+            print(f"pending_importance warning: {e}")
+            return 0
+
+    def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
+        """마지막 insight(since) 이후 raw 기억 문장들 (최신순). reflection LLM 프롬프트 재료."""
+        if not self.dsn:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT document FROM user_memories "
+                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "AND (%s::text IS NULL OR metadata->>'timestamp' > %s) "
+                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
+                    (uid, since, since, limit),
+                )
+                return [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            print(f"recent_memory_texts warning: {e}")
+            return []
+
 
 # 벡터 기억 (PostgreSQL + pgvector)
 collection = PgMemoryCollection(settings.DATABASE_URL)
