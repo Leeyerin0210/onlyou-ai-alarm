@@ -30,9 +30,12 @@ class ScheduleItem(BaseModel):
     location: Optional[str] = Field(default=None, max_length=200)
 
 class ChatRequest(BaseModel):
-    system_prompt: str = Field(max_length=MAX_SYSTEM_PROMPT_LEN)
+    # system_prompt는 받지 않는다 — 서버가 유저의 선택 페르소나에서 조립한다.
+    # (구버전 앱이 계속 보내지만 Pydantic이 조용히 버린다.)
+    # user_notes는 유저 본인의 데이터이고 기기 Room DB에만 있어 클라이언트가 보낸다.
     history: List[ChatMessage] = Field(max_length=MAX_HISTORY_ITEMS)
     message: str = Field(max_length=MAX_MESSAGE_LEN)
+    user_notes: List[str] = Field(default_factory=list, max_length=100)
     schedules: Optional[List[ScheduleItem]] = Field(default=None, max_length=200)
     skip_side_effects: bool = False
 

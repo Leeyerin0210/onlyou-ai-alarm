@@ -59,7 +59,7 @@ def test_sensitive_routes_require_auth():
     assert (
         client.post(
             "/chat/stream",
-            json={"system_prompt": "s", "history": [], "message": "안녕"},
+            json={"history": [], "message": "안녕"},
         ).status_code
         == 401
     )

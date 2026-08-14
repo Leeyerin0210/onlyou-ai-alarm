@@ -13,9 +13,11 @@ from core.database import collection
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.security import get_uid
 from core.sse import sse_data
+from core.prompt_builder import build_chat_system_prompt
 from models.schemas import ChatRequest
 from services.memory_service import is_memory_worthy, process_and_save_memory
 from services.monetization_service import chat_allowance
+from services.persona_service import load_active_persona
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)])
 
@@ -113,6 +115,12 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     )
     relevant_memories = format_memories(results)
 
+    # 프롬프트는 서버가 조립한다 — 클라이언트가 만든 문자열을 LLM에 넣지 않는다
+    persona = await asyncio.to_thread(load_active_persona, uid)
+    system_prompt = build_chat_system_prompt(
+        persona.preset_key, persona.name, persona.user_call_sign, request.user_notes
+    )
+
     # 초성 웃음·짧은 감탄사 등은 추출할 게 없으므로 기억 추출 LLM 호출을 건너뛴다
     if not request.skip_side_effects and is_memory_worthy(request.message):
         background_tasks.add_task(process_and_save_memory, uid, request.message, current_date_str, timestamp_iso)
@@ -150,7 +158,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
                 model=model_id,
                 contents=contents,
                 config=genai.types.GenerateContentConfig(
-                    system_instruction=request.system_prompt + "\n" + STATIC_CHAT_GUIDE,
+                    system_instruction=system_prompt + "\n" + STATIC_CHAT_GUIDE,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 )
             )
