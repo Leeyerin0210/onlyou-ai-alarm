@@ -4,7 +4,7 @@ import json
 import re
 from google import genai
 from core.ai import client, extract_model_id
-from core.database import collection, neo4j_driver
+from core.database import collection
 
 # 초성/모음(웃음·감탄), 공백, 기본 문장부호만으로 이뤄진 메시지 — 추출할 정보가 없다
 _TRIVIAL_MESSAGE_RE = re.compile(r"^[ㄱ-ㅎㅏ-ㅣ\s~!?.,;^]*$")
@@ -92,16 +92,6 @@ def verbalize_triple(subject: str, predicate: str, obj: str) -> str:
     return f"{subject}는 {obj}를 {predicate}"
 
 
-def _save_graph_triples(uid: str, triples: list, timestamp: str) -> None:
-    """Neo4j 트리플 저장 (동기 드라이버 — 반드시 to_thread로 호출할 것)."""
-    with neo4j_driver.session() as session:
-        for t in triples:
-            session.run("""
-                MERGE (s:Entity {name: $sub, uid: $uid})
-                MERGE (o:Entity {name: $obj, uid: $uid})
-                MERGE (s)-[r:RELATION {type: $pred}]->(o)
-                SET r.timestamp = $ts
-            """, sub=t['subject'], obj=t['object'], pred=t['predicate'], ts=timestamp, uid=uid)
 
 
 async def process_and_save_memory(uid: str, message: str, current_date: str, timestamp: str):
@@ -121,14 +111,14 @@ async def process_and_save_memory(uid: str, message: str, current_date: str, tim
         print(f"Memory Extract Error: {e}")
         return
 
-    # 저장은 서로 격리 — 벡터 저장이 실패해도 그래프 저장은 시도한다
+    # 저장은 서로 격리 — fact 저장이 실패해도 triple 저장은 시도한다
     if fact:
         try:
             await asyncio.to_thread(
                 collection.add,
                 uid,
                 [fact],
-                [{"timestamp": timestamp, "uid": uid}],
+                [{"timestamp": timestamp, "uid": uid, "type": "fact", "importance": importance}],
                 [f"mem_{uid}_{os.urandom(4).hex()}"],
             )
         except Exception as e:
@@ -136,7 +126,16 @@ async def process_and_save_memory(uid: str, message: str, current_date: str, tim
 
     if triples:
         try:
-            await asyncio.to_thread(_save_graph_triples, uid, triples, timestamp)
-            print(f"[Graph Memory Saved] {len(triples)} triples for {uid}.")
+            docs = [verbalize_triple(t["subject"], t["predicate"], t["object"]) for t in triples]
+            metas = [
+                {
+                    "timestamp": timestamp, "uid": uid, "type": "triple", "importance": importance,
+                    "subject": t["subject"], "predicate": t["predicate"], "object": t["object"],
+                }
+                for t in triples
+            ]
+            ids = [f"triple_{uid}_{os.urandom(4).hex()}" for _ in triples]
+            await asyncio.to_thread(collection.add, uid, docs, metas, ids)
+            print(f"[Triple Memory Saved] {len(triples)} triples for {uid}.")
         except Exception as e:
-            print(f"Graph Memory Save Error: {e}")
+            print(f"Triple Memory Save Error: {e}")
