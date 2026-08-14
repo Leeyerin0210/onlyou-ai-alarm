@@ -12,7 +12,16 @@
 
 ## Global Constraints
 
-- **백엔드 테스트 실행 환경**: venv 활성화 + 더미 `GEMINI_API_KEY` 필요. 로컬 Postgres에 `onlyou_test` DB가 있어야 한다(`backend/tests/conftest.py` 참조). 실행: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest`
+- **백엔드 테스트 실행 환경**: 이 기기의 Postgres는 docker compose 컨테이너이고 **호스트 포트가 5433**이다(5432 아님 — 네이티브 설치 없음). 그래서 `TEST_DATABASE_URL` 오버라이드가 필수다. 이 명령을 그대로 쓸 것:
+
+  ```bash
+  cd backend && source .venv/bin/activate && \
+    GEMINI_API_KEY=dummy \
+    TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" \
+    python -m pytest
+  ```
+
+  (베이스라인: 93 passed. 오버라이드를 빼면 52개가 `psycopg2.OperationalError`로 죽는다.)
 - **앱 빌드**: JDK 21
 - **DB 컬럼 DROP 금지.** `personas.prompt`, `voice_prompt`, `image_url`, `voice_tone`, `voice_speed` 컬럼은 이 계획에서 **읽지도 쓰지도 않게만** 만든다. 실제 DROP은 4번 단위(마이그레이션)에서 처리한다. 지금 지우면 구버전 앱이 붙어 있는 동안 깨진다.
 - **구버전 앱 호환: 제거한 요청 필드는 422가 아니라 조용히 무시한다.** Pydantic은 모델에 없는 필드를 기본적으로 무시하므로, 스키마에서 필드를 빼기만 하면 된다. `extra="forbid"`를 추가하지 말 것.
@@ -142,7 +151,7 @@ def test_is_valid_preset_id():
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'core.presets'`
 
 - [ ] **Step 3: 프리셋 모듈 구현**
@@ -240,7 +249,7 @@ def get_preset(preset_id: str | None) -> Preset:
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets.py -v`
 Expected: PASS (5 passed)
 
 - [ ] **Step 5: 커밋**
@@ -326,7 +335,7 @@ def test_alarm_persona_block_is_preset_body():
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'core.prompt_builder'`
 
 - [ ] **Step 3: 조립 함수 구현**
@@ -397,7 +406,7 @@ def build_alarm_persona_block(preset_id: str | None) -> str:
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets.py -v`
 Expected: PASS (13 passed)
 
 - [ ] **Step 5: 커밋**
@@ -473,7 +482,7 @@ def test_upsert_ignores_legacy_free_text_fields(client):
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_personas.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_personas.py -v`
 Expected: FAIL — `KeyError: 'presetKey'` 및 unknown preset key가 200으로 통과
 
 - [ ] **Step 3: 스키마 · 모델 · 라우터 구현**
@@ -593,7 +602,7 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_personas.py tests/test_users.py tests/test_rate_limit.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_personas.py tests/test_users.py tests/test_rate_limit.py -v`
 Expected: PASS. `test_users.py`·`test_rate_limit.py`는 personas를 SQL로 직접 삽입하므로 영향이 없어야 한다 — 깨지면 그 테스트의 INSERT 컬럼 목록을 확인할 것.
 
 - [ ] **Step 5: 커밋**
@@ -639,7 +648,7 @@ def test_preset_body_is_never_exposed(client):
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets_api.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets_api.py -v`
 Expected: FAIL — 404 Not Found
 
 - [ ] **Step 3: 라우터 구현**
@@ -680,7 +689,7 @@ app.include_router(presets_router.router)
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_presets_api.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_presets_api.py -v`
 Expected: PASS (2 passed)
 
 - [ ] **Step 5: 커밋**
@@ -766,7 +775,7 @@ def test_null_call_sign_uses_default(client):
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_persona_service.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_persona_service.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'services.persona_service'`
 
 - [ ] **Step 3: 서비스 구현**
@@ -817,7 +826,7 @@ def load_active_persona(uid: str) -> ActivePersona:
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_persona_service.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_persona_service.py -v`
 Expected: PASS (4 passed)
 
 - [ ] **Step 5: 커밋**
@@ -934,7 +943,7 @@ def test_no_selected_persona_uses_default(client, captured_system_instruction):
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_chat_prompt_assembly.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_chat_prompt_assembly.py -v`
 Expected: FAIL — `system_prompt` 필수 필드 누락으로 422
 
 - [ ] **Step 3: 구현**
@@ -978,7 +987,7 @@ from services.persona_service import load_active_persona
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_chat_prompt_assembly.py tests/test_cost_reduction.py tests/test_chat_memory_formatting.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_chat_prompt_assembly.py tests/test_cost_reduction.py tests/test_chat_memory_formatting.py -v`
 Expected: PASS. 기존 채팅 테스트가 `system_prompt`를 보내고 있으면 그 필드를 지워 수정한다.
 
 - [ ] **Step 5: 커밋**
@@ -1043,7 +1052,7 @@ def test_legacy_persona_fields_are_ignored(client):
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest tests/test_alarm_prompt_assembly.py -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest tests/test_alarm_prompt_assembly.py -v`
 Expected: FAIL — `AlarmScriptRequest`에 `persona_name` 등이 필수라 `ValidationError`
 
 - [ ] **Step 3: 구현**
@@ -1127,7 +1136,7 @@ def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: s
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest -v`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest -v`
 Expected: 전체 PASS. 여기서 백엔드 변경이 끝나므로 전 테스트를 돌린다.
 
 - [ ] **Step 5: 커밋**
@@ -1924,7 +1933,7 @@ Run:
 ```
 Expected: BUILD SUCCESSFUL. 여기서 앱 전체가 컴파일되어야 한다 (Task 10에서 미뤄둔 오류 포함).
 
-Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy pytest`
+Run: `cd backend && source .venv/bin/activate && GEMINI_API_KEY=dummy TEST_DATABASE_URL="postgresql://onlyou:onlyou@localhost:5433/onlyou_test" python -m pytest`
 Expected: 전체 PASS
 
 - [ ] **Step 6: 커밋**
