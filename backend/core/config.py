@@ -15,6 +15,10 @@ class Settings:
     GLOBAL_CHAT_DAILY_LIMIT = int(os.getenv("GLOBAL_CHAT_DAILY_LIMIT", "50000"))
     GLOBAL_ALARM_SCRIPT_DAILY_LIMIT = int(os.getenv("GLOBAL_ALARM_SCRIPT_DAILY_LIMIT", "10000"))
     GLOBAL_VOICE_DAILY_LIMIT = int(os.getenv("GLOBAL_VOICE_DAILY_LIMIT", "20000"))
+    # 기억 reflection/consolidation 배치 (docs/superpowers/specs/2026-08-07-memory-reflection-consolidation-design.md)
+    REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
+    REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))
+    GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
     # 서버리스 TTS (Modal) — tts-server/modal_app.py 배포 후 URL/키 설정
     TTS_SERVER_URL = os.getenv("TTS_SERVER_URL", "")
     TTS_API_KEY = os.getenv("TTS_API_KEY", "")
