@@ -110,7 +110,7 @@ async def run_nightly_reflection() -> None:
     print(f"[Reflection Batch] {len(uids)} candidate uid(s).")
     for uid in uids:
         try:
-            check_global_budget("reflect", settings.GLOBAL_REFLECT_DAILY_LIMIT)
+            await asyncio.to_thread(check_global_budget, "reflect", settings.GLOBAL_REFLECT_DAILY_LIMIT)
         except Exception:
             print("[Reflection Batch] global budget exhausted, stopping.")
             break
