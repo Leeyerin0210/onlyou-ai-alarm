@@ -1,3 +1,5 @@
+from contextlib import closing
+
 from core.rdb import get_conn
 from services.persona_service import (
     DEFAULT_CALL_SIGN,
@@ -9,7 +11,7 @@ TEST_UID = "test-uid"
 
 
 def _insert_persona(pid, preset_key, name, call_sign):
-    with get_conn() as conn, conn.cursor() as cur:
+    with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO personas (id, name, creator_id, user_call_sign, preset_key) "
             "VALUES (%s, %s, %s, %s, %s)",
@@ -36,7 +38,7 @@ def test_falls_back_when_nothing_selected(client):
 
 
 def test_falls_back_when_selected_row_is_gone(client):
-    with get_conn() as conn, conn.cursor() as cur:
+    with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO users (uid, selected_persona_id) VALUES (%s, 'ghost')",
             (TEST_UID,),
