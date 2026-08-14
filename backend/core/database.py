@@ -47,6 +47,14 @@ class PgMemoryCollection:
         # 기존 무주공산 기억은 uid=NULL이라 어떤 사용자 조회에도 걸리지 않는다(격리 안전 기본값).
         cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS uid TEXT")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid ON user_memories (uid)")
+        # reflection/consolidation: fact/triple/insight 구분 + 구조화 트리플 컬럼 +
+        # importance(reflection 트리거 임계값 계산용).
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'fact'")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS subject TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS predicate TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS object TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS importance INTEGER NOT NULL DEFAULT 5")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid_type ON user_memories (uid, type)")
 
     def add(self, uid, documents, metadatas=None, ids=None):
         if not self.dsn:
@@ -61,33 +69,47 @@ class PgMemoryCollection:
         with closing(self._conn()) as conn, conn.cursor() as cur:
             self._ensure_table(cur, dim)
             for doc, meta, _id, emb in zip(documents, metadatas, ids, embeddings):
+                meta = meta or {}
                 cur.execute(
-                    "INSERT INTO user_memories (id, uid, document, metadata, embedding) "
-                    "VALUES (%s, %s, %s, %s::jsonb, %s::vector) "
+                    "INSERT INTO user_memories "
+                    "(id, uid, document, metadata, embedding, type, subject, predicate, object, importance) "
+                    "VALUES (%s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s, %s, %s) "
                     "ON CONFLICT (id) DO UPDATE SET "
                     "uid = EXCLUDED.uid, document = EXCLUDED.document, "
-                    "metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding",
-                    (_id, uid, doc, json.dumps(meta), _vec_literal(emb)),
+                    "metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding, "
+                    "type = EXCLUDED.type, subject = EXCLUDED.subject, "
+                    "predicate = EXCLUDED.predicate, object = EXCLUDED.object, "
+                    "importance = EXCLUDED.importance",
+                    (
+                        _id, uid, doc, json.dumps(meta), _vec_literal(emb),
+                        meta.get("type", "fact"), meta.get("subject"),
+                        meta.get("predicate"), meta.get("object"),
+                        meta.get("importance", 5),
+                    ),
                 )
 
     def query(self, uid, query_texts, n_results: int = 3):
-        empty = {"documents": [[]], "metadatas": [[]]}
+        empty = {"documents": [[]], "metadatas": [[]], "types": [[]]}
         if not self.dsn or not uid:
             return empty
         try:
             emb = _embed(query_texts)[0]
             with closing(self._conn()) as conn, conn.cursor() as cur:
-                # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
+                # insight는 압축된 통찰이라 같은 유사도면 raw 기억보다 우선 노출한다
+                # (거리가 작을수록 유사 — insight는 거리에서 0.1을 깎아 앞으로 보낸다).
                 cur.execute(
-                    "SELECT document, metadata FROM user_memories "
+                    "SELECT document, metadata, type FROM user_memories "
                     "WHERE uid = %s "
-                    "ORDER BY embedding <=> %s::vector LIMIT %s",
+                    "ORDER BY (embedding <=> %s::vector) - "
+                    "(CASE WHEN type = 'insight' THEN 0.1 ELSE 0 END) "
+                    "LIMIT %s",
                     (uid, _vec_literal(emb), n_results),
                 )
                 rows = cur.fetchall()
             docs = [r[0] for r in rows]
             metas = [r[1] if r[1] else {} for r in rows]
-            return {"documents": [docs], "metadatas": [metas]}
+            types = [r[2] for r in rows]
+            return {"documents": [docs], "metadatas": [metas], "types": [types]}
         except Exception as e:
             # 테이블 미생성(기억이 아직 없음) 등은 정상 상황 — 채팅을 막지 않는다
             print(f"Memory query warning: {e}")
