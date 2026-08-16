@@ -62,19 +62,21 @@ class PersonaRepositoryImpl
                         PersonaEntity(
                             id = dto.id,
                             name = dto.name,
-                            prompt = dto.prompt,
+                            // 아래 5개는 4번 단위에서 컬럼째 제거될 잔여 필드다
+                            prompt = "",
+                            voiceTone = 1.0f,
+                            voiceSpeed = 1.0f,
+                            voicePrompt = "",
+                            imageUrl = null,
                             description = dto.description,
-                            voiceTone = dto.voiceTone,
-                            voiceSpeed = dto.voiceSpeed,
-                            voicePrompt = dto.voicePrompt ?: "다정하고 친절한 어조로",
                             userCallSign = dto.userCallSign ?: "주인님",
-                            imageUrl = dto.imageUrl,
                             primaryHex = dto.primaryHex,
                             secondaryHex = dto.secondaryHex,
                             isSelected = dto.id == finalSelectedId,
                             creatorId = dto.creatorId,
                             usageCount = existing?.usageCount ?: dto.usageCount,
                             isPrivate = dto.isPrivate,
+                            presetKey = dto.presetKey,
                         ),
                     )
                 }
@@ -156,13 +158,9 @@ class PersonaRepositoryImpl
                     com.onlyou.com.data.remote.PersonaDto(
                         id = updatedPersona.id,
                         name = updatedPersona.name,
-                        prompt = updatedPersona.prompt,
                         description = updatedPersona.description,
-                        voiceTone = updatedPersona.voiceTone,
-                        voiceSpeed = updatedPersona.voiceSpeed,
-                        voicePrompt = updatedPersona.voicePrompt,
+                        presetKey = updatedPersona.presetKey,
                         userCallSign = updatedPersona.userCallSign,
-                        imageUrl = updatedPersona.imageUrl,
                         primaryHex = updatedPersona.themeColors?.primaryHex,
                         secondaryHex = updatedPersona.themeColors?.secondaryHex,
                         creatorId = updatedPersona.creatorId,
@@ -176,62 +174,60 @@ class PersonaRepositoryImpl
             }
         }
 
-        private fun PersonaEntity.toDomain() =
-            Persona(
-                id = id,
-                name = name,
-                prompt = prompt,
-                description = description,
-                voiceTone = voiceTone,
-                voiceSpeed = voiceSpeed,
-                voicePrompt = voicePrompt,
-                userCallSign = userCallSign,
-                isSelected = isSelected,
-                imageUrl = imageUrl,
-                creatorId = creatorId,
-                usageCount = usageCount,
-                isPrivate = isPrivate,
-                themeColors = if (primaryHex != null && secondaryHex != null) {
-                    StreamerTheme(
-                        primaryHex = primaryHex,
-                        secondaryHex = secondaryHex,
-                        light = ThemeModeColors(
-                            backgroundHex = "#FFFFFF",
-                            surfaceAHex = "#F5F5F5",
-                            onSurfaceAHex = "#000000",
-                            surfaceBHex = "#E0E0E0",
-                            onSurfaceBHex = "#000000",
-                        ),
-                        dark = ThemeModeColors(
-                            backgroundHex = "#121212",
-                            surfaceAHex = "#1E1E1E",
-                            onSurfaceAHex = "#FFFFFF",
-                            surfaceBHex = "#2C2C2C",
-                            onSurfaceBHex = "#FFFFFF",
-                        ),
-                        fontType = MiyaFontType.DEFAULT,
-                    )
-                } else {
-                    null
-                },
-            )
-
-        private fun Persona.toEntity() =
-            PersonaEntity(
-                id = id,
-                name = name,
-                prompt = prompt,
-                description = description,
-                voiceTone = voiceTone,
-                voiceSpeed = voiceSpeed,
-                voicePrompt = voicePrompt,
-                userCallSign = userCallSign,
-                isSelected = isSelected,
-                imageUrl = imageUrl,
-                primaryHex = themeColors?.primaryHex,
-                secondaryHex = themeColors?.secondaryHex,
-                creatorId = creatorId,
-                usageCount = usageCount,
-                isPrivate = isPrivate,
-            )
     }
+
+internal fun PersonaEntity.toDomain() =
+    Persona(
+        id = id,
+        name = name,
+        description = description,
+        presetKey = presetKey,
+        userCallSign = userCallSign,
+        isSelected = isSelected,
+        creatorId = creatorId,
+        usageCount = usageCount,
+        isPrivate = isPrivate,
+        themeColors = if (primaryHex != null && secondaryHex != null) {
+            StreamerTheme(
+                primaryHex = primaryHex,
+                secondaryHex = secondaryHex,
+                light = ThemeModeColors(
+                    backgroundHex = "#FFFFFF",
+                    surfaceAHex = "#F5F5F5",
+                    onSurfaceAHex = "#000000",
+                    surfaceBHex = "#E0E0E0",
+                    onSurfaceBHex = "#000000",
+                ),
+                dark = ThemeModeColors(
+                    backgroundHex = "#121212",
+                    surfaceAHex = "#1E1E1E",
+                    onSurfaceAHex = "#FFFFFF",
+                    surfaceBHex = "#2C2C2C",
+                    onSurfaceBHex = "#FFFFFF",
+                ),
+                fontType = MiyaFontType.DEFAULT,
+            )
+        } else {
+            null
+        },
+    )
+
+internal fun Persona.toEntity() =
+    PersonaEntity(
+        id = id,
+        name = name,
+        prompt = "",
+        description = description,
+        voiceTone = 1.0f,
+        voiceSpeed = 1.0f,
+        voicePrompt = "",
+        userCallSign = userCallSign,
+        isSelected = isSelected,
+        imageUrl = null,
+        primaryHex = themeColors?.primaryHex,
+        secondaryHex = themeColors?.secondaryHex,
+        creatorId = creatorId,
+        usageCount = usageCount,
+        isPrivate = isPrivate,
+        presetKey = presetKey,
+    )

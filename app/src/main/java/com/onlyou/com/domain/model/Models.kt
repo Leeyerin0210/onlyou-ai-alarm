@@ -66,15 +66,12 @@ data class StreamerTheme(
 data class Persona(
     val id: String,
     val name: String,
-    val prompt: String, // AI의 성격 및 지침 (System Prompt)
     val description: String,
-    val voiceTone: Float = 1.0f,
-    val voiceSpeed: Float = 1.0f,
-    val voicePrompt: String = "다정하고 친절한 어조로",
+    // 성격 프롬프트는 서버 상수(core/presets.py)에 있고 앱은 참조 키만 안다.
+    val presetKey: String = "",
     val userCallSign: String = "주인님",
     val isSelected: Boolean = false,
     val themeColors: StreamerTheme? = null,
-    val imageUrl: String? = null,
     val creatorId: String? = null,
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
