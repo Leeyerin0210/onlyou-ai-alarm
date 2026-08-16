@@ -200,9 +200,6 @@ class VoiceRepositoryImpl
                     }
 
                     val requestDto = AlarmScriptRequestDto(
-                        persona_name = persona.name,
-                        persona_prompt = persona.prompt ?: "",
-                        user_call_sign = persona.userCallSign,
                         recent_memories = memoryDtos,
                     )
 
@@ -311,9 +308,6 @@ class VoiceRepositoryImpl
 
                     // 3. 알람 스크립트 청크 요청
                     val scriptRequest = AlarmScriptRequestDto(
-                        persona_name = persona.name,
-                        persona_prompt = persona.prompt ?: "",
-                        user_call_sign = persona.userCallSign,
                         recent_memories = memoryDtos,
                     )
 

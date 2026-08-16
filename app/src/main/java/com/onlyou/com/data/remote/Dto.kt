@@ -17,9 +17,11 @@ data class ScheduleItemDto(
 )
 
 data class ChatRequestDto(
-    val system_prompt: String,
+    // system_prompt는 보내지 않는다 — 서버가 선택 페르소나에서 조립한다.
+    // user_notes는 기기 Room DB에만 있는 유저 본인 데이터라 계속 보낸다.
     val history: List<ChatMessageDto>,
     val message: String,
+    val user_notes: List<String> = emptyList(),
     val schedules: List<ScheduleItemDto>? = null,
     val skip_side_effects: Boolean = false,
 )
@@ -39,9 +41,7 @@ data class MemoryItemDto(
 
 // Alarm
 data class AlarmScriptRequestDto(
-    val persona_name: String,
-    val persona_prompt: String,
-    val user_call_sign: String,
+    // 페르소나 이름·프롬프트·호칭은 서버가 DB에서 읽는다
     val recent_memories: List<MemoryItemDto>,
 )
 
