@@ -1727,6 +1727,90 @@ git commit -m "refactor(app): 시스템 프롬프트 조립을 서버로 넘기�
 
 ---
 
+### Task 11b: 앱 — 나머지 화면의 제거된 필드 참조 정리
+
+**계획 작성 시 누락된 태스크다.** Task 10 실행 중에 발견했다 — `Persona`에서 `imageUrl`·`prompt`를 지우자 컴파일이 계획에 적힌 4개 파일이 아니라 12개에서 깨졌다. 원인은 계획의 File Structure 조사가 `PersonaEditScreen`·`ChatRepositoryImpl`·`VoiceRepositoryImpl`만 훑고 상점·홈·온보딩·알람 화면의 아바타 표시 코드를 놓친 것이다.
+
+**Files:**
+- Modify: `app/.../ui/home/ChatScreen.kt:162-164`, `app/.../ui/home/HomeScreen.kt:107-109`
+- Modify: `app/.../ui/shop/ShopScreen.kt:284-285, 339-340, 365-366`
+- Modify: `app/.../ui/components/MiyaDrawerSheet.kt:80-82`
+- Modify: `app/.../ui/alarm/AlarmActivity.kt:251-253`
+- Modify: `app/.../ui/onboarding/OnboardingScreen.kt:811-813`
+- Modify: `app/.../ui/shop/ShopViewModel.kt:120`, `app/.../ui/onboarding/OnboardingViewModel.kt:80`
+
+**Interfaces:**
+- Consumes: `Persona` without `imageUrl`·`prompt` (Task 10)
+- Produces: 없음 (순수 정리)
+
+- [ ] **Step 1: 아바타 표시 7곳에서 imageUrl 분기 제거**
+
+7곳 모두 같은 모양이다 — `if (persona.imageUrl != null) { AsyncImage(...) } else { Icon(...) }`. **`else` 분기의 폴백 UI가 이미 존재하므로**, `if` 분기와 조건문만 지우고 `else` 안의 내용을 그대로 남기면 된다. 새 UI를 만들 필요가 없다.
+
+예 (`HomeScreen.kt:107-121`) — 아래를
+
+```kotlin
+            if (persona.imageUrl != null) {
+                AsyncImage(
+                    model = persona.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Icon(
+                    Icons.Default.SmartToy,
+                    contentDescription = null,
+                    modifier = Modifier.align(Alignment.Center).size(30.dp),
+                    tint = colors.primary.copy(alpha = 0.3f),
+                )
+            }
+```
+
+이렇게 바꾼다:
+
+```kotlin
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = null,
+                modifier = Modifier.align(Alignment.Center).size(30.dp),
+                tint = colors.primary.copy(alpha = 0.3f),
+            )
+```
+
+나머지 6곳도 동일한 방식으로 처리한다. 이는 스펙의 "캐릭터 일러스트 v1에서 제거 — 얼굴 없는 시각 정체성(색·형태)"과 일치한다.
+
+각 파일에서 `AsyncImage`·`ContentScale`·`coil` import가 다른 용도로 쓰이지 않으면 함께 지운다.
+
+- [ ] **Step 2: 검색 필터에서 prompt 제거**
+
+`ShopViewModel.kt:120`:
+
+```kotlin
+            return personas.filter {
+                it.name.contains(query, ignoreCase = true) ||
+                    it.description.contains(query, ignoreCase = true)
+            }
+```
+
+`OnboardingViewModel.kt:80`도 동일하게 `it.prompt` → `it.description`으로 바꾼다.
+
+프리셋 본문은 이제 서버에만 있어 앱이 검색할 수 없고, 유저에게 보이는 텍스트는 `description`이므로 검색 대상으로도 그쪽이 맞다.
+
+- [ ] **Step 3: 컴파일 오류 축소 확인**
+
+Run: `JAVA_HOME=/Users/yerin/Library/Java/JavaVirtualMachines/ms-21.0.7/Contents/Home ./gradlew compileDebugKotlin`
+Expected: 여전히 FAIL이지만, 남은 오류가 `PersonaEditScreen.kt`·`PersonaEditViewModel.kt`·`ChatRepositoryImpl.kt`·`VoiceRepositoryImpl.kt` 4개 파일로 줄어야 한다. 이 4개는 Task 11·12가 처리한다. 다른 파일에 오류가 남아 있으면 보고할 것.
+
+- [ ] **Step 4: 커밋**
+
+```bash
+git add app/src/main/java/com/onlyou/com/ui/
+git commit -m "refactor(app): 제거된 페르소나 필드 참조를 화면에서 정리"
+```
+
+---
+
 ### Task 12: 앱 — 페르소나 편집 화면을 프리셋 선택으로 교체
 
 **Files:**
@@ -1927,6 +2011,8 @@ fun PresetPicker(
 `api`는 생성자에 `private val api: com.onlyou.com.data.remote.MiyaApiService`로 주입한다. `loadPersona(personaId)`를 부르는 자리에서 `loadPresets()`도 함께 호출한다.
 
 이미지 선택(`setImageUri`)과 그 관련 상태·미리듣기 재생 상태는 화면에서 쓰이지 않게 되었으면 함께 제거한다. 남은 컴파일 오류는 전부 이 태스크에서 정리한다.
+
+**`VoiceRepositoryImpl.kt:45-52`의 `synthesizeVoice(text, persona)`도 이 태스크에서 제거한다.** 이 함수는 `instruct = persona.voicePrompt`로 자유 음성 생성을 호출하는데, `voicePrompt`가 사라졌고 유일한 호출자인 `PersonaEditViewModel.previewVoice`도 이 태스크에서 없어진다. 함수 본체, `VoiceRepository` 인터페이스의 선언, ViewModel의 호출부를 함께 지운다. (서버의 `synthesize_design`은 남는다 — 우리가 프리셋을 만들 때 쓰는 내부 도구다.)
 
 - [ ] **Step 5: 전체 빌드 · 테스트 통과 확인**
 
