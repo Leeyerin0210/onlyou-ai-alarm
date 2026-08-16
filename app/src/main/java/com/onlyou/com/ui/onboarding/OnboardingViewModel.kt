@@ -77,7 +77,7 @@ class OnboardingViewModel
         ): List<Persona> {
             if (query.isBlank()) return personas
             return personas.filter {
-                it.name.contains(query, ignoreCase = true) || it.prompt.contains(query, ignoreCase = true)
+                it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true)
             }
         }
 

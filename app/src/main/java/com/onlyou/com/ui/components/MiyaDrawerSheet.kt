@@ -17,11 +17,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -77,16 +75,7 @@ fun MiyaDrawerSheet(
                         .background(colors.surfaceA),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (selectedPersona?.imageUrl != null) {
-                        AsyncImage(
-                            model = selectedPersona.imageUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(32.dp))
-                    }
+                    Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(32.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
