@@ -9,7 +9,6 @@ import com.onlyou.com.data.remote.MemoryItemDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.data.remote.VoiceCloneRequestDto
 import com.onlyou.com.data.remote.VoiceSaveReferenceRequestDto
-import com.onlyou.com.data.remote.VoiceSynthesizeRequestDto
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.MemoryRepository
@@ -40,35 +39,6 @@ class VoiceRepositoryImpl
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
         private val weatherRepository: WeatherRepository,
     ) : VoiceRepository {
-        override suspend fun synthesizeVoice(
-            text: String,
-            persona: Persona,
-        ): ByteArray? =
-            withContext(Dispatchers.IO) {
-                try {
-                    val request = VoiceSynthesizeRequestDto(
-                        text = text,
-                        instruct = persona.voicePrompt,
-                    )
-                    val response = apiService.synthesizeVoice(request)
-                    if (response.isSuccessful) {
-                        response.body()?.bytes()
-                    } else {
-                        if (response.code() == 400) {
-                            val errorStr = response.errorBody()?.string()
-                            if (errorStr?.contains("detail") == true) {
-                                throw Exception("MODERATION_ERROR")
-                            }
-                        }
-                        null
-                    }
-                } catch (e: Exception) {
-                    if (e.message == "MODERATION_ERROR") throw e
-                    e.printStackTrace()
-                    null
-                }
-            }
-
         override suspend fun synthesizeVoiceCloned(
             text: String,
             personaId: String,
@@ -320,13 +290,8 @@ class VoiceRepositoryImpl
                     // 5. 첫 번째 청크를 테스트용으로 먼저 합성하여 Clone 가능 여부 판단 및 병렬 처리
                     if (chunks.isEmpty()) return@runCatching true
 
-                    var useClone = true
                     val firstText = chunks[0]
-                    var firstVoiceBytes = synthesizeVoiceCloned(firstText, persona.id)
-                    if (firstVoiceBytes == null) {
-                        useClone = false
-                        firstVoiceBytes = synthesizeVoice(firstText, persona)
-                    }
+                    val firstVoiceBytes = synthesizeVoiceCloned(firstText, persona.id)
 
                     if (firstVoiceBytes != null) {
                         alarmVoiceChunkDao.insertChunk(
@@ -346,11 +311,7 @@ class VoiceRepositoryImpl
                             val deferredChunks = remainingChunks.mapIndexed { index, text ->
                                 val actualIndex = index + 1
                                 async {
-                                    val voiceBytes = if (useClone) {
-                                        synthesizeVoiceCloned(text, persona.id) ?: synthesizeVoice(text, persona)
-                                    } else {
-                                        synthesizeVoice(text, persona)
-                                    }
+                                    val voiceBytes = synthesizeVoiceCloned(text, persona.id)
 
                                     if (voiceBytes != null) {
                                         AlarmVoiceChunkEntity(
