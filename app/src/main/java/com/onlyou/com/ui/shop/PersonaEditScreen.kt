@@ -191,11 +191,19 @@ fun PersonaEditContent(
                     // 성격 프리셋 섹션
                     Column {
                         SectionLabel("성격")
-                        PresetPicker(
-                            presets = presets,
-                            selectedId = persona.presetKey,
-                            onSelect = { onUpdatePersona(persona.copy(presetKey = it)) },
-                        )
+                        if (presets.isEmpty()) {
+                            Text(
+                                "성격 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
+                                fontSize = 13.sp,
+                                color = MiyaTheme.colors.neutral,
+                            )
+                        } else {
+                            PresetPicker(
+                                presets = presets,
+                                selectedId = persona.presetKey,
+                                onSelect = { onUpdatePersona(persona.copy(presetKey = it)) },
+                            )
+                        }
                     }
 
                     Divider(color = borderColor)

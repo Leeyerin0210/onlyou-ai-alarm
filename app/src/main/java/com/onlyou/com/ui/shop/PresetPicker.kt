@@ -12,11 +12,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onlyou.com.data.remote.PresetDto
+import com.onlyou.com.ui.theme.MiyaTheme
 
 /**
  * 성격 프리셋 선택.
@@ -31,7 +31,7 @@ fun PresetPicker(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val brandPurple = Color(0xFF8B5CF6)
+    val colors = MiyaTheme.colors
     Column(modifier = modifier.fillMaxWidth()) {
         presets.forEach { preset ->
             val selected = preset.id == selectedId
@@ -40,20 +40,20 @@ fun PresetPicker(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
                     .background(
-                        if (selected) Color(0xFFF3EEFF) else Color.White,
+                        if (selected) colors.surfaceB else colors.surfaceA,
                         RoundedCornerShape(12.dp),
                     )
                     .border(
                         if (selected) 2.dp else 1.dp,
-                        if (selected) brandPurple else Color(0xFFE0E0E0),
+                        if (selected) colors.primary else colors.neutral.copy(alpha = 0.3f),
                         RoundedCornerShape(12.dp),
                     )
                     .clickable { onSelect(preset.id) }
                     .padding(16.dp),
             ) {
-                Text(preset.label, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(preset.label, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.onSurfaceA)
                 Spacer(Modifier.height(4.dp))
-                Text(preset.description, fontSize = 12.sp, color = Color.Gray)
+                Text(preset.description, fontSize = 12.sp, color = colors.neutral)
             }
         }
     }

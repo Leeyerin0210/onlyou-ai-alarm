@@ -40,6 +40,7 @@ class PersonaEditViewModel
                     _presets.value = api.getPresets()
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    _uiEvent.emit("성격 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.")
                 }
             }
         }
