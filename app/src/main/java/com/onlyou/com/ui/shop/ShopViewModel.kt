@@ -4,7 +4,6 @@ import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyou.com.domain.model.Persona
-import com.onlyou.com.domain.repository.ChatRepository
 import com.onlyou.com.domain.repository.PersonaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +32,6 @@ class ShopViewModel
     @Inject
     constructor(
         private val personaRepository: PersonaRepository,
-        private val chatRepository: ChatRepository,
         private val auth: com.google.firebase.auth.FirebaseAuth,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
@@ -169,11 +167,5 @@ class ShopViewModel
             super.onCleared()
             mediaPlayer?.release()
             mediaPlayer = null
-        }
-
-        fun clearChatHistory() {
-            viewModelScope.launch {
-                chatRepository.clearHistory()
-            }
         }
     }

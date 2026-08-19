@@ -73,8 +73,6 @@ interface ChatRepository {
         persona: Persona,
     ): Flow<ChatEvent>
 
-    suspend fun clearHistory()
-
     /**
      * 유저 발화 없이 시스템 지시로 AI 선톡을 생성한다.
      * 지시문은 유저 메시지로 저장하지 않고, 생성된 응답만 AI 메시지로 저장한다.

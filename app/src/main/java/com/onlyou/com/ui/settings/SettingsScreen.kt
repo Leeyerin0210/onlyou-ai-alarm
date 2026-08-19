@@ -125,6 +125,7 @@ fun SettingsScreen(
 
             item { SettingsSectionTitle("기타") }
             item { SettingsRowItem(Icons.Default.CloudUpload, "백업 및 동기화", onClick = { onNavigateTo("settings_backup") }) }
+            item { SettingsRowItem(Icons.Default.DeleteSweep, "기억 초기화", onClick = { onNavigateTo("settings_ai_memory") }) }
             item { SettingsRowItem(Icons.Default.Language, "언어 설정", "한국어 >", onClick = { /* TODO */ }) }
             item { SettingsRowItem(Icons.Default.Info, "앱 정보", "v1.2.0 >", onClick = { onNavigateTo("settings_app_info") }) }
         }

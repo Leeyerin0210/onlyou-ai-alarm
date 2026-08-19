@@ -125,55 +125,114 @@ fun ToneAndPersonalityScreen(onBack: () -> Unit) {
     }
 }
 
-// 3. AI 메모리 관리
+// 3. 기억 초기화
+//
+// 기억 목록을 유저에게 보여주지 않는 것은 의도된 제품 결정이다 — 추출된 사실을
+// 나열해 보여주면 대화 상대가 아니라 감시 기록처럼 읽힌다. 통제 수단은 전부 지우기
+// 하나만 제공한다.
 @Composable
-fun AiMemoryScreen(onBack: () -> Unit) {
+fun AiMemoryScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+) {
     val colors = MiyaTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val resetState by viewModel.resetMemoryState.collectAsState()
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(resetState) {
+        when (val state = resetState) {
+            is ResetMemoryState.Success -> {
+                showResetDialog = false
+                android.widget.Toast
+                    .makeText(context, "기억을 모두 지웠어요.", android.widget.Toast.LENGTH_SHORT)
+                    .show()
+                viewModel.consumeResetMemoryState()
+            }
+            is ResetMemoryState.Error -> {
+                showResetDialog = false
+                android.widget.Toast
+                    .makeText(context, state.message, android.widget.Toast.LENGTH_LONG)
+                    .show()
+                viewModel.consumeResetMemoryState()
+            }
+            else -> {}
+        }
+    }
+
+    if (showResetDialog) {
+        ResetMemoryDialog(
+            isLoading = resetState == ResetMemoryState.Loading,
+            onConfirm = { viewModel.resetMemory() },
+            onDismiss = { showResetDialog = false },
+        )
+    }
+
     Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("AI 메모리 관리", onBack)
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
-            item {
-                Text("루나는 당신을 이렇게 기억하고 있어요.", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
-                Spacer(Modifier.height(16.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("기억 항목", color = colors.neutral, fontSize = 12.sp)
-                            Text("128개", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.primary)
-                            Spacer(Modifier.height(8.dp))
-                            Text("256MB / 500MB", fontSize = 12.sp, color = colors.neutral)
-                        }
-                        Box(Modifier.size(64.dp).clip(CircleShape).background(colors.primary.copy(0.1f)), contentAlignment = Alignment.Center) {
-                            Text("75%\n사용 중", fontSize = 12.sp, color = colors.primary, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-            val memoryItems = listOf(
-                Pair(Icons.Default.Event, "선호하는 일정 시간\n오전 시간 선호, 금요일 오전 집중 시간"),
-                Pair(Icons.Default.Place, "자주 가는 장소\n회사, 집, 헬스장, 카페"),
-                Pair(Icons.Default.Groups, "중요한 사람들\n가족, 동료, 친구"),
-                Pair(Icons.Default.DirectionsRun, "선호하는 활동\n영화 보기, 운동, 독서"),
-                Pair(Icons.Default.StickyNote2, "기타 메모\n기타 대화에서 기억한 정보들")
+        com.onlyou.com.ui.components.MiyaTopAppBar("기억 초기화", onBack)
+        Column(Modifier.fillMaxSize().padding(24.dp)) {
+            Text(
+                "지금까지 나눈 대화와, 그 대화에서 기억한 정보를 모두 지웁니다.",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.onSurfaceA,
             )
-            items(memoryItems.size) { index ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(colors.surfaceA), contentAlignment = Alignment.Center) {
-                        Icon(memoryItems[index].first, null, tint = colors.primary, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Text(memoryItems[index].second, fontSize = 14.sp, color = colors.onSurfaceA, modifier = Modifier.weight(1f))
-                }
-            }
-            item {
-                Spacer(Modifier.height(32.dp))
-                OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary)) { Text("기억 항목 관리") }
-                Spacer(Modifier.height(12.dp))
-                TextButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("모든 기억 초기화", color = Color.Red.copy(alpha = 0.8f)) }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "지우고 나면 처음 만난 사이로 돌아가요. 한 번 지운 기억은 되돌릴 수 없습니다.\n\n" +
+                    "다만 백업을 해둔 적이 있다면, 그 백업을 복원할 때 지운 내용이 다시 살아납니다.",
+                fontSize = 14.sp,
+                color = colors.neutral,
+            )
+            Spacer(Modifier.weight(1f))
+            TextButton(
+                onClick = { showResetDialog = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Text("모든 기억 초기화", color = Color.Red.copy(alpha = 0.8f), fontWeight = FontWeight.Bold)
             }
         }
     }
+}
+
+@Composable
+private fun ResetMemoryDialog(
+    isLoading: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = MiyaTheme.colors
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        containerColor = colors.surfaceA,
+        title = { Text("모든 기억 초기화", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
+        text = {
+            Text(
+                "대화 기록과 지금까지 기억한 정보가 모두 삭제되며 복구할 수 없어요.\n\n" +
+                    "정말 초기화할까요?",
+                color = colors.neutral,
+                fontSize = 14.sp,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isLoading) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = colors.primary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("초기화하기", color = Color.Red.copy(alpha = 0.8f))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text("취소", color = colors.neutral)
+            }
+        },
+    )
 }
 
 // 4. 프리미엄 플랜

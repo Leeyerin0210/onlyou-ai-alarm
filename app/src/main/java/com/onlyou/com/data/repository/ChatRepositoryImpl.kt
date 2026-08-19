@@ -341,17 +341,6 @@ class ChatRepositoryImpl
             }
         }
 
-        override suspend fun clearHistory() {
-            try {
-                // 1. 로컬 채팅 DB 삭제
-                chatDao.clearHistory()
-                // 2. 백엔드 AI 기억(벡터/그래프) 삭제
-                apiService.clearMemory()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
         private fun ChatMessageEntity.toDomain() =
             ChatMessage(
                 id = id,

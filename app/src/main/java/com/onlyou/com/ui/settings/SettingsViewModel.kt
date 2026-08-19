@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingPeriodicWorkPolicy
+import com.onlyou.com.data.repository.MemoryResetter
 import com.onlyou.com.domain.repository.AuthRepository
 import com.onlyou.com.domain.repository.BackupRepository
 import com.onlyou.com.domain.repository.DndSettingsRepository
@@ -27,6 +28,13 @@ sealed interface DeleteAccountState {
     data class Error(val message: String) : DeleteAccountState
 }
 
+sealed interface ResetMemoryState {
+    object Idle : ResetMemoryState
+    object Loading : ResetMemoryState
+    object Success : ResetMemoryState
+    data class Error(val message: String) : ResetMemoryState
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val themeRepository: ThemeRepository,
@@ -36,6 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val eveningFeedbackScheduler: EveningFeedbackScheduler,
     private val networkMonitor: NetworkMonitor,
     private val authRepository: AuthRepository,
+    private val memoryResetter: MemoryResetter,
 ) : ViewModel() {
     val themeMode = themeRepository.themeMode
 
@@ -127,5 +136,25 @@ class SettingsViewModel @Inject constructor(
                         DeleteAccountState.Error(it.message ?: "탈퇴 처리에 실패했습니다.")
                 }
         }
+    }
+
+    private val _resetMemoryState = MutableStateFlow<ResetMemoryState>(ResetMemoryState.Idle)
+    val resetMemoryState: StateFlow<ResetMemoryState> = _resetMemoryState
+
+    /** 서버 기억 + 로컬 기억 + 대화 기록 초기화. 서버 삭제 실패 시 로컬은 보존된다. */
+    fun resetMemory() {
+        if (_resetMemoryState.value == ResetMemoryState.Loading) return
+        viewModelScope.launch {
+            _resetMemoryState.value = ResetMemoryState.Loading
+            _resetMemoryState.value = if (memoryResetter.resetAll()) {
+                ResetMemoryState.Success
+            } else {
+                ResetMemoryState.Error("초기화에 실패했어요. 네트워크 상태를 확인하고 다시 시도해 주세요.")
+            }
+        }
+    }
+
+    fun consumeResetMemoryState() {
+        _resetMemoryState.value = ResetMemoryState.Idle
     }
 }
