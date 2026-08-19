@@ -2049,3 +2049,47 @@ git commit -m "feat(app): 페르소나 편집을 자유 입력에서 프리셋 �
 - 위젯·퀵설정 타일 → **3번 단위**
 - 기존 유저 생성 페르소나 마이그레이션, 컬럼 DROP, 고아 레퍼런스 정리 → **4번 단위**
 - `is_private` 공개 목록 로직 정리 (스펙 API 표에 있으나 상점 UI와 함께 다뤄야 한다)
+
+---
+
+# 실행 결과 (2026-08-19)
+
+브랜치 `feature/prompt-preset-migration`, 베이스 `011f6c5`(= `feature/memory-reflection-consolidation`).
+**`main`이 아니다** — main에는 Neo4j 제거·reflection 등 이 작업이 전제한 코드가 없다.
+
+계획의 12개 태스크 + 실행 중 발견해 추가한 Task 11b, 총 13개를 완료했다.
+백엔드 124 tests 통과, 앱 `assembleDebug` + `testDebugUnitTest` 통과,
+Room 19→20 마이그레이션은 에뮬레이터에서 실제 실행해 검증했다.
+
+## 배포 순서
+
+1. **백엔드 먼저.** 기동 시 `init_schema()`가 `ALTER TABLE personas ADD COLUMN IF NOT EXISTS preset_key`와
+   `UPDATE personas SET preset_key=%s WHERE preset_key IS NULL` 백필을 수행하고,
+   `cleanup_removed_personas()`가 옛 `luna_cool` 행을 은퇴시킨다. 둘 다 멱등이다.
+2. **`python seed_personas.py` 실행** (`DATABASE_URL` 필요). 멱등이며 `ON CONFLICT DO UPDATE`라
+   프리셋 문구를 고친 뒤 다시 돌리면 기존 행도 갱신된다. 1번 이후에 실행해야 한다.
+3. **그 다음 앱 배포.**
+4. **dead 컬럼(`prompt`·`voice_prompt`·`image_url`·`voice_tone`·`voice_speed`)을 지금 DROP하지 말 것.**
+   4번 단위에서 정리한다.
+
+## 스토어 배포 게이트
+
+**2번 단위(목소리 프리셋)가 끝나기 전에는 스토어에 올리지 않는다.**
+자유 음성 생성 UI가 사라지면서 `saveReferenceVoice`/`getReferenceVoice`의 호출자가 0이 되었고,
+design-synthesis 폴백도 함께 제거됐다. 그래서 **이 빌드 이후 만들어진 페르소나는 레퍼런스 음성을
+등록할 경로가 없어 알람이 항상 시스템 TTS로 나온다.** 기존에 서버에 레퍼런스가 있는 페르소나는 영향 없다.
+알람 자체가 무음이 되지는 않는다(TTS 계층과 벨소리·진동이 그대로 남아 있다).
+
+## 보류한 항목 (판단 필요)
+
+1. **`syncPersonas`의 페르소나 선택 reconcile이 `usage_count`를 증가시킨다.**
+   `POST /personas/{id}/select`가 무조건 `usage_count + 1`을 하는데, 이 값은 코드가 명시적으로
+   클라이언트 조작을 막아온 상점 랭킹 지표다(`routers/personas.py`의 주석, `test_abuse_guards.py`의 전용 테스트).
+   게다가 reconcile은 `getMe()` **실패**와 "서버에 선택 없음"을 구분하지 못해, `/users/me`가 불안정하면
+   동기화마다 불필요한 select가 나간다. 두 개를 함께 고치는 게 맞다.
+2. **노트 안에 리터럴 `</user_notes>`가 있으면 래퍼를 탈출한다.** 형제 경로인 `<user_input>`도
+   같은 구조라 이 브랜치가 만든 회귀는 아니다. 세 경로를 한 번에 정리하는 편이 낫다.
+3. `tests/test_personas.py`의 `get_conn()` 호출 11곳이 `closing()` 없이 쓰인다. 파일 단위로 정리할 것.
+
+그 외 동작에 영향 없는 minor(고아 import, 죽은 장식 아바타, 미사용 Compose 파라미터,
+하드코딩 `Color.Gray`, 알람 캐시 부분 실패 시 첫 청크 누락)는 별도로 기록해두지 않았다 — 커밋 이력에 남아 있다.
