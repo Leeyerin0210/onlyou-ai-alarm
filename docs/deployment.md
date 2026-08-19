@@ -37,14 +37,14 @@ modal deploy tts-server/modal_app.py
 | 변수 | 값 |
 |---|---|
 | `GEMINI_API_KEY` | Gemini API 키 |
-| `NEO4J_URI` | `neo4j+s://xxxx.databases.neo4j.io` (Neo4j AuraDB 등) |
-| `NEO4J_USER` | Neo4j 계정 |
-| `NEO4J_PASSWORD` | Neo4j 비밀번호 |
 | `OPENWEATHER_API_KEY` | OpenWeather API 키 |
 | `TTS_SERVER_URL` | 1번에서 나온 Modal URL |
 | `TTS_API_KEY` | 1번에서 만든 것과 동일한 문자열 |
 | `FIREBASE_STORAGE_BUCKET` | Firebase 콘솔 > Storage의 버킷 이름 (예: `xxx.firebasestorage.app`) |
 | `DATABASE_URL` | PostgreSQL 접속 문자열 (예: `postgresql://user:pass@host:5432/dbname`). 아래 참고 |
+| `REFLECTION_HOUR` | 매일 밤 reflection 배치를 돌릴 시각(KST, 0~23). 기본 3(새벽 3시) |
+| `REFLECTION_IMPORTANCE_THRESHOLD` | reflection을 트리거할 누적 importance 임계값. 기본 20 |
+| `GLOBAL_REFLECT_DAILY_LIMIT` | reflection 배치의 전체 사용자 합산 일일 LLM 호출 상한. 기본 20000 |
 
 ### PostgreSQL + pgvector (벡터 기억)
 
@@ -65,8 +65,6 @@ modal deploy tts-server/modal_app.py
 
 주의:
 - `DATABASE_URL`이 비어 있으면 기억 저장·검색이 조용히 비활성화되고 채팅은 정상 동작한다(기억만 빠짐).
-- Neo4j(그래프 기억)는 별개다. `NEO4J_URI`가 반드시 **외부 호스팅 주소**(Neo4j Aura 등)여야 한다.
-  로컬 개발용 `127.0.0.1` 주소를 그대로 배포하면 연결 실패한다.
 
 ### 시크릿 파일
 
