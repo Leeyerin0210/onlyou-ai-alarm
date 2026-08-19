@@ -2,6 +2,8 @@ import asyncio
 import os
 import sys
 import uvicorn
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.jobstores.base import JobLookupError
 from fastapi import FastAPI, Request
 
 # 현재 파일(main.py)이 있는 위치를 파이썬 경로에 추가
@@ -11,8 +13,33 @@ if current_dir not in sys.path:
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization
 from core.rdb import init_schema, cleanup_removed_personas
+from core.config import settings
+from services.reflection_service import run_nightly_reflection
 
 app = FastAPI(title="Onlyou Backend")
+
+scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
+
+
+def _register_reflection_job(sched: AsyncIOScheduler) -> None:
+    # replace_existing=True는 스케줄러가 이미 start()된 뒤에만 기존 job을
+    # 확실히 교체한다 — start() 전에는 APScheduler가 추가 요청을 내부 pending
+    # 리스트에 쌓아두기만 해서, start 전에 같은 id로 두 번 등록하면 job이
+    # 중복될 수 있다. start 여부와 무관하게 항상 단일 job이 되도록 add 전에
+    # 명시적으로 제거한다.
+    try:
+        sched.remove_job("nightly_reflection")
+    except JobLookupError:
+        pass
+
+    sched.add_job(
+        run_nightly_reflection,
+        "cron",
+        hour=settings.REFLECTION_HOUR,
+        minute=0,
+        id="nightly_reflection",
+        replace_existing=True,
+    )
 
 @app.get("/health")
 async def health():
@@ -22,6 +49,12 @@ async def health():
 async def startup():
     init_schema()
     cleanup_removed_personas()
+    _register_reflection_job(scheduler)
+    scheduler.start()
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler.shutdown(wait=False)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

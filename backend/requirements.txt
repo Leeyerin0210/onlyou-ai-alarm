@@ -10,3 +10,4 @@ dateparser
 google-genai
 httpx
 cryptography
+apscheduler
