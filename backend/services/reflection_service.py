@@ -8,9 +8,10 @@ APScheduler가 매일 새벽 REFLECTION_HOUR에 run_nightly_reflection()을 호�
 import asyncio
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException
 from google import genai
 
 from core.ai import client, extract_model_id
@@ -61,9 +62,10 @@ def _today_str() -> str:
     return datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
 
 
-def _today_start_iso() -> str:
-    now = datetime.now(ZoneInfo("Asia/Seoul"))
-    return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+def _lookback_start_iso() -> str:
+    """새벽 배치가 '직전 24시간' 활동을 대상으로 하도록 — 03시 기준 '오늘 00시부터'로
+    자르면 전날 낮~밤에 대화한 유저가 전부 후보에서 빠진다."""
+    return (datetime.now(ZoneInfo("Asia/Seoul")) - timedelta(days=1)).isoformat()
 
 
 async def reflect_for_uid(uid: str, timestamp: str) -> None:
@@ -82,6 +84,13 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
     )
     if not memories:
         return
+
+    # 실제 LLM 호출 직전에만 전역 budget을 체크한다 — run_nightly_reflection의
+    # 후보 순회 단계에서 미리 체크하면, 여기까지 오지 못하고 스킵될 uid(오늘 이미
+    # 완료/임계값 미달)까지 실제 LLM 호출과 동일하게 budget을 소모하게 된다.
+    # 소진 시 HTTPException(429)이 그대로 전파되고, run_nightly_reflection이
+    # 이를 감지해 배치 전체를 중단한다.
+    await asyncio.to_thread(check_global_budget, "reflect", settings.GLOBAL_REFLECT_DAILY_LIMIT)
 
     try:
         res = await client.aio.models.generate_content(
@@ -104,17 +113,18 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
 
 
 async def run_nightly_reflection() -> None:
-    """APScheduler가 매일 새벽 호출하는 배치 진입점 — 오늘 채팅한 유저만 순회."""
+    """APScheduler가 매일 새벽 호출하는 배치 진입점 — 직전 24시간 채팅한 유저만 순회."""
     timestamp = datetime.now(ZoneInfo("Asia/Seoul")).isoformat()
-    uids = await asyncio.to_thread(collection.get_active_uids_since, _today_start_iso())
+    uids = await asyncio.to_thread(collection.get_active_uids_since, _lookback_start_iso())
     print(f"[Reflection Batch] {len(uids)} candidate uid(s).")
     for uid in uids:
         try:
-            await asyncio.to_thread(check_global_budget, "reflect", settings.GLOBAL_REFLECT_DAILY_LIMIT)
-        except Exception:
+            await reflect_for_uid(uid, timestamp)
+        except HTTPException:
+            # reflect_for_uid가 실제 LLM 호출 직전에 확인한 전역 budget이 소진됨 —
+            # 이 uid만 건너뛰는 게 아니라 배치 전체를 중단한다(남은 후보에 대해
+            # 어차피 다음 budget 체크도 실패할 게 뻔한 DB 왕복을 계속 태우지 않기 위해).
             print("[Reflection Batch] global budget exhausted, stopping.")
             break
-        try:
-            await reflect_for_uid(uid, timestamp)
         except Exception as e:
             print(f"Reflection Error ({uid}): {e}")
