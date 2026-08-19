@@ -61,7 +61,7 @@ modal deploy tts-server/modal_app.py
    CREATE EXTENSION vector;
    ```
    (대부분의 관리형 Postgres는 pgvector를 기본 지원한다. 지원 여부를 먼저 확인할 것.)
-4. 테이블(`user_memories`)은 첫 기억 저장 시 자동 생성된다.
+4. 테이블(`user_memories`)은 서버 기동 시(`startup`) 자동 생성·마이그레이션된다.
 
 주의:
 - `DATABASE_URL`이 비어 있으면 기억 저장·검색이 조용히 비활성화되고 채팅은 정상 동작한다(기억만 빠짐).
