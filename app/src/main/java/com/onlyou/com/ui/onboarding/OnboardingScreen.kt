@@ -47,7 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,7 +54,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
 import com.onlyou.com.R
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
@@ -807,31 +805,21 @@ fun AssistantCard(
                 },
             ).clickable { onSelect() },
     ) {
-        // 이미지 배경
-        if (persona.imageUrl != null) {
-            AsyncImage(
-                model = persona.imageUrl,
-                contentDescription = persona.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            // 이미지 없을 시 이모지 대체
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                colors.primary.copy(alpha = 0.3f),
-                                colors.surfaceB,
-                            ),
+        // 이미지 없을 시 이모지 대체
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            colors.primary.copy(alpha = 0.3f),
+                            colors.surfaceB,
                         ),
                     ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "🤖", fontSize = 56.sp)
-            }
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = "🤖", fontSize = 56.sp)
         }
 
         // 하단 그라디언트 오버레이
@@ -963,7 +951,6 @@ fun AssistantCardPreview() {
                 id = "1",
                 name = "친절한 선배 누나",
                 description = "따뜻하고 친절한 말투로 도와주는 스타일",
-                prompt = "",
                 isSelected = true,
             ),
             onSelect = {},

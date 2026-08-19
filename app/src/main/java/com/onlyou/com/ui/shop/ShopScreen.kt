@@ -27,13 +27,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -281,11 +279,7 @@ fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit,
                 ),
                 contentAlignment = Alignment.Center,
             ) {
-                if (persona.imageUrl != null) {
-                    AsyncImage(model = persona.imageUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                } else {
-                    Icon(Icons.Default.Person, null, tint = colors.background, modifier = Modifier.size(36.dp))
-                }
+                Icon(Icons.Default.Person, null, tint = colors.background, modifier = Modifier.size(36.dp))
             }
 
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -336,9 +330,6 @@ fun TrendingPersonaCard(persona: Persona, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = colors.surfaceB),
     ) {
         Box(Modifier.fillMaxSize()) {
-            if (persona.imageUrl != null) {
-                AsyncImage(model = persona.imageUrl, contentDescription = persona.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)), startY = 150f)))
             Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
                 Text(persona.name, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
@@ -362,12 +353,8 @@ fun PersonaDetailSheetContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(100.dp).clip(RoundedCornerShape(24.dp)).background(colors.surfaceB)) {
-            if (persona.imageUrl != null) {
-                AsyncImage(model = persona.imageUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Person, null, tint = colors.neutral, modifier = Modifier.size(48.dp))
-                }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Person, null, tint = colors.neutral, modifier = Modifier.size(48.dp))
             }
         }
         Spacer(Modifier.height(16.dp))

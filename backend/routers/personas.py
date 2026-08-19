@@ -2,6 +2,7 @@ from contextlib import closing
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from core.presets import get_preset, is_valid_preset_id
 from core.rdb import get_conn
 from core.security import get_uid
 from models.schemas import PersonaIn
@@ -9,19 +10,24 @@ from models.schemas import PersonaIn
 router = APIRouter(prefix="/personas", tags=["personas"])
 
 COLS = (
-    "id, name, prompt, description, voice_tone, voice_speed, voice_prompt, "
-    "user_call_sign, image_url, primary_hex, secondary_hex, creator_id, "
-    "usage_count, is_private, updated_at"
+    "id, name, description, user_call_sign, primary_hex, secondary_hex, "
+    "creator_id, usage_count, is_private, updated_at, preset_key"
 )
 
 
 def _row_to_dict(r):
+    preset = get_preset(r[10])
     return {
-        "id": r[0], "name": r[1], "prompt": r[2], "description": r[3],
-        "voiceTone": r[4], "voiceSpeed": r[5], "voicePrompt": r[6],
-        "userCallSign": r[7], "imageUrl": r[8], "primaryHex": r[9],
-        "secondaryHex": r[10], "creatorId": r[11], "usageCount": r[12],
-        "isPrivate": r[13], "updatedAt": r[14],
+        "id": r[0], "name": r[1], "description": r[2],
+        "userCallSign": r[3], "primaryHex": r[4], "secondaryHex": r[5],
+        "creatorId": r[6], "usageCount": r[7], "isPrivate": r[8],
+        "updatedAt": r[9],
+        # r[10](원본 컬럼)은 레거시 행에서 NULL일 수 있다 — preset.id는
+        # get_preset()이 폴백까지 적용한 값이라 절대 null이 될 수 없다.
+        "presetKey": preset.id,
+        # 구버전 앱은 이 값을 읽어 자기가 시스템 프롬프트를 조립한다.
+        # 신버전 앱은 무시한다(서버가 조립). 4번 단위에서 제거.
+        "prompt": preset.prompt,
     }
 
 
@@ -38,6 +44,8 @@ def list_personas(uid: str = Depends(get_uid)):
 
 @router.put("/{persona_id}")
 def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)):
+    if not is_valid_preset_id(body.presetKey):
+        raise HTTPException(status_code=400, detail="unknown preset_key")
     with closing(get_conn()) as conn, conn.cursor() as cur:
         # Check ownership if persona exists
         cur.execute("SELECT creator_id FROM personas WHERE id = %s", (persona_id,))
@@ -46,23 +54,21 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
             raise HTTPException(status_code=403, detail="not owner")
 
         cur.execute(
-            "INSERT INTO personas (id, name, prompt, description, voice_tone, "
-            "voice_speed, voice_prompt, user_call_sign, image_url, primary_hex, "
-            "secondary_hex, creator_id, usage_count, is_private, updated_at) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+            "INSERT INTO personas (id, name, description, user_call_sign, "
+            "primary_hex, secondary_hex, creator_id, usage_count, is_private, "
+            "updated_at, preset_key) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
             "ON CONFLICT (id) DO UPDATE SET "
-            "name=EXCLUDED.name, prompt=EXCLUDED.prompt, description=EXCLUDED.description, "
-            "voice_tone=EXCLUDED.voice_tone, voice_speed=EXCLUDED.voice_speed, "
-            "voice_prompt=EXCLUDED.voice_prompt, user_call_sign=EXCLUDED.user_call_sign, "
-            "image_url=EXCLUDED.image_url, primary_hex=EXCLUDED.primary_hex, "
-            "secondary_hex=EXCLUDED.secondary_hex, is_private=EXCLUDED.is_private, "
-            "updated_at=EXCLUDED.updated_at",
+            "name=EXCLUDED.name, description=EXCLUDED.description, "
+            "user_call_sign=EXCLUDED.user_call_sign, "
+            "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
+            "is_private=EXCLUDED.is_private, updated_at=EXCLUDED.updated_at, "
+            "preset_key=EXCLUDED.preset_key",
             # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
             # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
-            (persona_id, body.name, body.prompt, body.description, body.voiceTone,
-             body.voiceSpeed, body.voicePrompt, body.userCallSign, body.imageUrl,
+            (persona_id, body.name, body.description, body.userCallSign,
              body.primaryHex, body.secondaryHex, uid, 0,
-             body.isPrivate, body.updatedAt),
+             body.isPrivate, body.updatedAt, body.presetKey),
         )
     return {"ok": True}
 

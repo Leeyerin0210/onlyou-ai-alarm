@@ -268,13 +268,8 @@ class AlarmService :
     }
 
     private suspend fun processSentence(sentence: String, persona: com.onlyou.com.domain.model.Persona) {
-        // 1. 복제된 음성(Clone) 시도
-        var voiceBytes = voiceRepository.synthesizeVoiceCloned(sentence, persona.id)
-        
-        // 2. 실패 시 디자인(Design) 방식으로 폴백
-        if (voiceBytes == null) {
-            voiceBytes = voiceRepository.synthesizeVoice(sentence, persona)
-        }
+        // 복제된 음성(Clone) 시도. 자유 목소리 프롬프트가 사라지면서 디자인(Design) 방식 폴백은 제거되었다.
+        val voiceBytes = voiceRepository.synthesizeVoiceCloned(sentence, persona.id)
 
         if (voiceBytes != null) {
             audioQueue.send(voiceBytes)

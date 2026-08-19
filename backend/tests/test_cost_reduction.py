@@ -231,11 +231,10 @@ def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch
     import routers.alarm as alarm_router
     from routers.alarm import MAX_SCRIPT_CHUNKS, build_prompt
     from models.schemas import AlarmScriptRequest
+    from services.persona_service import ActivePersona
 
-    prompt = build_prompt(
-        AlarmScriptRequest(persona_name="p", persona_prompt="", user_call_sign="u", recent_memories=[]),
-        "",
-    )
+    persona = ActivePersona(preset_key=None, name="p", user_call_sign="u")
+    prompt = build_prompt(persona, AlarmScriptRequest(recent_memories=[]), "")
     assert "6문장 이내" in prompt
 
     # 모델이 지시를 어기고 12문장을 뱉어도 서버가 상한에서 자른다
@@ -243,7 +242,7 @@ def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch
     monkeypatch.setattr(alarm_router, "client", _fake_gemini(long_script))
     res = client.post(
         "/alarm/script",
-        json={"persona_name": "p", "persona_prompt": "", "user_call_sign": "u", "recent_memories": []},
+        json={"recent_memories": []},
     )
     assert res.status_code == 200
     assert len(res.json()["chunks"]) == MAX_SCRIPT_CHUNKS

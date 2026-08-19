@@ -66,7 +66,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.MessageSender
 import com.onlyou.com.domain.model.Persona
@@ -159,14 +158,6 @@ fun ChatScreenContent(
                         }
                     }
                     // 아바타 + 이름/부제목
-                    if (persona?.imageUrl != null) {
-                        AsyncImage(
-                            model = persona.imageUrl,
-                            contentDescription = null,
-                            modifier = Modifier.size(38.dp).clip(CircleShape).background(colors.surfaceA),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                    }
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = persona?.name ?: "비서 연결 중...",
@@ -496,9 +487,7 @@ fun ChatScreenPreview() {
     val samplePersona = Persona(
         id = "1",
         name = "미야",
-        prompt = "",
         description = "테스트 페르소나",
-        imageUrl = null,
     )
     val sampleMessages = listOf(
         ChatMessage(text = "안녕하세요!", sender = MessageSender.AI),

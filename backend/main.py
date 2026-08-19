@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization
+from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization, presets
 from core.rdb import init_schema, cleanup_removed_personas
 from core.database import collection
 from core.config import settings
@@ -78,6 +78,7 @@ app.include_router(users.router)
 app.include_router(schedules.router)
 app.include_router(backups.router)
 app.include_router(monetization.router)
+app.include_router(presets.router)
 
 if __name__ == "__main__":
     # 개발: DEV_RELOAD=1 로 자동 리로드(워커 1개 강제).

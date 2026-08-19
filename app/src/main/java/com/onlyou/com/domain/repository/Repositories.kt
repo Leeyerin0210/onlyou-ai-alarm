@@ -101,14 +101,6 @@ interface MemoryRepository {
  */
 interface VoiceRepository {
     /**
-     * AI의 멘트를 음성으로 변환하여 반환 (Voice Design 방식)
-     */
-    suspend fun synthesizeVoice(
-        text: String,
-        persona: Persona,
-    ): ByteArray?
-
-    /**
      * 저장된 참조 음성을 기반으로 음성 합성 (Voice Clone 방식)
      */
     suspend fun synthesizeVoiceCloned(
