@@ -10,6 +10,7 @@ from services.memory_service import (
     build_memory_extract_prompt,
     parse_memory_extract,
     process_and_save_memory,
+    verbalize_triple,
 )
 
 
@@ -27,47 +28,68 @@ def test_prompt_contains_both_tasks_and_context():
     prompt = build_memory_extract_prompt("내일 민초 사러 감", "2026-07-20 Sunday")
     assert "fact" in prompt
     assert "triples" in prompt
+    assert "importance" in prompt
     assert "2026-07-20 Sunday" in prompt
     assert "내일 민초 사러 감" in prompt
 
 
 def test_parse_valid_fact_and_triples():
-    fact, triples = parse_memory_extract(
+    fact, triples, importance = parse_memory_extract(
         '{"fact": "유저는 2026-07-21에 민초를 산다", '
-        '"triples": [{"subject": "유저", "predicate": "좋아함", "object": "민초"}]}'
+        '"triples": [{"subject": "유저", "predicate": "좋아함", "object": "민초"}], '
+        '"importance": 8}'
     )
     assert fact == "유저는 2026-07-21에 민초를 산다"
     assert triples == [{"subject": "유저", "predicate": "좋아함", "object": "민초"}]
+    assert importance == 8
 
 
 def test_parse_null_fact_and_empty_triples():
-    assert parse_memory_extract('{"fact": null, "triples": []}') == (None, [])
+    assert parse_memory_extract('{"fact": null, "triples": [], "importance": 0}') == (None, [], 0)
     # 모델이 문자열 "None"으로 답해도 저장하지 않는다 (기존 프롬프트 관례)
-    assert parse_memory_extract('{"fact": "None", "triples": []}') == (None, [])
+    assert parse_memory_extract('{"fact": "None", "triples": [], "importance": 0}') == (None, [], 0)
+
+
+def test_parse_missing_importance_defaults_by_content():
+    # importance 필드 자체가 없으면: 뭔가 뽑힌 게 있으면 5, 아무것도 없으면 0
+    assert parse_memory_extract('{"fact": "사실", "triples": []}') == ("사실", [], 5)
+    assert parse_memory_extract('{"fact": null, "triples": []}') == (None, [], 0)
+
+
+def test_parse_clamps_importance_to_valid_range():
+    _, _, importance = parse_memory_extract('{"fact": "사실", "triples": [], "importance": 99}')
+    assert importance == 10
+    _, _, importance2 = parse_memory_extract('{"fact": "사실", "triples": [], "importance": -5}')
+    assert importance2 == 0
 
 
 def test_parse_salvages_codefenced_json():
-    fact, triples = parse_memory_extract(
-        '```json\n{"fact": "사실", "triples": []}\n```'
+    fact, triples, importance = parse_memory_extract(
+        '```json\n{"fact": "사실", "triples": [], "importance": 4}\n```'
     )
     assert fact == "사실"
     assert triples == []
+    assert importance == 4
 
 
 def test_parse_garbage_returns_empty():
-    assert parse_memory_extract("기억할 정보가 없습니다.") == (None, [])
-    assert parse_memory_extract("") == (None, [])
-    assert parse_memory_extract('{"broken": ') == (None, [])
+    assert parse_memory_extract("기억할 정보가 없습니다.") == (None, [], 0)
+    assert parse_memory_extract("") == (None, [], 0)
+    assert parse_memory_extract('{"broken": ') == (None, [], 0)
 
 
 def test_parse_filters_malformed_triples():
-    _, triples = parse_memory_extract(
+    _, triples, _ = parse_memory_extract(
         '{"fact": null, "triples": ['
         '{"subject": "유저", "predicate": "좋아함", "object": "민초"},'
         '{"subject": "유저", "predicate": ""},'
-        '"문자열", {"subject": 1, "predicate": "x", "object": "y"}]}'
+        '"문자열", {"subject": 1, "predicate": "x", "object": "y"}], "importance": 3}'
     )
     assert triples == [{"subject": "유저", "predicate": "좋아함", "object": "민초"}]
+
+
+def test_verbalize_triple_produces_natural_sentence():
+    assert verbalize_triple("유저", "좋아함", "민초") == "유저는 민초를 좋아함"
 
 
 def _fake_gemini(text):
@@ -81,33 +103,42 @@ def _fake_gemini(text):
     )
 
 
-def test_process_and_save_memory_single_call(monkeypatch):
-    """통합 호출 1회의 결과가 벡터 저장과 그래프 저장 양쪽에 반영돼야 한다."""
+def test_process_and_save_memory_saves_fact_and_triples_to_collection(monkeypatch):
+    """통합 호출 1회의 결과가 fact/triple 모두 pgvector 컬렉션에 구조화 저장돼야 한다."""
     import services.memory_service as ms
 
-    saved = {"vector": None, "triples": None}
+    calls = []
 
     class FakeCollection:
         def add(self, uid, documents, metadatas, ids):
-            saved["vector"] = (uid, documents)
+            calls.append((uid, documents, metadatas))
 
     monkeypatch.setattr(
         ms,
         "client",
         _fake_gemini(
             '{"fact": "유저는 2026-07-21에 치과에 간다", '
-            '"triples": [{"subject": "유저", "predicate": "예약함", "object": "치과"}]}'
+            '"triples": [{"subject": "유저", "predicate": "예약함", "object": "치과"}], '
+            '"importance": 6}'
         ),
     )
     monkeypatch.setattr(ms, "collection", FakeCollection())
-    monkeypatch.setattr(
-        ms, "_save_graph_triples", lambda uid, triples, ts: saved.update(triples=triples)
-    )
 
     asyncio.run(process_and_save_memory("u1", "내일 치과 가", "2026-07-20 Sunday", "2026-07-20T09:00:00"))
 
-    assert saved["vector"] == ("u1", ["유저는 2026-07-21에 치과에 간다"])
-    assert saved["triples"] == [{"subject": "유저", "predicate": "예약함", "object": "치과"}]
+    assert len(calls) == 2
+    fact_call, triple_call = calls
+    assert fact_call[0] == "u1"
+    assert fact_call[1] == ["유저는 2026-07-21에 치과에 간다"]
+    assert fact_call[2][0]["type"] == "fact"
+    assert fact_call[2][0]["importance"] == 6
+
+    assert triple_call[0] == "u1"
+    assert triple_call[1] == ["유저는 치과를 예약함"]
+    assert triple_call[2][0] == {
+        "timestamp": "2026-07-20T09:00:00", "uid": "u1", "type": "triple", "importance": 6,
+        "subject": "유저", "predicate": "예약함", "object": "치과",
+    }
 
 
 def test_process_and_save_memory_survives_garbage(monkeypatch):
@@ -115,7 +146,6 @@ def test_process_and_save_memory_survives_garbage(monkeypatch):
 
     monkeypatch.setattr(ms, "client", _fake_gemini("응 알겠어!"))
     monkeypatch.setattr(ms, "collection", None)  # 저장 시도하면 AttributeError로 실패했을 것
-    monkeypatch.setattr(ms, "_save_graph_triples", None)
     asyncio.run(process_and_save_memory("u1", "안녕", "2026-07-20 Sunday", "t"))
 
 
@@ -201,11 +231,10 @@ def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch
     import routers.alarm as alarm_router
     from routers.alarm import MAX_SCRIPT_CHUNKS, build_prompt
     from models.schemas import AlarmScriptRequest
+    from services.persona_service import ActivePersona
 
-    prompt = build_prompt(
-        AlarmScriptRequest(persona_name="p", persona_prompt="", user_call_sign="u", recent_memories=[]),
-        "",
-    )
+    persona = ActivePersona(preset_key=None, name="p", user_call_sign="u")
+    prompt = build_prompt(persona, AlarmScriptRequest(recent_memories=[]), "")
     assert "6문장 이내" in prompt
 
     # 모델이 지시를 어기고 12문장을 뱉어도 서버가 상한에서 자른다
@@ -213,7 +242,7 @@ def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch
     monkeypatch.setattr(alarm_router, "client", _fake_gemini(long_script))
     res = client.post(
         "/alarm/script",
-        json={"persona_name": "p", "persona_prompt": "", "user_call_sign": "u", "recent_memories": []},
+        json={"recent_memories": []},
     )
     assert res.status_code == 200
     assert len(res.json()["chunks"]) == MAX_SCRIPT_CHUNKS

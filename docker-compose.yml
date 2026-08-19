@@ -18,7 +18,7 @@ services:
       - db
     environment:
       DATABASE_URL: postgresql://onlyou:onlyou@db:5432/onlyou
-      # GEMINI_API_KEY / NEO4J_* 는 로컬에서 채팅 테스트할 때만 필요 (없으면 채팅만 동작 안 함)
+      # GEMINI_API_KEY는 로컬에서 채팅 테스트할 때만 필요 (없으면 채팅만 동작 안 함)
     ports:
       - "8080:8080"
     volumes:

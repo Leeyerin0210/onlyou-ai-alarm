@@ -2,7 +2,6 @@ import os
 import json
 from contextlib import closing
 
-from neo4j import GraphDatabase
 import firebase_admin
 from firebase_admin import credentials
 from .config import settings
@@ -19,6 +18,13 @@ def _embed(texts):
 def _vec_literal(values) -> str:
     """파이썬 실수 리스트를 pgvector 텍스트 리터럴('[1,2,3]')로 변환."""
     return "[" + ",".join(repr(float(x)) for x in values) + "]"
+
+
+# gemini-embedding-001의 기본 출력 차원. ensure_schema()가 startup에서 실제
+# 임베딩 호출 없이 (테이블이 아직 없는 경우의) CREATE TABLE을 실행할 때만 쓰인다 —
+# 테이블이 이미 있으면 CREATE TABLE IF NOT EXISTS는 무시되므로 실제 임베딩 차원과
+# 달라도 안전하다. add()는 여전히 매 호출 시 실제 임베딩 차원을 그대로 쓴다.
+_DEFAULT_EMBED_DIM = 3072
 
 
 class PgMemoryCollection:
@@ -47,6 +53,14 @@ class PgMemoryCollection:
         # 기존 무주공산 기억은 uid=NULL이라 어떤 사용자 조회에도 걸리지 않는다(격리 안전 기본값).
         cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS uid TEXT")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid ON user_memories (uid)")
+        # reflection/consolidation: fact/triple/insight 구분 + 구조화 트리플 컬럼 +
+        # importance(reflection 트리거 임계값 계산용).
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'fact'")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS subject TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS predicate TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS object TEXT")
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS importance INTEGER NOT NULL DEFAULT 5")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid_type ON user_memories (uid, type)")
 
     def add(self, uid, documents, metadatas=None, ids=None):
         if not self.dsn:
@@ -61,33 +75,65 @@ class PgMemoryCollection:
         with closing(self._conn()) as conn, conn.cursor() as cur:
             self._ensure_table(cur, dim)
             for doc, meta, _id, emb in zip(documents, metadatas, ids, embeddings):
+                meta = meta or {}
                 cur.execute(
-                    "INSERT INTO user_memories (id, uid, document, metadata, embedding) "
-                    "VALUES (%s, %s, %s, %s::jsonb, %s::vector) "
+                    "INSERT INTO user_memories "
+                    "(id, uid, document, metadata, embedding, type, subject, predicate, object, importance) "
+                    "VALUES (%s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s, %s, %s) "
                     "ON CONFLICT (id) DO UPDATE SET "
                     "uid = EXCLUDED.uid, document = EXCLUDED.document, "
-                    "metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding",
-                    (_id, uid, doc, json.dumps(meta), _vec_literal(emb)),
+                    "metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding, "
+                    "type = EXCLUDED.type, subject = EXCLUDED.subject, "
+                    "predicate = EXCLUDED.predicate, object = EXCLUDED.object, "
+                    "importance = EXCLUDED.importance",
+                    (
+                        _id, uid, doc, json.dumps(meta), _vec_literal(emb),
+                        meta.get("type", "fact"), meta.get("subject"),
+                        meta.get("predicate"), meta.get("object"),
+                        meta.get("importance", 5),
+                    ),
                 )
 
+    def ensure_schema(self) -> None:
+        """서버 startup에서 호출 — add()를 기다리지 않고 부팅 시점에 스키마를 맞춘다.
+
+        기존 배포 테이블(신규 컬럼 없음)에 대해 첫 요청이 add()가 아니라
+        query()/reflection 헬퍼면, 이들은 각자 try/except로 예외를 삼키고 조용히
+        빈 결과를 반환한다 — "column 없음" 에러가 "기억이 없다"처럼 보여서
+        add()가 처음 호출될 때까지 원인을 알아채기 어렵다. startup에서 미리
+        ALTER TABLE/CREATE INDEX를 실행해 이 상태를 없앤다.
+        """
+        if not self.dsn:
+            return
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                self._ensure_table(cur, _DEFAULT_EMBED_DIM)
+        except Exception as e:
+            print(f"ensure_schema warning: {e}")
+
     def query(self, uid, query_texts, n_results: int = 3):
-        empty = {"documents": [[]], "metadatas": [[]]}
+        empty = {"documents": [[]], "metadatas": [[]], "types": [[]]}
         if not self.dsn or not uid:
             return empty
         try:
             emb = _embed(query_texts)[0]
             with closing(self._conn()) as conn, conn.cursor() as cur:
-                # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
+                # insight는 압축된 통찰이라 같은 유사도면 raw 기억보다 우선 노출한다
+                # (거리가 작을수록 유사 — insight는 거리에서 0.1을 깎아 앞으로 보낸다).
                 cur.execute(
-                    "SELECT document, metadata FROM user_memories "
+                    # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
+                    "SELECT document, metadata, type FROM user_memories "
                     "WHERE uid = %s "
-                    "ORDER BY embedding <=> %s::vector LIMIT %s",
+                    "ORDER BY (embedding <=> %s::vector) - "
+                    "(CASE WHEN type = 'insight' THEN 0.1 ELSE 0 END) "
+                    "LIMIT %s",
                     (uid, _vec_literal(emb), n_results),
                 )
                 rows = cur.fetchall()
             docs = [r[0] for r in rows]
             metas = [r[1] if r[1] else {} for r in rows]
-            return {"documents": [docs], "metadatas": [metas]}
+            types = [r[2] for r in rows]
+            return {"documents": [docs], "metadatas": [metas], "types": [types]}
         except Exception as e:
             # 테이블 미생성(기억이 아직 없음) 등은 정상 상황 — 채팅을 막지 않는다
             print(f"Memory query warning: {e}")
@@ -117,29 +163,79 @@ class PgMemoryCollection:
         with closing(self._conn()) as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM user_memories WHERE uid = %s", (uid,))
 
+    def get_active_uids_since(self, start_iso: str) -> list[str]:
+        """지정 시각 이후 fact/triple(=실제 대화에서 나온 raw 기억)이 있는 uid 목록.
+        reflection 배치가 '오늘 채팅한 유저만' 고르는 데 쓴다."""
+        if not self.dsn:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT uid FROM user_memories "
+                    "WHERE type IN ('fact','triple') AND metadata->>'timestamp' >= %s",
+                    (start_iso,),
+                )
+                return [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            print(f"get_active_uids_since warning: {e}")
+            return []
+
+    def last_insight_timestamp(self, uid: str) -> str | None:
+        """이 유저의 가장 최근 insight 생성 시각 (없으면 None)."""
+        if not self.dsn:
+            return None
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT MAX(metadata->>'timestamp') FROM user_memories "
+                    "WHERE uid = %s AND type = 'insight'",
+                    (uid,),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+        except Exception as e:
+            print(f"last_insight_timestamp warning: {e}")
+            return None
+
+    def pending_importance(self, uid: str, since: str | None) -> int:
+        """마지막 insight(since) 이후 쌓인 fact/triple importance 합.
+        reflection 트리거 임계값 비교에 쓴다."""
+        if not self.dsn:
+            return 0
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COALESCE(SUM(importance), 0) FROM user_memories "
+                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "AND (%s::text IS NULL OR metadata->>'timestamp' > %s)",
+                    (uid, since, since),
+                )
+                return cur.fetchone()[0]
+        except Exception as e:
+            print(f"pending_importance warning: {e}")
+            return 0
+
+    def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
+        """마지막 insight(since) 이후 raw 기억 문장들 (최신순). reflection LLM 프롬프트 재료."""
+        if not self.dsn:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT document FROM user_memories "
+                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "AND (%s::text IS NULL OR metadata->>'timestamp' > %s) "
+                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
+                    (uid, since, since, limit),
+                )
+                return [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            print(f"recent_memory_texts warning: {e}")
+            return []
+
 
 # 벡터 기억 (PostgreSQL + pgvector)
 collection = PgMemoryCollection(settings.DATABASE_URL)
-
-# 그래프 기억 (Neo4j)
-neo4j_driver = GraphDatabase.driver(
-    settings.NEO4J_URI,
-    auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
-)
-
-
-def ensure_neo4j_indexes():
-    """서버 기동 시 호출(멱등). Entity 복합 인덱스가 없으면 MERGE/조회가
-    노드 전체 스캔이 되어 데이터가 쌓일수록 채팅이 수 초씩 느려진다."""
-    try:
-        with neo4j_driver.session() as session:
-            session.run(
-                "CREATE INDEX entity_uid_name IF NOT EXISTS "
-                "FOR (e:Entity) ON (e.uid, e.name)"
-            )
-    except Exception as e:
-        # Neo4j 미기동(로컬 개발 등)이어도 서버 부팅은 막지 않는다
-        print(f"Neo4j index setup skipped: {e}")
 
 # Firebase
 if not firebase_admin._apps:

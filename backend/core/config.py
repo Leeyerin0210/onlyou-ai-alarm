@@ -5,9 +5,6 @@ load_dotenv()
 
 class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
     MODEL_ID = "gemini-3-flash-preview"
     # 추출 계열(사실/그래프/일정) 전용 모델 — 단순 구조화 작업이라 저가 모델로 내릴 수 있다.
     # 미설정 시 MODEL_ID를 그대로 쓴다. GA 전환 때 flash-lite급으로 낮춰 추출 단가 절감.
@@ -18,6 +15,10 @@ class Settings:
     GLOBAL_CHAT_DAILY_LIMIT = int(os.getenv("GLOBAL_CHAT_DAILY_LIMIT", "50000"))
     GLOBAL_ALARM_SCRIPT_DAILY_LIMIT = int(os.getenv("GLOBAL_ALARM_SCRIPT_DAILY_LIMIT", "10000"))
     GLOBAL_VOICE_DAILY_LIMIT = int(os.getenv("GLOBAL_VOICE_DAILY_LIMIT", "20000"))
+    # 기억 reflection/consolidation 배치 (docs/superpowers/specs/2026-08-07-memory-reflection-consolidation-design.md)
+    REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
+    REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))
+    GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
     # 서버리스 TTS (Modal) — tts-server/modal_app.py 배포 후 URL/키 설정
     TTS_SERVER_URL = os.getenv("TTS_SERVER_URL", "")
     TTS_API_KEY = os.getenv("TTS_API_KEY", "")

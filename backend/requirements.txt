@@ -7,7 +7,7 @@ python-dotenv
 sse-starlette
 firebase-admin
 dateparser
-neo4j
 google-genai
 httpx
 cryptography
+apscheduler

@@ -33,13 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -104,21 +102,12 @@ fun ChatItem(
                 .clip(CircleShape)
                 .background(colors.surfaceA),
         ) {
-            if (persona.imageUrl != null) {
-                AsyncImage(
-                    model = persona.imageUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Icon(
-                    Icons.Default.SmartToy,
-                    contentDescription = null,
-                    modifier = Modifier.align(Alignment.Center).size(30.dp),
-                    tint = colors.primary.copy(alpha = 0.3f),
-                )
-            }
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = null,
+                modifier = Modifier.align(Alignment.Center).size(30.dp),
+                tint = colors.primary.copy(alpha = 0.3f),
+            )
         }
 
         Spacer(modifier = Modifier.width(16.dp))

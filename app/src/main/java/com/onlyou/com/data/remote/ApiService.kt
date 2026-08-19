@@ -59,6 +59,10 @@ interface MiyaApiService {
     @DELETE("memory/clear")
     suspend fun clearMemory(): Response<Unit>
 
+    // Presets (성격 프리셋 카탈로그)
+    @retrofit2.http.GET("presets")
+    suspend fun getPresets(): List<PresetDto>
+
     // Personas
     @retrofit2.http.GET("personas")
     suspend fun getPersonas(): List<PersonaDto>

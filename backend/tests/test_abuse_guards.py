@@ -12,7 +12,7 @@ def _clean_counters():
 
 
 def _persona_body(**overrides):
-    body = {"name": "테스트", "prompt": "p", "description": "d"}
+    body = {"name": "테스트", "description": "d", "presetKey": "casual_warm"}
     body.update(overrides)
     return body
 
@@ -61,7 +61,7 @@ def test_voice_synthesize_rejects_oversized_text(client):
 def test_chat_rejects_oversized_message(client):
     res = client.post(
         "/chat/stream",
-        json={"system_prompt": "p", "history": [], "message": "가" * 100_000},
+        json={"history": [], "message": "가" * 100_000},
     )
     assert res.status_code == 422
 

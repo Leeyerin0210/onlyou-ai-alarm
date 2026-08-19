@@ -17,9 +17,11 @@ data class ScheduleItemDto(
 )
 
 data class ChatRequestDto(
-    val system_prompt: String,
+    // system_prompt는 보내지 않는다 — 서버가 선택 페르소나에서 조립한다.
+    // user_notes는 기기 Room DB에만 있는 유저 본인 데이터라 계속 보낸다.
     val history: List<ChatMessageDto>,
     val message: String,
+    val user_notes: List<String> = emptyList(),
     val schedules: List<ScheduleItemDto>? = null,
     val skip_side_effects: Boolean = false,
 )
@@ -39,9 +41,7 @@ data class MemoryItemDto(
 
 // Alarm
 data class AlarmScriptRequestDto(
-    val persona_name: String,
-    val persona_prompt: String,
-    val user_call_sign: String,
+    // 페르소나 이름·프롬프트·호칭은 서버가 DB에서 읽는다
     val recent_memories: List<MemoryItemDto>,
 )
 
@@ -69,19 +69,26 @@ data class VoiceCloneRequestDto(
 data class PersonaDto(
     val id: String,
     val name: String,
-    val prompt: String = "",
     val description: String = "",
-    val voiceTone: Float = 1.0f,
-    val voiceSpeed: Float = 1.0f,
-    val voicePrompt: String? = null,
+    // Gson은 Unsafe로 인스턴스를 만들고 필드에 리플렉션으로 대입하므로 Kotlin
+    // 기본값이 적용되지 않는다 — 서버가 JSON null을 보내면 이 필드는 실제로 null이
+    // 될 수 있다. 타입을 nullable로 둬서 그 사실을 숨기지 않는다.
+    val presetKey: String? = null,
     val userCallSign: String? = null,
-    val imageUrl: String? = null,
     val primaryHex: String? = null,
     val secondaryHex: String? = null,
     val creatorId: String? = null,
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
     val updatedAt: Long = 0L,
+)
+
+// Presets (성격 프리셋 카탈로그 — 프롬프트 본문은 서버가 내보내지 않는다)
+data class PresetDto(
+    val id: String,
+    val label: String,
+    val description: String,
+    val tags: List<String> = emptyList(),
 )
 
 data class UserProfileDto(

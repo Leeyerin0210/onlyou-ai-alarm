@@ -9,13 +9,15 @@ import dateparser
 from google import genai
 from core.ai import client, model_id, extract_model_id
 from core.config import settings
-from core.database import collection, neo4j_driver
+from core.database import collection
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.security import get_uid
 from core.sse import sse_data
+from core.prompt_builder import build_chat_system_prompt
 from models.schemas import ChatRequest
 from services.memory_service import is_memory_worthy, process_and_save_memory
 from services.monetization_service import chat_allowance
+from services.persona_service import load_active_persona
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_uid)])
 
@@ -71,16 +73,22 @@ STATIC_CHAT_GUIDE = """
 사용자가 길게 요청한 경우가 아니라면, 메신저 대화에 어울리는 간결한 길이로 답하세요. 불필요한 나열이나 장문 설명은 피하세요.
 """
 
-def _graph_search(uid: str, keywords: list[str]) -> list[str]:
-    """Neo4j 그래프 검색 (동기 드라이버 — 반드시 to_thread로 호출할 것)."""
-    with neo4j_driver.session() as session:
-        graph_results = session.run("""
-            MATCH (s:Entity {uid: $uid})-[r:RELATION]->(o:Entity {uid: $uid})
-            WHERE s.name CONTAINS '유저' OR o.name CONTAINS '유저' OR s.name IN $keywords OR o.name IN $keywords
-            RETURN s.name, r.type, o.name
-            LIMIT 10
-        """, keywords=keywords, uid=uid)
-        return [f"({record['s.name']}) -[{record['r.type']}]-> ({record['o.name']})" for record in graph_results]
+def format_memories(results: dict) -> str:
+    """collection.query() 결과(fact/triple/insight 혼합)를 프롬프트용 텍스트로 포맷.
+    insight는 [통찰], 그 외(fact/triple)는 [YYYY-MM-DD 기록]으로 구분 표기한다."""
+    formatted = []
+    docs = (results.get("documents") or [[]])[0]
+    metas = (results.get("metadatas") or [[]])[0]
+    types = (results.get("types") or [[]])[0]
+    for i, doc in enumerate(docs):
+        meta = metas[i] if i < len(metas) and metas[i] else {}
+        mtype = types[i] if i < len(types) else meta.get("type", "fact")
+        if mtype == "insight":
+            formatted.append(f"[통찰]: {doc}")
+        else:
+            recorded_at = (meta.get("timestamp", meta.get("ts", "알 수 없는 시간")) or "알 수 없는 시간")[:10]
+            formatted.append(f"[{recorded_at} 기록]: {doc}")
+    return "\n".join(formatted) if formatted else "기록된 정보 없음"
 
 
 @router.post("/stream")
@@ -100,29 +108,18 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
-    # 1. 벡터 검색 (uid 스코프)
+    # 통합 벡터 검색 (fact+triple+insight, uid 스코프). insight가 있으면 검색
+    # 가산점(core/database.py PgMemoryCollection.query)으로 우선 노출된다.
     results = await asyncio.to_thread(
-        collection.query, uid, [request.message], 3
+        collection.query, uid, [request.message], 5
     )
+    relevant_memories = format_memories(results)
 
-    # 2. 그래프 검색 (Neo4j) — 반드시 uid로 스코프해 본인 그래프만 조회
-    graph_context = ""
-    try:
-        nodes = await asyncio.to_thread(_graph_search, uid, [request.message])
-        if nodes:
-            graph_context = "\n[연관 지식 그래프 정보]\n" + "\n".join(nodes)
-    except Exception as e:
-        print(f"Graph Search Warning: {e}")
-
-    # 기억 포맷팅
-    formatted_memories = []
-    if results['documents'] and results.get('metadatas') and results['metadatas'][0]:
-        for doc, meta in zip(results['documents'][0], results['metadatas'][0]):
-            recorded_at = (meta.get('timestamp', meta.get('ts', '알 수 없는 시간')) if meta else '알 수 없는 시간')[:10]
-            formatted_memories.append(f"[{recorded_at} 기록]: {doc}")
-
-    relevant_memories = "\n".join(formatted_memories) if formatted_memories else "기록된 정보 없음"
-    relevant_memories += graph_context
+    # 프롬프트는 서버가 조립한다 — 클라이언트가 만든 문자열을 LLM에 넣지 않는다
+    persona = await asyncio.to_thread(load_active_persona, uid)
+    system_prompt = build_chat_system_prompt(
+        persona.preset_key, persona.name, persona.user_call_sign, request.user_notes
+    )
 
     # 초성 웃음·짧은 감탄사 등은 추출할 게 없으므로 기억 추출 LLM 호출을 건너뛴다
     if not request.skip_side_effects and is_memory_worthy(request.message):
@@ -161,7 +158,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
                 model=model_id,
                 contents=contents,
                 config=genai.types.GenerateContentConfig(
-                    system_instruction=request.system_prompt + "\n" + STATIC_CHAT_GUIDE,
+                    system_instruction=system_prompt + "\n" + STATIC_CHAT_GUIDE,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 )
             )

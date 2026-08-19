@@ -29,7 +29,11 @@ def client():
     init_schema()
     # 각 테스트 전 관련 테이블 초기화 (closing으로 풀에 커넥션 반납)
     with closing(get_conn()) as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE personas, users, schedules, backups, rate_limits, reward_wallets, reward_transactions")
+        cur.execute(
+            "TRUNCATE personas, users, schedules, backups, rate_limits, "
+            "reward_wallets, reward_transactions"
+        )
+        cur.execute("DROP TABLE IF EXISTS user_memories")
     app.dependency_overrides[get_uid] = lambda: TEST_UID
     yield TestClient(app)
     app.dependency_overrides.clear()

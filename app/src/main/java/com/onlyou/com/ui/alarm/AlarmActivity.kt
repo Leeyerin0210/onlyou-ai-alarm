@@ -33,12 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.WeatherInfo
@@ -248,16 +246,7 @@ fun MorningBriefingContent(
                             .background(Color.White.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (persona?.imageUrl != null) {
-                            AsyncImage(
-                                model = persona.imageUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        } else {
-                            Icon(Icons.Default.Notifications, null, tint = Color.White)
-                        }
+                        Icon(Icons.Default.Notifications, null, tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
