@@ -13,6 +13,7 @@ if current_dir not in sys.path:
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization
 from core.rdb import init_schema, cleanup_removed_personas
+from core.database import collection
 from core.config import settings
 from services.reflection_service import run_nightly_reflection
 
@@ -39,6 +40,9 @@ def _register_reflection_job(sched: AsyncIOScheduler) -> None:
         minute=0,
         id="nightly_reflection",
         replace_existing=True,
+        # 기본값(1초)은 너무 빡빡하다 — 정각에 이벤트 루프가 잠깐이라도 바쁘면
+        # misfire로 그날 밤 배치 전체가 재시도 없이 스킵된다. 1시간 여유를 둔다.
+        misfire_grace_time=3600,
     )
 
 @app.get("/health")
@@ -48,6 +52,7 @@ async def health():
 @app.on_event("startup")
 async def startup():
     init_schema()
+    collection.ensure_schema()
     cleanup_removed_personas()
     _register_reflection_job(scheduler)
     scheduler.start()

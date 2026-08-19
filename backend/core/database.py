@@ -20,6 +20,13 @@ def _vec_literal(values) -> str:
     return "[" + ",".join(repr(float(x)) for x in values) + "]"
 
 
+# gemini-embedding-001의 기본 출력 차원. ensure_schema()가 startup에서 실제
+# 임베딩 호출 없이 (테이블이 아직 없는 경우의) CREATE TABLE을 실행할 때만 쓰인다 —
+# 테이블이 이미 있으면 CREATE TABLE IF NOT EXISTS는 무시되므로 실제 임베딩 차원과
+# 달라도 안전하다. add()는 여전히 매 호출 시 실제 임베딩 차원을 그대로 쓴다.
+_DEFAULT_EMBED_DIM = 3072
+
+
 class PgMemoryCollection:
     """PostgreSQL + pgvector 기반 벡터 기억 저장소.
 
@@ -87,6 +94,23 @@ class PgMemoryCollection:
                     ),
                 )
 
+    def ensure_schema(self) -> None:
+        """서버 startup에서 호출 — add()를 기다리지 않고 부팅 시점에 스키마를 맞춘다.
+
+        기존 배포 테이블(신규 컬럼 없음)에 대해 첫 요청이 add()가 아니라
+        query()/reflection 헬퍼면, 이들은 각자 try/except로 예외를 삼키고 조용히
+        빈 결과를 반환한다 — "column 없음" 에러가 "기억이 없다"처럼 보여서
+        add()가 처음 호출될 때까지 원인을 알아채기 어렵다. startup에서 미리
+        ALTER TABLE/CREATE INDEX를 실행해 이 상태를 없앤다.
+        """
+        if not self.dsn:
+            return
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                self._ensure_table(cur, _DEFAULT_EMBED_DIM)
+        except Exception as e:
+            print(f"ensure_schema warning: {e}")
+
     def query(self, uid, query_texts, n_results: int = 3):
         empty = {"documents": [[]], "metadatas": [[]], "types": [[]]}
         if not self.dsn or not uid:
@@ -97,6 +121,7 @@ class PgMemoryCollection:
                 # insight는 압축된 통찰이라 같은 유사도면 raw 기억보다 우선 노출한다
                 # (거리가 작을수록 유사 — insight는 거리에서 0.1을 깎아 앞으로 보낸다).
                 cur.execute(
+                    # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
                     "SELECT document, metadata, type FROM user_memories "
                     "WHERE uid = %s "
                     "ORDER BY (embedding <=> %s::vector) - "

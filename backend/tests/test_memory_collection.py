@@ -106,3 +106,41 @@ def test_recent_memory_texts_orders_newest_first_and_respects_limit():
     texts = collection.recent_memory_texts("u1", None, 1)
 
     assert texts == ["두번째"]
+
+
+def test_ensure_schema_adds_new_columns_to_pre_existing_old_schema_table():
+    """기존 배포 테이블(신규 컬럼 없음)에 대해 add() 없이 startup에서 호출해도
+    type/subject/predicate/object/importance 컬럼이 생겨야 한다 — 그렇지 않으면
+    query()/reflection 헬퍼가 'column 없음' 예외를 삼키고 조용히 빈 결과를 반환한다."""
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        cur.execute(
+            "CREATE TABLE user_memories (id TEXT PRIMARY KEY, uid TEXT, "
+            "document TEXT NOT NULL, metadata JSONB, embedding vector(3))"
+        )
+
+    collection.ensure_schema()
+
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'user_memories'"
+        )
+        columns = {r[0] for r in cur.fetchall()}
+
+    assert {"type", "subject", "predicate", "object", "importance"} <= columns
+
+
+def test_ensure_schema_is_noop_safe_when_table_missing_entirely():
+    """테이블이 아예 없는 상태(신규 배포)에서 startup에 호출해도 예외 없이
+    테이블을 새로 만들어야 한다."""
+    collection.ensure_schema()
+
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'user_memories'"
+        )
+        columns = {r[0] for r in cur.fetchall()}
+
+    assert {"id", "uid", "document", "metadata", "embedding", "type", "importance"} <= columns
