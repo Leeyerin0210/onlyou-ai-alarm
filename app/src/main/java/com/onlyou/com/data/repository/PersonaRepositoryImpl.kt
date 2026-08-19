@@ -76,7 +76,9 @@ class PersonaRepositoryImpl
                             creatorId = dto.creatorId,
                             usageCount = existing?.usageCount ?: dto.usageCount,
                             isPrivate = dto.isPrivate,
-                            presetKey = dto.presetKey,
+                            // 방어적 처리: 서버는 항상 non-null preset.id를 내려주지만,
+                            // Gson은 Kotlin 기본값을 우회해 실제로 null을 대입할 수 있다.
+                            presetKey = dto.presetKey ?: "",
                         ),
                     )
                 }
@@ -89,6 +91,23 @@ class PersonaRepositoryImpl
                     .getAllPersonasOnce()
                     .filter { it.id !in remoteIds && it.creatorId != myUid }
                     .forEach { personaDao.deletePersona(it.id) }
+
+                // 5. 로컬 선택과 서버 선택이 어긋나 있으면 서버에 맞춘다.
+                // users.selected_persona_id가 이제 시스템 프롬프트 전체를 결정하므로,
+                // setSelectedPersona()의 api.selectPersona() 호출이 실패해서(네트워크 등)
+                // 서버가 이전 선택을 계속 들고 있으면 앱 화면과 실제 AI 응답 성격이
+                // 어긋난 채로 방치된다. 여기서 best-effort로 재동기화해 그 간극을 좁힌다.
+                if (currentLocalSelectedId != null &&
+                    currentLocalSelectedId != selectedIdRemote &&
+                    currentLocalSelectedId in remoteIds
+                ) {
+                    try {
+                        kotlinx.coroutines.withTimeout(3000L) { api.selectPersona(currentLocalSelectedId) }
+                    } catch (e: Exception) {
+                        // 실패해도 동기화 자체는 실패로 취급하지 않는다 — 다음 sync에서 재시도된다.
+                        e.printStackTrace()
+                    }
+                }
                 true
             } catch (e: Exception) {
                 e.printStackTrace()

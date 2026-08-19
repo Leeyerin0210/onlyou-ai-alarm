@@ -2,6 +2,8 @@
 
 실제 Gemini를 부르지 않고 core.ai.client를 가로채 system_instruction만 확인한다.
 """
+from contextlib import closing
+
 import pytest
 
 from core.presets import PRESETS
@@ -39,7 +41,7 @@ def captured_system_instruction(monkeypatch):
 
 
 def _select_persona(preset_key="casual_blunt", name="미야", call_sign="야"):
-    with get_conn() as conn, conn.cursor() as cur:
+    with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO personas (id, name, creator_id, user_call_sign, preset_key) "
             "VALUES ('p1', %s, %s, %s, %s)",

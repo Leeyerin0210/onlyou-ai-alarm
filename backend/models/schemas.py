@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, StringConstraints
+from typing import Annotated, List, Optional
 
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
 # 정상 사용에는 전부 넉넉한 값이다.
@@ -34,7 +34,11 @@ class ChatRequest(BaseModel):
     # user_notes는 유저 본인의 데이터이고 기기 Room DB에만 있어 클라이언트가 보낸다.
     history: List[ChatMessage] = Field(max_length=MAX_HISTORY_ITEMS)
     message: str = Field(max_length=MAX_MESSAGE_LEN)
-    user_notes: List[str] = Field(default_factory=list, max_length=100)
+    # 리스트 길이뿐 아니라 항목 하나하나도 상한을 둔다 — 안 그러면 노트 한 개에
+    # 큰 문자열을 채워 넣는 식으로 리스트 길이 제한을 우회할 수 있다.
+    user_notes: List[Annotated[str, StringConstraints(max_length=500)]] = Field(
+        default_factory=list, max_length=100
+    )
     schedules: Optional[List[ScheduleItem]] = Field(default=None, max_length=200)
     skip_side_effects: bool = False
 

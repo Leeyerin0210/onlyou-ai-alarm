@@ -22,7 +22,7 @@ def test_build_prompt_keeps_jailbreak_guard():
     assert build_alarm_persona_block(None) in out
 
 
-def test_legacy_persona_fields_are_ignored(client):
+def test_legacy_persona_fields_are_ignored():
     """구버전 앱이 보내는 persona_prompt는 스키마에서 버려진다."""
     req = AlarmScriptRequest.model_validate({
         "persona_name": "해커",

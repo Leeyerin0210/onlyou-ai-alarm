@@ -70,7 +70,10 @@ data class PersonaDto(
     val id: String,
     val name: String,
     val description: String = "",
-    val presetKey: String = "",
+    // Gson은 Unsafe로 인스턴스를 만들고 필드에 리플렉션으로 대입하므로 Kotlin
+    // 기본값이 적용되지 않는다 — 서버가 JSON null을 보내면 이 필드는 실제로 null이
+    // 될 수 있다. 타입을 nullable로 둬서 그 사실을 숨기지 않는다.
+    val presetKey: String? = null,
     val userCallSign: String? = null,
     val primaryHex: String? = null,
     val secondaryHex: String? = null,

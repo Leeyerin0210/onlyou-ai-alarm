@@ -90,6 +90,40 @@ def test_upsert_stores_preset_key_and_returns_preset_body(client):
     assert item["prompt"] == PRESETS["casual_blunt"].prompt
 
 
+def test_legacy_persona_without_preset_key_serializes_non_null(client):
+    """preset_key IS NULL인 레거시 행도 presetKey는 null이 아니어야 한다.
+
+    presetKey가 null로 내려가면 Gson이 Kotlin 기본값을 우회해 non-null
+    필드에 null을 대입하고, syncPersonas 전체가 예외로 죽는다 (앱 쪽 버그).
+    """
+    from core.rdb import get_conn
+    from core.presets import DEFAULT_PRESET_ID
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id) VALUES ('legacy', 'x', 'test-uid')"
+        )
+    item = client.get("/personas").json()[0]
+    assert item["presetKey"] is not None
+    assert item["presetKey"] == DEFAULT_PRESET_ID
+
+
+def test_init_schema_backfills_null_preset_key(client):
+    """레거시 행의 preset_key NULL을 폴백에만 맡기지 않고 DB에 명시적으로 채운다
+    (제품 결정) — 이후 DEFAULT_PRESET_ID를 바꿔도 기존 유저 성격이 조용히
+    안 바뀌게 하려는 의도다."""
+    from core.rdb import get_conn, init_schema
+    from core.presets import DEFAULT_PRESET_ID
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id) VALUES ('legacy2', 'x', 'test-uid')"
+        )
+    init_schema()
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT preset_key FROM personas WHERE id='legacy2'")
+        row = cur.fetchone()
+    assert row == (DEFAULT_PRESET_ID,)
+
+
 def test_upsert_rejects_unknown_preset_key(client):
     res = client.put("/personas/p1", json=_persona_body(preset_key="nope"))
     assert res.status_code == 400

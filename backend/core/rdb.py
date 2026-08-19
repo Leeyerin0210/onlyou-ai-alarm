@@ -12,6 +12,7 @@ import psycopg2
 from psycopg2 import pool as pg_pool
 
 from .config import settings
+from .presets import DEFAULT_PRESET_ID
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS personas (
@@ -166,6 +167,15 @@ def init_schema():
         return
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(SCHEMA_SQL)
+        # 마이그레이션 전 페르소나는 preset_key가 NULL이다. get_preset(None)은
+        # 기본 프리셋으로 폴백하긴 하지만, 그 상태를 폴백에 암묵적으로 맡기지 않고
+        # DB에 명시적으로 박아둔다(제품 결정) — 이후 이 프리셋을 바꿔도 기존
+        # 유저의 성격이 조용히 안 바뀐다. NULL이 하나도 안 남으면(첫 실행 후) 더
+        # 할 일이 없어 멱등하다. preset_key가 NULL일 수 없어지면(4번 단위) 제거 가능.
+        cur.execute(
+            "UPDATE personas SET preset_key = %s WHERE preset_key IS NULL",
+            (DEFAULT_PRESET_ID,),
+        )
         # 지난 날짜의 레이트리밋 카운터는 재기동 시 정리 (무한 증식 방지)
         cur.execute("DELETE FROM rate_limits WHERE day < %s", (date.today().isoformat(),))
         # SSV 트랜잭션 원장은 재전송 방지용 — AdMob 재시도 창을 훨씬 넘긴 것만 정리
@@ -177,7 +187,7 @@ def init_schema():
 
 # 시드에서 제거된 기본 페르소나 — 서버 기동 시 DB에서 자동 정리된다.
 # (SSH 접근 없이 깃 푸시 + 배포만으로 운영 DB에 반영하기 위함)
-REMOVED_PERSONA_IDS = ["miya_default"]
+REMOVED_PERSONA_IDS = ["miya_default", "luna_cool"]
 
 
 def cleanup_removed_personas():

@@ -21,7 +21,10 @@ def _row_to_dict(r):
         "id": r[0], "name": r[1], "description": r[2],
         "userCallSign": r[3], "primaryHex": r[4], "secondaryHex": r[5],
         "creatorId": r[6], "usageCount": r[7], "isPrivate": r[8],
-        "updatedAt": r[9], "presetKey": r[10],
+        "updatedAt": r[9],
+        # r[10](원본 컬럼)은 레거시 행에서 NULL일 수 있다 — preset.id는
+        # get_preset()이 폴백까지 적용한 값이라 절대 null이 될 수 없다.
+        "presetKey": preset.id,
         # 구버전 앱은 이 값을 읽어 자기가 시스템 프롬프트를 조립한다.
         # 신버전 앱은 무시한다(서버가 조립). 4번 단위에서 제거.
         "prompt": preset.prompt,
