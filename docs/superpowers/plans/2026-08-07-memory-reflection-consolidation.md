@@ -16,7 +16,7 @@
 **Tech Stack:** FastAPI, PostgreSQL + pgvector, `psycopg2`, Google Gemini API
 (`google-genai`), APScheduler(신규), pytest.
 
-**참조 문서:** [설계 스펙](../specs/2026-08-07-memory-reflection-consolidation-design.md)
+**참조 문서:** 설계 스펙 (비공개)
 
 ---
 
@@ -1042,7 +1042,7 @@ git commit -m "feat: reflection 배치용 DB 헬퍼 메서드 추가 (active uid
 `GLOBAL_VOICE_DAILY_LIMIT` 줄 아래에 추가:
 
 ```python
-    # 기억 reflection/consolidation 배치 (docs/superpowers/specs/2026-08-07-memory-reflection-consolidation-design.md)
+    # 기억 reflection/consolidation 야간 배치 (매일 KST REFLECTION_HOUR시)
     REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
     REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))
     GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
@@ -1471,7 +1471,7 @@ Expected: 둘 다 결과 없음
 
 - [ ] **Step 3: 스펙 문서의 "결정 요약" 표와 실제 구현이 일치하는지 훑어보기**
 
-[스펙 문서](../specs/2026-08-07-memory-reflection-consolidation-design.md)를 열어
+설계 스펙(비공개)을 열어
 각 행(트리거/생성 방식/저장 위치/우선순위/Neo4j 제거)이 실제 커밋된 코드와
 일치하는지 확인. 불일치가 있으면 스펙 문서를 갱신.
 

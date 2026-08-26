@@ -1,4 +1,4 @@
-"""리워드 광고 SSV 검증·지갑·엔타이틀먼트 (스펙: docs/superpowers/specs/2026-07-20-revenue-structure-design.md).
+"""리워드 광고 SSV 검증·지갑·엔타이틀먼트.
 
 핵심 원칙: 클라이언트의 "광고 봤어요" 신고를 절대 믿지 않는다.
 보상 지급은 AdMob 서버가 직접 호출하는 SSV 콜백의 ECDSA 서명 검증을

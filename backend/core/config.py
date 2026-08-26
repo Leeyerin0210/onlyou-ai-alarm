@@ -15,7 +15,7 @@ class Settings:
     GLOBAL_CHAT_DAILY_LIMIT = int(os.getenv("GLOBAL_CHAT_DAILY_LIMIT", "50000"))
     GLOBAL_ALARM_SCRIPT_DAILY_LIMIT = int(os.getenv("GLOBAL_ALARM_SCRIPT_DAILY_LIMIT", "10000"))
     GLOBAL_VOICE_DAILY_LIMIT = int(os.getenv("GLOBAL_VOICE_DAILY_LIMIT", "20000"))
-    # 기억 reflection/consolidation 배치 (docs/superpowers/specs/2026-08-07-memory-reflection-consolidation-design.md)
+    # 기억 reflection/consolidation 야간 배치 (매일 KST REFLECTION_HOUR시)
     REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
     REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))
     GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
@@ -30,7 +30,7 @@ class Settings:
     # JWT payload에서 uid만 추출한다. 운영에서는 절대 설정하지 말 것.
     DEV_TRUST_TOKENS = os.getenv("DEV_TRUST_TOKENS", "").strip().lower() in ("1", "true", "yes")
 
-    # ---- 수익화 (스펙: docs/superpowers/specs/2026-07-20-revenue-structure-design.md) ----
+    # ---- 수익화 (무료 + 단일 구독 2단계, 리워드 광고로 무료 한도 연장) ----
     # 무료 티어 게이팅 스위치. 앱에 광고/페이월 UI가 배포되기 전에 켜면 유저가
     # 한도에 막혀도 빠져나갈 길이 없으므로 기본 OFF — 앱 업데이트 배포 후에만 켤 것.
     MONETIZATION_ENFORCE = os.getenv("MONETIZATION_ENFORCE", "").strip().lower() in ("1", "true", "yes")

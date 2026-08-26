@@ -145,13 +145,11 @@ com.onlyou.com
 
 전역 일일 호출 상한(`GLOBAL_CHAT_DAILY_LIMIT`, `GLOBAL_REFLECT_DAILY_LIMIT` 등)이 청구 사고를 막는 서킷브레이커로 걸려 있고,
 유저별 레이트리밋은 `rate_limits` 테이블로 관리됩니다.
-절감 조치 내역은 `docs/cost-reduction-implementation-2026-07-20.md` 참고.
+프롬프트 캐싱·모델 티어링·이력 윈도잉·출력 토큰 캡 등으로 호출 단가를 낮춥니다.
 
 ---
 
 ## 💰 Monetization (설계 확정 · 부분 구현)
-
-기준 스펙: `docs/superpowers/specs/2026-07-20-revenue-structure-design.md`
 
 - **무료 + 단일 구독(6,900원/월)** 2단계. 라이트/프로 세분화, 소모성 인앱결제 없음.
 - 무료 채팅 25msg/일, 리워드 광고 1편당 +15msg, AI 보이스는 광고 1편당 1일(최대 7일 적립), 신규 7일 무료 체험.
@@ -240,8 +238,6 @@ TEST_DATABASE_URL=postgresql://onlyou:onlyou@localhost:5433/onlyou_test pytest
 | 문서 | 내용 |
 | :--- | :--- |
 | `docs/deployment.md` | Modal TTS + 상시 서버 배포 절차, 환경변수 목록 |
-| `docs/scale-cost-analysis-2026-07-19.md` | 규모별 원가·수익 시뮬레이션 |
-| `docs/cost-reduction-implementation-2026-07-20.md` | 원가 절감 조치 구현 기록 |
-| `docs/superpowers/specs/`, `docs/superpowers/plans/` | 기능별 설계 스펙 및 실행 플랜 (수익 구조, 기억 reflection, 페르소나·음성 범위 등) |
+| `docs/superpowers/specs/`, `docs/superpowers/plans/` | 기능별 설계 스펙 및 실행 플랜 (일정 동기화, 기억 reflection, 페르소나·음성 범위 등) |
 | `docs/legal/` | 이용약관, 개인정보 처리방침 |
 | `GEMINI.md` | 에이전트 작업 규칙 (아키텍처 분리 원칙, 디자인 제약 등) |
