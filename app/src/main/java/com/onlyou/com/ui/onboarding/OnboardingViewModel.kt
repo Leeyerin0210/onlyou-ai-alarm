@@ -18,6 +18,7 @@ data class OnboardingUiState(
     val searchQuery: String = "",
     val selectedCount: Int = 0,
     val isOnline: Boolean = true,
+    val isLoading: Boolean = true,
 )
 
 @HiltViewModel
@@ -27,21 +28,29 @@ class OnboardingViewModel
         private val personaRepository: PersonaRepository,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(OnboardingUiState())
+        private val _uiState =
+            MutableStateFlow(
+                OnboardingUiState(isOnline = networkMonitor.isCurrentlyOnline),
+            )
         val uiState: StateFlow<OnboardingUiState> = _uiState
 
         init {
+            // 네트워크 상태 변화에 따라 서버와 동기화하고, 그 결과로 온라인 여부를 판정한다.
+            // 기기 인터넷이 되더라도 서버에 닿지 못하면 오프라인으로 처리한다.
             viewModelScope.launch {
-                // 비서 목록 동기화 수행
-                try {
-                    personaRepository.syncPersonas()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            viewModelScope.launch {
-                networkMonitor.isOnline.collectLatest { online ->
-                    _uiState.update { it.copy(isOnline = online) }
+                networkMonitor.isOnline.collectLatest { deviceOnline ->
+                    if (!deviceOnline) {
+                        _uiState.update { it.copy(isOnline = false, isLoading = false) }
+                    } else {
+                        _uiState.update { it.copy(isLoading = true) }
+                        val reachable = try {
+                            personaRepository.syncPersonas()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            false
+                        }
+                        _uiState.update { it.copy(isOnline = reachable, isLoading = false) }
+                    }
                 }
             }
             viewModelScope.launch {

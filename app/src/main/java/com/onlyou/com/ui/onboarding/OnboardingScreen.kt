@@ -715,6 +715,15 @@ fun OnboardingScreen(
                         .fillMaxWidth()
                         .weight(1f),
                 )
+            } else if (uiState.isLoading && uiState.filteredPersonas.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(color = colors.primary)
+                }
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),

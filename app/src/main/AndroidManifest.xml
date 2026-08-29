@@ -59,6 +59,7 @@
              임의 문구를 띄우지 못하도록 반드시 비공개(exported=false)로 유지 -->
         <activity
             android:name=".ui.alarm.AlarmActivity"
+            android:theme="@style/Theme.Miya"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

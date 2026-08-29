@@ -59,8 +59,6 @@ class AlarmActivity : ComponentActivity() {
     @Inject
     lateinit var weatherRepository: WeatherRepository
 
-    private val _aiScript = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -87,6 +85,14 @@ class AlarmActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // 기상 알람 화면은 상태바 없이 완전 몰입형으로 표시한다 (스와이프하면 일시적으로 다시 보임)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
         // 에뮬레이터 등에서 확실히 깨우기 위해 일시적 WakeLock 획득
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         if (!powerManager.isInteractive) {
@@ -101,14 +107,9 @@ class AlarmActivity : ComponentActivity() {
         val alarmTitle = intent.getStringExtra(AlarmService.EXTRA_ALARM_TITLE) ?: "알람"
         val personaId = intent.getStringExtra(AlarmService.EXTRA_PERSONA_ID) ?: ""
 
-        intent.getStringExtra(AlarmService.EXTRA_AI_SCRIPT)?.let {
-            _aiScript.value = it
-        }
-
         setContent {
             var persona by remember { mutableStateOf<Persona?>(null) }
             var weatherInfos by remember { mutableStateOf<List<WeatherInfo>>(emptyList()) }
-            val aiScript by _aiScript.collectAsState()
             val schedules by scheduleRepository
                 .getAllSchedules()
                 .collectAsState(initial = emptyList())
@@ -116,7 +117,7 @@ class AlarmActivity : ComponentActivity() {
 
             val todaySchedules = remember(schedules) {
                 val now = java.time.LocalDate.now()
-                schedules.filter { it.date == now }.sortedBy { it.startTime }
+                schedules.filter { com.onlyou.com.util.occursOn(it, now) }.sortedBy { it.startTime }
             }
 
             LaunchedEffect(todaySchedules, personaId) {
@@ -164,7 +165,6 @@ class AlarmActivity : ComponentActivity() {
                 MorningBriefingContent(
                     persona = persona,
                     title = alarmTitle,
-                    script = aiScript,
                     weatherInfos = weatherInfos,
                     schedules = todaySchedules,
                     onDismiss = { stopAlarmAndFinish() },
@@ -185,9 +185,6 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra(AlarmService.EXTRA_AI_SCRIPT)?.let {
-            _aiScript.value = it
-        }
     }
 
     private fun stopAlarmAndFinish() {
@@ -199,11 +196,39 @@ class AlarmActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 알람 음성은 Qwen TTS가 읽을 수 있도록 숫자·영어를 전부 순한글로 풀어쓴 스크립트를 쓰지만,
+ * 그 원문을 화면에 그대로 보여주면 "칠십 프로"처럼 읽기엔 어색한 문장이 된다.
+ * 그래서 화면 카드는 원문 대신 일정·날씨 구조화 데이터로 별도의 요약을 만들어 보여준다.
+ */
+fun buildBriefingSummary(
+    schedules: List<com.onlyou.com.domain.model.AiSchedule>,
+    weatherInfos: List<WeatherInfo>,
+): String {
+    val scheduleLine = if (schedules.isEmpty()) {
+        "오늘은 예정된 일정이 없어요."
+    } else {
+        val first = schedules[0]
+        val timeStr = first.startTime?.format(
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm"),
+        ) ?: "종일"
+        if (schedules.size == 1) {
+            "오늘 $timeStr ${first.title} 일정이 있어요."
+        } else {
+            "오늘 ${schedules.size}건의 일정이 있고, 가장 빠른 건 $timeStr ${first.title}예요."
+        }
+    }
+    val weatherLine = weatherInfos.firstOrNull()?.let { w ->
+        val condition = if (w.weatherCode < 3) "맑음" else "흐림/비"
+        "${w.locationName} 날씨는 ${w.temperature.toInt()}도, ${condition}이에요."
+    }
+    return listOfNotNull(scheduleLine, weatherLine).joinToString("\n")
+}
+
 @Composable
 fun MorningBriefingContent(
     persona: Persona?,
     title: String,
-    script: String?,
     weatherInfos: List<WeatherInfo>,
     schedules: List<com.onlyou.com.domain.model.AiSchedule>,
     onDismiss: () -> Unit,
@@ -458,8 +483,7 @@ fun MorningBriefingContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = script?.takeIf { it.isNotBlank() }
-                                ?: "오늘은 ${schedules.size}건의 일정이 있어요.\n여유로운 하루를 보내세요.",
+                            text = buildBriefingSummary(schedules, weatherInfos),
                             fontSize = 14.sp,
                             color = Color(0xFF555555),
                             lineHeight = 22.sp,

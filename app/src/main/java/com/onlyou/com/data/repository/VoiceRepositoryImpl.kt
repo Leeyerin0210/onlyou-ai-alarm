@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import com.onlyou.com.util.occursOn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -123,7 +124,7 @@ class VoiceRepositoryImpl
                     val todaySchedules = scheduleRepository
                         .getAllSchedules()
                         .first()
-                        .filter { it.date == today }
+                        .filter { occursOn(it, today) }
                         .sortedBy { it.startTime }
 
                     val memoryDtos = mutableListOf<MemoryItemDto>()
@@ -230,7 +231,7 @@ class VoiceRepositoryImpl
                     val todaySchedules = scheduleRepository
                         .getAllSchedules()
                         .first()
-                        .filter { it.date == today }
+                        .filter { occursOn(it, today) }
                         .sortedBy { it.startTime }
 
                     val memoryDtos = mutableListOf<MemoryItemDto>()

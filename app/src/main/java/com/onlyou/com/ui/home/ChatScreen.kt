@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +43,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +71,8 @@ import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.MessageSender
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.theme.MiyaTheme
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun ChatScreen(
@@ -300,8 +303,14 @@ fun ChatSection(
             contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(messages) { message ->
-                ChatBubble(message = message)
+            itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
+                Column {
+                    val previousDate = messages.getOrNull(index - 1)?.timestamp?.toLocalDate()
+                    if (previousDate != message.timestamp.toLocalDate()) {
+                        DateDivider(date = message.timestamp.toLocalDate())
+                    }
+                    ChatBubble(message = message)
+                }
             }
 
             // 스트리밍 중인 AI 응답을 실시간으로 표시
@@ -333,6 +342,28 @@ fun ChatSection(
                 }
             }
         }
+    }
+}
+
+private val DateDividerFormatter = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
+
+@Composable
+fun DateDivider(date: java.time.LocalDate) {
+    val colors = MiyaTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = colors.surfaceB)
+        Text(
+            text = date.format(DateDividerFormatter),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.neutral,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f), color = colors.surfaceB)
     }
 }
 
