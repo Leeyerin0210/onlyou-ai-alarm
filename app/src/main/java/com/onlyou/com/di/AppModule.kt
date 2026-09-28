@@ -2,13 +2,11 @@ package com.onlyou.com.di
 
 import com.onlyou.com.data.repository.AlarmRepositoryImpl
 import com.onlyou.com.data.repository.ChatRepositoryImpl
-import com.onlyou.com.data.repository.MemoryRepositoryImpl
 import com.onlyou.com.data.repository.PersonaRepositoryImpl
 import com.onlyou.com.data.repository.ScheduleRepositoryImpl
 import com.onlyou.com.data.repository.VoiceRepositoryImpl
 import com.onlyou.com.domain.repository.AlarmRepository
 import com.onlyou.com.domain.repository.ChatRepository
-import com.onlyou.com.domain.repository.MemoryRepository
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.ScheduleRepository
 import com.onlyou.com.domain.repository.VoiceRepository
@@ -48,10 +46,6 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindChatRepository(chatRepositoryImpl: ChatRepositoryImpl): ChatRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindMemoryRepository(memoryRepositoryImpl: MemoryRepositoryImpl): MemoryRepository
 
     @Binds
     @Singleton

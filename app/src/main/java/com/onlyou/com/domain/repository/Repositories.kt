@@ -4,7 +4,6 @@ import com.onlyou.com.domain.model.AiSchedule
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.ChatEvent
 import com.onlyou.com.domain.model.ChatMessage
-import com.onlyou.com.domain.model.Memory
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.domain.model.Persona
 import kotlinx.coroutines.flow.Flow
@@ -79,19 +78,6 @@ interface ChatRepository {
      * @return 생성된 텍스트, 실패(네트워크 오류 포함)나 빈 응답이면 null. 예외를 던지지 않는다.
      */
     suspend fun sendProactiveMessage(instruction: String, persona: Persona): String?
-}
-
-/**
- * AI가 기억하는 유저의 맥락(메모리) 관리
- */
-interface MemoryRepository {
-    fun getAllMemories(): Flow<List<Memory>>
-
-    suspend fun addMemory(memory: Memory)
-
-    suspend fun deleteMemory(memoryId: String)
-
-    suspend fun clearOldMemories()
 }
 
 /**

@@ -78,24 +78,6 @@ data class Persona(
 )
 
 /**
- * AI가 기억하는 유저의 맥락 정보
- */
-data class Memory(
-    val id: String = UUID.randomUUID().toString(),
-    val type: MemoryType,
-    val content: String,
-    val targetDate: LocalDate? = null,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-)
-
-enum class MemoryType {
-    SCHEDULE, // 일정
-    STATE, // 유저의 기분/상태
-    PREFERENCE, // 취향/특이사항
-    USER_NOTE, // 아티스트가 인식하는 유저에 대한 요약/메모
-}
-
-/**
  * AI와의 대화 메시지
  */
 data class ChatMessage(

@@ -2,8 +2,6 @@ package com.onlyou.com.data.repository
 
 import com.onlyou.com.data.local.ChatDao
 import com.onlyou.com.data.local.ChatMessageEntity
-import com.onlyou.com.data.local.MemoryDao
-import com.onlyou.com.data.local.MemoryEntity
 import com.onlyou.com.data.remote.AlarmScriptRequestDto
 import com.onlyou.com.data.remote.AlarmScriptResponseDto
 import com.onlyou.com.data.remote.BackupDto
@@ -31,52 +29,46 @@ import retrofit2.Response
 /**
  * "모든 기억 초기화"의 핵심 계약을 검증한다.
  *
- * 가장 중요한 것은 순서다 — 서버 삭제가 실패했는데 로컬만 지우면
- * "AI는 기억하는데 유저 화면엔 아무것도 없는" 상태가 된다. 이건 초기화가
- * 아예 안 된 것보다 나쁘다.
+ * 기억은 서버가 단일 소유하므로 지울 곳은 두 군데다 — 서버 벡터 기억과
+ * 로컬 대화 기록. 순서가 계약이다: 서버 삭제가 실패했는데 로컬 대화만 지우면
+ * "AI는 기억하는데 유저 화면엔 아무것도 없는" 상태가 된다.
  */
 class MemoryResetterTest {
 
     @Test
-    fun `서버 삭제가 성공하면 대화 기록과 로컬 기억이 모두 삭제된다`() = runBlocking {
+    fun `서버 삭제가 성공하면 대화 기록이 삭제된다`() = runBlocking {
         val chatDao = FakeChatDao()
-        val memoryDao = FakeMemoryDao()
         val api = FakeApiService(clearMemoryResult = Response.success(Unit))
 
-        val result = MemoryResetter(chatDao, memoryDao, api).resetAll()
+        val result = MemoryResetter(chatDao, api).resetAll()
 
         assertTrue(result)
         assertEquals(1, api.clearMemoryCallCount)
         assertTrue(chatDao.cleared)
-        assertTrue(memoryDao.cleared)
     }
 
     @Test
-    fun `서버 삭제가 실패하면 로컬 데이터를 그대로 둔다`() = runBlocking {
+    fun `서버 삭제가 실패하면 로컬 대화를 그대로 둔다`() = runBlocking {
         val chatDao = FakeChatDao()
-        val memoryDao = FakeMemoryDao()
         val api = FakeApiService(
             clearMemoryResult = Response.error(500, "".toResponseBody(null)),
         )
 
-        val result = MemoryResetter(chatDao, memoryDao, api).resetAll()
+        val result = MemoryResetter(chatDao, api).resetAll()
 
         assertFalse(result)
         assertFalse(chatDao.cleared)
-        assertFalse(memoryDao.cleared)
     }
 
     @Test
-    fun `네트워크 예외가 나도 던지지 않고 로컬 데이터를 보존한다`() = runBlocking {
+    fun `네트워크 예외가 나도 던지지 않고 로컬 대화를 보존한다`() = runBlocking {
         val chatDao = FakeChatDao()
-        val memoryDao = FakeMemoryDao()
         val api = FakeApiService(clearMemoryError = java.io.IOException("offline"))
 
-        val result = MemoryResetter(chatDao, memoryDao, api).resetAll()
+        val result = MemoryResetter(chatDao, api).resetAll()
 
         assertFalse(result)
         assertFalse(chatDao.cleared)
-        assertFalse(memoryDao.cleared)
     }
 }
 
@@ -90,22 +82,6 @@ private class FakeChatDao : ChatDao {
     override suspend fun insertMessage(message: ChatMessageEntity) = Unit
 
     override suspend fun clearHistory() {
-        cleared = true
-    }
-}
-
-private class FakeMemoryDao : MemoryDao {
-    var cleared = false
-
-    override fun getAllMemories(): Flow<List<MemoryEntity>> = flowOf(emptyList())
-
-    override suspend fun getAllMemoriesOnce(): List<MemoryEntity> = emptyList()
-
-    override suspend fun insertMemory(memory: MemoryEntity) = Unit
-
-    override suspend fun deleteMemory(memoryId: String) = Unit
-
-    override suspend fun clearAll() {
         cleared = true
     }
 }
