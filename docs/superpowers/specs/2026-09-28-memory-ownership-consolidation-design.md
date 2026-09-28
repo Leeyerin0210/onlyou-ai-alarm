@@ -193,8 +193,13 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 
 ## 배포 순서
 
-1. **서버 먼저 배포.** `user_notes`·`recent_memories`를 받지 않아도 Pydantic이 조용히
-   버리므로 구버전 앱이 깨지지 않는다. `/memory/extract`는 빈 배열을 반환하므로
+1. **서버 먼저 배포.** `ChatRequest.user_notes`는 서버가 선언하지 않은 필드라
+   Pydantic이 조용히 버리므로 구버전 앱이 깨지지 않는다(그 자리는 서버가 조회한
+   insight가 대신 채운다). `AlarmScriptRequest`는 구버전 앱이 보내는
+   `recent_memories`를 한 릴리스 동안 호환 필드로 선언해두고, `context_items`가
+   비어 있을 때만 그 안의 `SCHEDULE`·`WEATHER` 항목만 브리핑 조립에 쓴다 — 서버만
+   먼저 배포된 동안에도 구버전 앱이 일정·날씨를 계속 받게 하기 위함이다(기억 계열
+   항목은 어느 필드로 와도 서버가 버린다). `/memory/extract`는 빈 배열을 반환하므로
    구버전 앱은 "추출 결과 없음"으로 동작한다 — 로컬 기억이 더 쌓이지 않을 뿐이다.
 2. **그다음 앱 배포.** v21 마이그레이션이 로컬 `memories`를 지운다.
 3. **B는 A 병합 후 착수.** `active_insights`와 `superseded_at`이 없으면 B는 성립하지 않는다.
@@ -217,7 +222,11 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 **앱**
 - Room v20→v21 마이그레이션 테스트 (`ScheduleMigrationTest`·`PersonaMigrationTest` 패턴).
 - `MemoryResetterTest`: 2단 계약으로 갱신 (서버 실패 시 로컬 대화 유지).
-- 백업 복원이 `memories`를 무시하는지 — 구버전 백업 JSON을 넣어도 예외가 나지 않아야 한다.
+- 백업 복원이 `memories`를 무시하는지는 유닛 테스트 대신 grep으로 확인한다 —
+  `BackupRepositoryImpl`이 생성자에서 `FirebaseAuth`·`Context`를 직접 주입받아
+  JVM 유닛 테스트로 감싸려면 더 큰 리팩터링이 필요하다. `restore`가
+  `backup.memories`를 더 이상 읽지 않는다는 점(역직렬화·`memoryDao.insertMemory`
+  호출 둘 다 없음)을 grep으로 확인했다.
 
 ## 위험
 

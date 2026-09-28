@@ -77,3 +77,8 @@ modal deploy tts-server/modal_app.py
 - **벡터 기억**은 PostgreSQL + pgvector(`DATABASE_URL`)에 저장된다. 영구 디스크 불필요.
 - **참조 음성**(보이스 클로닝용)은 `FIREBASE_STORAGE_BUCKET` 설정 시 Firebase Storage에 영구 저장되고, 로컬 디스크는 캐시로만 쓴다. 버킷 미설정 시 재배포 때 클로닝 참조가 사라진다.
 - 로컬 개발 시에는 `TTS_SERVER_URL`만 Modal 주소로 넣으면 나머지는 기존과 동일하게 동작한다.
+- **기억 소유권 단일화(2026-09-28) 배포는 서버 먼저, 앱 나중.** 서버는 구버전 앱의
+  `user_notes`·`recent_memories`·`/memory/extract` 호출을 한 릴리스 동안 호환 처리한다.
+  앱을 먼저 내보내면 구버전 서버가 필수 필드 `recent_memories`가 없다며 브리핑 요청을
+  422로 거부하고, 알람이 기본 인사말로 떨어진다. 다음 릴리스에서 `/memory/extract`
+  라우트와 `recent_memories` 폴백을 제거한다.
