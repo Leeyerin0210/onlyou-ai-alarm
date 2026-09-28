@@ -118,14 +118,13 @@ class PgMemoryCollection:
         try:
             emb = _embed(query_texts)[0]
             with closing(self._conn()) as conn, conn.cursor() as cur:
-                # insight는 압축된 통찰이라 같은 유사도면 raw 기억보다 우선 노출한다
-                # (거리가 작을수록 유사 — insight는 거리에서 0.1을 깎아 앞으로 보낸다).
                 cur.execute(
-                    # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다
+                    # 반드시 uid로 스코프 — 다른 사용자의 기억이 절대 섞이면 안 된다.
+                    # insight 가산점은 제거했다 — 상시 티어(active_insights)로 올라갔으므로
+                    # 여기서 또 우선 노출하면 top-N 자리를 이중으로 차지한다.
                     "SELECT document, metadata, type FROM user_memories "
                     "WHERE uid = %s "
-                    "ORDER BY (embedding <=> %s::vector) - "
-                    "(CASE WHEN type = 'insight' THEN 0.1 ELSE 0 END) "
+                    "ORDER BY embedding <=> %s::vector "
                     "LIMIT %s",
                     (uid, _vec_literal(emb), n_results),
                 )

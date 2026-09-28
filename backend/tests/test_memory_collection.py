@@ -54,13 +54,24 @@ def test_query_returns_types_alongside_documents():
     assert result["types"][0] == ["fact"]
 
 
-def test_query_ranks_insight_above_equally_similar_fact():
-    # 두 문장이 동일해 임베딩(가짜)도 동일 — 가산점이 없으면 순서가 우연에 의존하지만
-    # 가산점이 있으면 insight가 항상 먼저 온다.
-    collection.add("u1", ["카페인에 예민한 편이다"], [{"timestamp": "t", "uid": "u1", "type": "fact"}], ["f1"])
+def test_query_ranks_by_distance_only_without_insight_bonus(monkeypatch):
+    """insight는 상시 티어(active_insights)로 올라갔으므로 검색 가산점을 받지 않는다.
+    거리 차이(약 0.01)는 과거 가산점 0.1보다 작아서, 가산점이 남아 있으면
+    insight가 먼저 오고 이 테스트는 실패한다."""
+    vectors = {
+        "카페인": [1.0, 0.0, 0.0],
+        "카페인을 줄이는 중": [1.0, 0.0, 0.0],        # 질의와 동일 방향 → 거리 0
+        "카페인에 예민한 편이다": [0.99, 0.14, 0.0],  # 살짝 다른 방향 → 거리 ~0.01
+    }
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+
+    collection.add("u1", ["카페인을 줄이는 중"], [{"timestamp": "t", "uid": "u1", "type": "fact"}], ["f1"])
     collection.add("u1", ["카페인에 예민한 편이다"], [{"timestamp": "t", "uid": "u1", "type": "insight"}], ["i1"])
+
     result = collection.query("u1", ["카페인"], 2)
-    assert result["types"][0][0] == "insight"
+
+    assert result["types"][0][0] == "fact"
+    assert result["documents"][0][0] == "카페인을 줄이는 중"
 
 
 def test_get_active_uids_since_returns_only_fact_and_triple_uids_after_cutoff():
