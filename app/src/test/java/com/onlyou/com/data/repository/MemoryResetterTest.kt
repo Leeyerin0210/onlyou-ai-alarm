@@ -8,8 +8,6 @@ import com.onlyou.com.data.remote.AlarmScriptRequestDto
 import com.onlyou.com.data.remote.AlarmScriptResponseDto
 import com.onlyou.com.data.remote.BackupDto
 import com.onlyou.com.data.remote.ChatRequestDto
-import com.onlyou.com.data.remote.MemoryExtractRequestDto
-import com.onlyou.com.data.remote.MemoryItemDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.data.remote.PersonaDto
 import com.onlyou.com.data.remote.PresetDto
@@ -131,8 +129,6 @@ private class FakeApiService(
     private fun unused(): Nothing = throw AssertionError("이 테스트에서 호출되면 안 되는 API")
 
     override suspend fun chatStream(request: ChatRequestDto): Response<ResponseBody> = unused()
-
-    override suspend fun extractMemory(request: MemoryExtractRequestDto): List<MemoryItemDto> = unused()
 
     override suspend fun generateAlarmScript(request: AlarmScriptRequestDto): AlarmScriptResponseDto = unused()
 

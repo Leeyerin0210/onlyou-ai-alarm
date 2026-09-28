@@ -26,11 +26,6 @@ data class ChatRequestDto(
     val skip_side_effects: Boolean = false,
 )
 
-// Memory
-data class MemoryExtractRequestDto(
-    val message: String,
-)
-
 data class MemoryItemDto(
     val type: String,
     val content: String,

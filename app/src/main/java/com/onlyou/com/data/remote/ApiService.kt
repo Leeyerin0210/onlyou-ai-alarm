@@ -14,11 +14,6 @@ interface MiyaApiService {
         @Body request: ChatRequestDto,
     ): Response<ResponseBody>
 
-    @POST("memory/extract")
-    suspend fun extractMemory(
-        @Body request: MemoryExtractRequestDto,
-    ): List<MemoryItemDto>
-
     @POST("alarm/script")
     suspend fun generateAlarmScript(
         @Body request: AlarmScriptRequestDto,
