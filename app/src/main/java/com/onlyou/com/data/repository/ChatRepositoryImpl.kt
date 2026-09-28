@@ -7,11 +7,9 @@ import com.onlyou.com.data.remote.ChatRequestDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.domain.model.ChatEvent
 import com.onlyou.com.domain.model.ChatMessage
-import com.onlyou.com.domain.model.MemoryType
 import com.onlyou.com.domain.model.MessageSender
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.ChatRepository
-import com.onlyou.com.domain.repository.MemoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -27,7 +25,6 @@ class ChatRepositoryImpl
     constructor(
         private val chatDao: ChatDao,
         private val remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig,
-        private val memoryRepository: MemoryRepository,
         private val apiService: MiyaApiService,
         private val scheduleRepository: com.onlyou.com.domain.repository.ScheduleRepository,
     ) : ChatRepository {
@@ -48,8 +45,6 @@ class ChatRepositoryImpl
                     val gson = com.google.gson.Gson()
 
                     try {
-                        val userNotes = collectUserNotes()
-
                         val historyEntities = chatDao
                             .getChatMessages()
                             .first()
@@ -77,7 +72,6 @@ class ChatRepositoryImpl
                         val requestDto = ChatRequestDto(
                             history = historyDto,
                             message = message.text,
-                            user_notes = userNotes,
                             schedules = scheduleDtos,
                         )
 
@@ -261,20 +255,11 @@ class ChatRepositoryImpl
                     }
                 }.flowOn(Dispatchers.IO)
 
-        /** 서버가 프롬프트를 조립한다. 앱은 기기에만 있는 유저 노트만 보낸다. */
-        private suspend fun collectUserNotes(): List<String> =
-            memoryRepository
-                .getAllMemories()
-                .first()
-                .filter { it.type == MemoryType.USER_NOTE }
-                .map { it.content }
-
         override suspend fun sendProactiveMessage(
             instruction: String,
             persona: Persona,
         ): String? {
             return try {
-                val userNotes = collectUserNotes()
                 val historyDto = chatDao
                     .getChatMessages()
                     .first()
@@ -290,7 +275,6 @@ class ChatRepositoryImpl
                     ChatRequestDto(
                         history = historyDto,
                         message = instruction,
-                        user_notes = userNotes,
                         schedules = null,
                         skip_side_effects = true,
                     ),

@@ -18,10 +18,9 @@ data class ScheduleItemDto(
 
 data class ChatRequestDto(
     // system_prompt는 보내지 않는다 — 서버가 선택 페르소나에서 조립한다.
-    // user_notes는 기기 Room DB에만 있는 유저 본인 데이터라 계속 보낸다.
+    // user_notes도 보내지 않는다 — 상시 티어는 서버가 insight로 조립한다.
     val history: List<ChatMessageDto>,
     val message: String,
-    val user_notes: List<String> = emptyList(),
     val schedules: List<ScheduleItemDto>? = null,
     val skip_side_effects: Boolean = false,
 )
