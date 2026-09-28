@@ -5,13 +5,12 @@ import android.util.Base64
 import com.onlyou.com.data.local.AlarmVoiceChunkDao
 import com.onlyou.com.data.local.AlarmVoiceChunkEntity
 import com.onlyou.com.data.remote.AlarmScriptRequestDto
-import com.onlyou.com.data.remote.MemoryItemDto
+import com.onlyou.com.data.remote.ContextItemDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.data.remote.VoiceCloneRequestDto
 import com.onlyou.com.data.remote.VoiceSaveReferenceRequestDto
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.Persona
-import com.onlyou.com.domain.repository.MemoryRepository
 import com.onlyou.com.domain.repository.ScheduleRepository
 import com.onlyou.com.domain.repository.VoiceRepository
 import com.onlyou.com.domain.repository.WeatherRepository
@@ -34,7 +33,6 @@ class VoiceRepositoryImpl
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
-        private val memoryRepository: MemoryRepository,
         private val scheduleRepository: ScheduleRepository,
         private val apiService: MiyaApiService,
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
@@ -111,67 +109,8 @@ class VoiceRepositoryImpl
         override fun generateWakeUpScriptStream(persona: Persona): Flow<String> =
             flow {
                 try {
-                    val today = LocalDate.now()
-
-                    // 1. 최근 메모리 로드
-                    val recentMemories = memoryRepository
-                        .getAllMemories()
-                        .first()
-                        .sortedByDescending { it.createdAt }
-                        .take(5)
-
-                    // 2. 오늘 일정 로드
-                    val todaySchedules = scheduleRepository
-                        .getAllSchedules()
-                        .first()
-                        .filter { occursOn(it, today) }
-                        .sortedBy { it.startTime }
-
-                    val memoryDtos = mutableListOf<MemoryItemDto>()
-
-                    // 메모리 추가
-                    memoryDtos.addAll(
-                        recentMemories.map { m ->
-                            MemoryItemDto(type = m.type.name, content = m.content)
-                        },
-                    )
-
-                    // 일정 추가 (특수한 포맷으로)
-                    val uniqueLocations = mutableSetOf<String>()
-                    todaySchedules.forEach { s ->
-                        val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
-                        memoryDtos.add(
-                            MemoryItemDto(
-                                type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}" + (if (s.location != null) " (장소: ${s.location})" else ""),
-                            ),
-                        )
-                        if (!s.location.isNullOrBlank()) {
-                            uniqueLocations.add(s.location)
-                        }
-                    }
-
-                    // 날씨 조회하여 전달
-                    for (loc in uniqueLocations) {
-                        val geoResult = weatherRepository.getCoordinatesFromName(loc)
-                        if (geoResult.isSuccess) {
-                            val coords = geoResult.getOrNull()!!
-                            val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
-                            if (weatherRes.isSuccess) {
-                                val w = weatherRes.getOrNull()!!
-                                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
-                                memoryDtos.add(
-                                    MemoryItemDto(
-                                        type = "WEATHER",
-                                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, 강수확률 ${w.precipitationProbability}%"
-                                    )
-                                )
-                            }
-                        }
-                    }
-
                     val requestDto = AlarmScriptRequestDto(
-                        recent_memories = memoryDtos,
+                        context_items = buildContextItems(),
                     )
 
                     val response = apiService.generateAlarmScriptStream(requestDto)
@@ -218,68 +157,9 @@ class VoiceRepositoryImpl
                         return@runCatching true
                     }
 
-                    val today = LocalDate.now()
-
-                    // 1. 최근 메모리 로드
-                    val recentMemories = memoryRepository
-                        .getAllMemories()
-                        .first()
-                        .sortedByDescending { it.createdAt }
-                        .take(5)
-
-                    // 2. 오늘 일정 로드
-                    val todaySchedules = scheduleRepository
-                        .getAllSchedules()
-                        .first()
-                        .filter { occursOn(it, today) }
-                        .sortedBy { it.startTime }
-
-                    val memoryDtos = mutableListOf<MemoryItemDto>()
-
-                    // 메모리 추가
-                    memoryDtos.addAll(
-                        recentMemories.map { m ->
-                            MemoryItemDto(type = m.type.name, content = m.content)
-                        },
-                    )
-
-                    // 일정 추가
-                    val uniqueLocations = mutableSetOf<String>()
-                    todaySchedules.forEach { s ->
-                        val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
-                        memoryDtos.add(
-                            MemoryItemDto(
-                                type = "SCHEDULE",
-                                content = "[오늘 일정] $timeStr - ${s.title}" + (if (s.location != null) " (장소: ${s.location})" else ""),
-                            ),
-                        )
-                        if (!s.location.isNullOrBlank()) {
-                            uniqueLocations.add(s.location)
-                        }
-                    }
-
-                    // 날씨 추가
-                    for (loc in uniqueLocations) {
-                        val geoResult = weatherRepository.getCoordinatesFromName(loc)
-                        if (geoResult.isSuccess) {
-                            val coords = geoResult.getOrNull()!!
-                            val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
-                            if (weatherRes.isSuccess) {
-                                val w = weatherRes.getOrNull()!!
-                                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
-                                memoryDtos.add(
-                                    MemoryItemDto(
-                                        type = "WEATHER",
-                                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, 강수확률 ${w.precipitationProbability}%"
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // 3. 알람 스크립트 청크 요청
+                    // 알람 스크립트 청크 요청
                     val scriptRequest = AlarmScriptRequestDto(
-                        recent_memories = memoryDtos,
+                        context_items = buildContextItems(),
                     )
 
                     val scriptResponse = apiService.generateAlarmScript(scriptRequest)
@@ -355,4 +235,57 @@ class VoiceRepositoryImpl
                     )
                 }
             }
+
+        /**
+         * 브리핑에 실을 기기 전용 컨텍스트(오늘 일정 + 그 장소의 날씨).
+         *
+         * 기억은 보내지 않는다 — 서버가 pgvector에서 직접 조립한다
+         * (스펙: docs/superpowers/specs/2026-09-28-memory-ownership-consolidation-design.md).
+         */
+        private suspend fun buildContextItems(): List<ContextItemDto> {
+            val today = LocalDate.now()
+            val todaySchedules = scheduleRepository
+                .getAllSchedules()
+                .first()
+                // date == today로 거르면 반복 일정(헬스장 등)이 절대 안 잡힌다 —
+                // 저녁 선톡과 같은 판정(occursOn)을 쓴다.
+                .filter { occursOn(it, today) }
+                .sortedBy { it.startTime }
+
+            val items = mutableListOf<ContextItemDto>()
+            val uniqueLocations = mutableSetOf<String>()
+
+            todaySchedules.forEach { s ->
+                val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
+                items.add(
+                    ContextItemDto(
+                        type = "SCHEDULE",
+                        content = "[오늘 일정] $timeStr - ${s.title}" +
+                            (if (s.location != null) " (장소: ${s.location})" else ""),
+                    ),
+                )
+                if (!s.location.isNullOrBlank()) {
+                    uniqueLocations.add(s.location)
+                }
+            }
+
+            for (loc in uniqueLocations) {
+                val geoResult = weatherRepository.getCoordinatesFromName(loc)
+                if (geoResult.isFailure) continue
+                val coords = geoResult.getOrNull() ?: continue
+                val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
+                if (weatherRes.isFailure) continue
+                val w = weatherRes.getOrNull() ?: continue
+                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
+                items.add(
+                    ContextItemDto(
+                        type = "WEATHER",
+                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, " +
+                            "강수확률 ${w.precipitationProbability}%",
+                    ),
+                )
+            }
+
+            return items
+        }
     }

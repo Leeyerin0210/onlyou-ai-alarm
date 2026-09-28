@@ -25,18 +25,15 @@ data class ChatRequestDto(
     val skip_side_effects: Boolean = false,
 )
 
-data class MemoryItemDto(
-    val type: String,
+// Alarm
+data class ContextItemDto(
+    val type: String, // "SCHEDULE" 또는 "WEATHER" — 기기에만 있는 정보만 보낸다
     val content: String,
-    val date: String? = null, // YYYY-MM-DD (SCHEDULE 전용)
-    val time: String? = null, // HH:MM (SCHEDULE 전용)
-    val title: String? = null, // 일정 제목 (SCHEDULE 전용)
 )
 
-// Alarm
 data class AlarmScriptRequestDto(
-    // 페르소나 이름·프롬프트·호칭은 서버가 DB에서 읽는다
-    val recent_memories: List<MemoryItemDto>,
+    // 기억은 서버가 pgvector에서 직접 조립한다. 앱은 기기 전용 컨텍스트만 보낸다.
+    val context_items: List<ContextItemDto>,
 )
 
 data class AlarmScriptResponseDto(
