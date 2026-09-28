@@ -13,7 +13,7 @@ from core.database import collection
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.security import get_uid
 from core.sse import sse_data
-from core.prompt_builder import build_chat_system_prompt
+from core.prompt_builder import ACTIVE_INSIGHT_LIMIT, build_chat_system_prompt
 from models.schemas import ChatRequest
 from services.memory_service import is_memory_worthy, process_and_save_memory
 from services.monetization_service import chat_allowance
@@ -115,10 +115,12 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     )
     relevant_memories = format_memories(results)
 
-    # 프롬프트는 서버가 조립한다 — 클라이언트가 만든 문자열을 LLM에 넣지 않는다
+    # 프롬프트는 서버가 조립한다 — 클라이언트가 만든 문자열을 LLM에 넣지 않는다.
+    # 상시 티어는 앱이 보내던 user_notes가 아니라 서버의 insight다.
     persona = await asyncio.to_thread(load_active_persona, uid)
+    insights = await asyncio.to_thread(collection.active_insights, uid, ACTIVE_INSIGHT_LIMIT)
     system_prompt = build_chat_system_prompt(
-        persona.preset_key, persona.name, persona.user_call_sign, request.user_notes
+        persona.preset_key, persona.name, persona.user_call_sign, insights
     )
 
     # 초성 웃음·짧은 감탄사 등은 추출할 게 없으므로 기억 추출 LLM 호출을 건너뛴다
