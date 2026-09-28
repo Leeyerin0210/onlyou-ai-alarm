@@ -144,3 +144,41 @@ def test_ensure_schema_is_noop_safe_when_table_missing_entirely():
         columns = {r[0] for r in cur.fetchall()}
 
     assert {"id", "uid", "document", "metadata", "embedding", "type", "importance"} <= columns
+
+
+def test_active_insights_returns_insights_newest_first():
+    collection.add("u1", ["통찰A"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i1"])
+    collection.add("u1", ["통찰B"], [{"timestamp": "2026-09-05T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i2"])
+
+    assert collection.active_insights("u1", 10) == ["통찰B", "통찰A"]
+
+
+def test_active_insights_excludes_fact_and_triple():
+    collection.add("u1", ["사실"], [{"timestamp": "2026-09-05T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    collection.add("u1", ["트리플문장"], [{"timestamp": "2026-09-05T00:00:00+09:00", "uid": "u1", "type": "triple"}], ["t1"])
+    collection.add("u1", ["통찰"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i1"])
+
+    assert collection.active_insights("u1", 10) == ["통찰"]
+
+
+def test_active_insights_respects_limit():
+    for n in range(3):
+        collection.add(
+            "u1", [f"통찰{n}"],
+            [{"timestamp": f"2026-09-0{n + 1}T00:00:00+09:00", "uid": "u1", "type": "insight"}],
+            [f"i{n}"],
+        )
+
+    assert collection.active_insights("u1", 2) == ["통찰2", "통찰1"]
+
+
+def test_active_insights_is_scoped_to_uid():
+    """다른 유저의 통찰이 프롬프트 상시 티어에 섞이면 안 된다."""
+    collection.add("u1", ["내 통찰"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i1"])
+    collection.add("u2", ["남의 통찰"], [{"timestamp": "2026-09-02T00:00:00+09:00", "uid": "u2", "type": "insight"}], ["i2"])
+
+    assert collection.active_insights("u1", 10) == ["내 통찰"]
+
+
+def test_active_insights_returns_empty_for_unknown_uid():
+    assert collection.active_insights("does-not-exist", 10) == []

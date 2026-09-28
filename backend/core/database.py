@@ -180,6 +180,28 @@ class PgMemoryCollection:
             print(f"get_active_uids_since warning: {e}")
             return []
 
+    def active_insights(self, uid: str, limit: int = 10) -> list[str]:
+        """프롬프트 상시 티어용 — 이 유저의 insight를 최신순으로.
+
+        A에서 `user_notes`(앱이 매 턴 올려보내던 값)를 대체한다. 상한 10은 하루
+        1~3개 생성 기준 며칠 분량이고, 최종 절단은 prompt_builder의
+        MAX_INSIGHTS_CHARS가 맡는다.
+        """
+        if not self.dsn or not uid:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT document FROM user_memories "
+                    "WHERE uid = %s AND type = 'insight' "
+                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
+                    (uid, limit),
+                )
+                return [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            print(f"active_insights warning: {e}")
+            return []
+
     def last_insight_timestamp(self, uid: str) -> str | None:
         """이 유저의 가장 최근 insight 생성 시각 (없으면 None)."""
         if not self.dsn:
