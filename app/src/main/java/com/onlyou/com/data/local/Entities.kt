@@ -71,15 +71,6 @@ data class PersonaEntity(
     val presetKey: String = "",
 )
 
-@Entity(tableName = "memories")
-data class MemoryEntity(
-    @PrimaryKey val id: String,
-    val type: String, // MemoryType enum name
-    val content: String,
-    val targetDate: LocalDate?,
-    val createdAt: LocalDateTime,
-)
-
 @Entity(tableName = "chat_messages")
 data class ChatMessageEntity(
     @PrimaryKey val id: String,

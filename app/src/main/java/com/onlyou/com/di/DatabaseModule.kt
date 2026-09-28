@@ -6,7 +6,6 @@ import com.onlyou.com.data.local.AiScheduleDao
 import com.onlyou.com.data.local.AlarmDao
 import com.onlyou.com.data.local.AlarmVoiceChunkDao
 import com.onlyou.com.data.local.ChatDao
-import com.onlyou.com.data.local.MemoryDao
 import com.onlyou.com.data.local.MiyaDatabase
 import com.onlyou.com.data.local.PersonaDao
 import androidx.room.migration.Migration
@@ -49,6 +48,15 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
     }
 }
 
+// 기억은 서버(pgvector)가 단일 소유한다 — 로컬 사본을 들고 있으면 서버가 모순을
+// 해소해도(B) 앱에 폐기된 기억이 남는다.
+// 스펙: docs/superpowers/specs/2026-09-28-memory-ownership-consolidation-design.md
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS memories")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -63,7 +71,10 @@ object DatabaseModule {
                 MiyaDatabase::class.java,
                 "miya_database",
             )
-            .addMigrations(MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+            .addMigrations(
+                MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18,
+                MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
+            )
             .fallbackToDestructiveMigration()
             .build()
 
@@ -88,9 +99,6 @@ object DatabaseModule {
 
     @Provides
     fun provideChatDao(database: MiyaDatabase): ChatDao = database.chatDao()
-
-    @Provides
-    fun provideMemoryDao(database: MiyaDatabase): MemoryDao = database.memoryDao()
 
     @Provides
     fun provideAlarmVoiceChunkDao(database: MiyaDatabase): AlarmVoiceChunkDao = database.alarmVoiceChunkDao()

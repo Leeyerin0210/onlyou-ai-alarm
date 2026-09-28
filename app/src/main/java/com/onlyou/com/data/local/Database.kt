@@ -104,24 +104,6 @@ interface ChatDao {
 }
 
 @Dao
-interface MemoryDao {
-    @Query("SELECT * FROM memories")
-    fun getAllMemories(): Flow<List<MemoryEntity>>
-
-    @Query("SELECT * FROM memories")
-    suspend fun getAllMemoriesOnce(): List<MemoryEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMemory(memory: MemoryEntity)
-
-    @Query("DELETE FROM memories WHERE id = :memoryId")
-    suspend fun deleteMemory(memoryId: String)
-
-    @Query("DELETE FROM memories")
-    suspend fun clearAll()
-}
-
-@Dao
 interface AlarmVoiceChunkDao {
     @Query("SELECT * FROM alarm_voice_chunks WHERE alarmId = :alarmId ORDER BY chunkIndex ASC")
     suspend fun getChunksForAlarm(alarmId: Int): List<AlarmVoiceChunkEntity>
@@ -139,11 +121,10 @@ interface AlarmVoiceChunkDao {
         DDayEntity::class,
         AiScheduleEntity::class,
         PersonaEntity::class,
-        MemoryEntity::class,
         ChatMessageEntity::class,
         AlarmVoiceChunkEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @TypeConverters(MiyaTypeConverters::class)
@@ -155,8 +136,6 @@ abstract class MiyaDatabase : RoomDatabase() {
     abstract fun personaDao(): PersonaDao
 
     abstract fun chatDao(): ChatDao
-
-    abstract fun memoryDao(): MemoryDao
 
     abstract fun alarmVoiceChunkDao(): AlarmVoiceChunkDao
 }
