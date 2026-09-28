@@ -922,7 +922,9 @@ data class AlarmScriptRequestDto(
             val todaySchedules = scheduleRepository
                 .getAllSchedules()
                 .first()
-                .filter { it.date == today }
+                // date == today로 거르면 반복 일정(헬스장 등)이 절대 안 잡힌다 —
+                // 저녁 선톡과 같은 판정(occursOn)을 쓴다.
+                .filter { occursOn(it, today) }
                 .sortedBy { it.startTime }
 
             val items = mutableListOf<ContextItemDto>()
@@ -987,6 +989,10 @@ Expected: PASS 전체 (`MemoryResetterTest`의 `FakeApiService`가 새 `AlarmScr
 
 Run: `grep -rn "MemoryItemDto\|recent_memories" app/src`
 Expected: 결과 없음
+
+Run: `grep -n "it.date == today" app/src/main/java/com/onlyou/com/data/repository/VoiceRepositoryImpl.kt`
+Expected: 결과 없음 — 두 조립 블록을 헬퍼로 합치면서 반복 일정 버그(`c116996`에서 수정됨)를
+되살리지 않았는지 확인한다. `import com.onlyou.com.util.occursOn`은 이미 파일에 있으므로 유지한다.
 
 - [ ] **Step 4: 커밋**
 

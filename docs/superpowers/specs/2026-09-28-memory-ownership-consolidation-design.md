@@ -9,7 +9,7 @@ pgvector에 넣는다. 같은 문장을 두 번 보내는 구조라 호출·비�
 사라지는 상시 기억 티어(`user_notes`)를 야간 reflection의 산출물(insight)로 대체하고,
 이어서 쌓인 기억의 모순을 그 reflection 호출 안에서 해소한다(B).
 
-[2026-08-07 reflection/consolidation 설계](2026-08-07-memory-reflection-consolidation-design.md)에서
+[2026-08-07 reflection/consolidation 구현 계획](../plans/2026-08-07-memory-reflection-consolidation.md)에서
 `consolidation`이라는 이름만 두고 미룬 나머지 절반이 B에 해당한다.
 
 ## 결정 요약
