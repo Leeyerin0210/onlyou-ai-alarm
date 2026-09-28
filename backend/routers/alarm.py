@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from core.ai import client, model_id
 from core.config import settings
-from core.prompt_builder import build_alarm_persona_block
+from core.database import collection
+from core.prompt_builder import ACTIVE_INSIGHT_LIMIT, build_alarm_persona_block
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.security import get_uid
 from core.sse import sse_data
@@ -21,6 +22,29 @@ SCRIPT_DAILY_LIMIT = 30
 # 모델이 지시를 어겨도 여기서 잘라 GPU 비용 상한을 확정한다.
 # (기상 브리핑은 길다고 좋은 게 아니다 — 잠결에 다 못 듣는다.)
 MAX_SCRIPT_CHUNKS = 8
+
+# 브리핑에 붙일 최근 raw 기억 개수. 앱이 보내던 개수(5)와 같게 유지해
+# 브리핑 길이와 TTS GPU 비용 특성을 바꾸지 않는다.
+BRIEFING_FACT_LIMIT = 5
+
+# 앱이 보낼 수 있는 컨텍스트 종류 — 기기에만 있는 정보뿐이다.
+# 기억 계열(PREFERENCE/STATE/USER_NOTE 등)이 섞여 와도 프롬프트에 넣지 않는다.
+ALLOWED_CONTEXT_TYPES = {"SCHEDULE", "WEATHER"}
+
+
+def build_memory_context(uid: str) -> str:
+    """서버가 소유한 기억을 브리핑용 텍스트로 조립한다 (동기 — to_thread로 호출)."""
+    insights = collection.active_insights(uid, ACTIVE_INSIGHT_LIMIT)
+    facts = collection.recent_memory_texts(uid, None, BRIEFING_FACT_LIMIT)
+    lines = [f"[통찰] {i}" for i in insights] + [f"[기억] {f}" for f in facts]
+    return "\n".join(lines)
+
+
+def select_context_lines(request: AlarmScriptRequest) -> str:
+    """앱이 보낸 일정·날씨만 골라 텍스트로. 구버전 앱은 recent_memories로 보낸다."""
+    items = request.context_items or request.recent_memories
+    return "\n".join(i.content for i in items if i.type in ALLOWED_CONTEXT_TYPES)
+
 
 def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: str) -> str:
     return f"""
@@ -59,7 +83,9 @@ def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: s
 async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
-    mem_str = "\n".join([m.content for m in request.recent_memories])
+    memory_str = await asyncio.to_thread(build_memory_context, uid)
+    context_str = select_context_lines(request)
+    mem_str = "\n".join(p for p in (memory_str, context_str) if p)
     persona = await asyncio.to_thread(load_active_persona, uid)
     prompt = build_prompt(persona, request, mem_str)
 
@@ -76,7 +102,9 @@ async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(
 async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
-    mem_str = "\n".join([m.content for m in request.recent_memories])
+    memory_str = await asyncio.to_thread(build_memory_context, uid)
+    context_str = select_context_lines(request)
+    mem_str = "\n".join(p for p in (memory_str, context_str) if p)
     persona = await asyncio.to_thread(load_active_persona, uid)
 
     async def event_generator():

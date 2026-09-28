@@ -49,15 +49,19 @@ class VoiceCloneRequest(BaseModel):
 class MemoryExtractRequest(BaseModel):
     message: str = Field(max_length=MAX_MESSAGE_LEN)
 
-class MemoryItem(BaseModel):
+class ContextItem(BaseModel):
+    """알람 브리핑에 실을 기기 전용 컨텍스트 한 줄 (일정·날씨).
+    기억은 서버가 pgvector에서 직접 조립하므로 여기로 받지 않는다."""
     type: str = Field(max_length=32)
     content: str = Field(max_length=2_000)
-    date: Optional[str] = Field(default=None, max_length=32)
-    time: Optional[str] = Field(default=None, max_length=32)
 
 class AlarmScriptRequest(BaseModel):
     # persona_name·persona_prompt·user_call_sign은 받지 않는다 — 서버가 조립한다.
-    recent_memories: List[MemoryItem] = Field(max_length=50)
+    context_items: List[ContextItem] = Field(default_factory=list, max_length=50)
+    # 구버전 앱 호환 (한 릴리스). 구버전은 기억·일정·날씨를 recent_memories 한
+    # 리스트로 보낸다. context_items가 비어 있을 때만 여기서 일정·날씨를 건져 쓴다 —
+    # 버리면 서버만 먼저 배포된 기간에 브리핑에서 오늘 일정이 사라진다.
+    recent_memories: List[ContextItem] = Field(default_factory=list, max_length=50)
 
 class AlarmScriptResponse(BaseModel):
     chunks: List[str]
