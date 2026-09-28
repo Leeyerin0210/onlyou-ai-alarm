@@ -73,7 +73,7 @@ com.onlyou.com
 ├── service            # AlarmService, PreGenWorker, EveningFeedbackWorker
 ├── receiver           # AlarmReceiver, AlarmPreGenReceiver, BootReceiver
 ├── di                 # Hilt 모듈 (App / Database / Network)
-└── util               # 알람 스케줄러, 기억 추출, DND 로직, 네트워크 모니터 등
+└── util               # 알람 스케줄러, DND 로직, 네트워크 모니터 등
 ```
 
 **아키텍처**: Clean Architecture + MVVM, 단일 모듈 · 패키지 단위 레이어 분리.
@@ -88,7 +88,7 @@ com.onlyou.com
 | **페르소나 시스템** | 이름·호칭·색상·공개 여부를 정하고, 성격은 서버가 관리하는 **프리셋**(`core/presets.py`) 중에서 고릅니다. 자유 프롬프트 입력은 제거됐습니다 | ✅ |
 | **스트리밍 채팅** | SSE 기반 토큰 스트리밍, 오프라인 캐시(Room), 대화 이력 윈도잉 | ✅ |
 | **장기 기억 (RAG)** | 대화에서 사실(fact)·트리플(triple)을 추출 → Gemini 임베딩 → pgvector 의미 검색 | ✅ |
-| **야간 Reflection** | 매일 새벽(KST 3시, APScheduler) raw 기억을 종합해 상위 통찰(insight)을 생성하고 검색에 가산점을 줍니다 | ✅ |
+| **야간 Reflection** | 매일 새벽(KST 3시, APScheduler) raw 기억을 종합해 상위 통찰(insight)을 생성하고, 채팅 시스템 프롬프트의 상시 티어로 항상 포함됩니다 | ✅ |
 | **자동 일정 추출** | 발화 속 날짜/시간을 백그라운드로 파싱해 일정으로 만들고 앱 달력에 즉시 반영 | ✅ |
 | **AI 알람 브리핑** | 오늘 일정 + 날씨(Open-Meteo, 클라이언트 조회)를 엮어 페르소나 목소리로 기상 브리핑 | ✅ |
 | **음성 합성/클로닝** | Qwen3-TTS VoiceDesign(합성) · Base(클로닝). 알람 음성은 사전 생성(PreGenWorker)해 지연 제거 | ✅ |
@@ -126,7 +126,7 @@ com.onlyou.com
 | `auth` | `POST /auth/login` | 최초 로그인 시 유저 레코드 생성/조회 |
 | `chat` | `POST /chat/stream` | SSE 대화 스트리밍 (+ 백그라운드 기억·일정 추출) |
 | `alarm` | `POST /alarm/script`, `POST /alarm/script/stream` | 기상 브리핑 스크립트 생성 |
-| `memory` | `POST /memory/extract`, `DELETE /memory/clear` | 기억 추출 / 전체 삭제 |
+| `memory` | `POST /memory/extract`, `DELETE /memory/clear` | `/memory/extract`는 구버전 앱 호환용 스텁(빈 배열 반환, 다음 릴리스에서 제거 예정) / 전체 삭제 |
 | `personas` | `GET /personas`, `PUT`·`DELETE /personas/{id}`, `POST /personas/{id}/select` | 페르소나 CRUD 및 선택 |
 | `presets` | `GET /presets` | 성격 프리셋 목록 (프롬프트 본문 제외) |
 | `schedules` | `GET /schedules`, `PUT /schedules/{id}` | 서버 일정 동기화 |
@@ -139,7 +139,7 @@ com.onlyou.com
 
 - **PostgreSQL** — `users`, `personas`, `schedules`, `backups`, `rate_limits`, `reward_wallets`, `reward_transactions`
 - **pgvector** — `user_memories` (Gemini `gemini-embedding-001` 임베딩 + `type`(fact/triple/insight)·`subject`/`predicate`/`object`·`importance` 구조화 컬럼)
-- **Room (앱 로컬, v20)** — `alarms`, `ddays`, `ai_schedules`, `personas`, `memories`, `chat_messages`, `alarm_voice_chunks`
+- **Room (앱 로컬, v21)** — `alarms`, `ddays`, `ai_schedules`, `personas`, `chat_messages`, `alarm_voice_chunks`
 
 ### 비용/남용 가드
 

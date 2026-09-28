@@ -108,8 +108,8 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
-    # 통합 벡터 검색 (fact+triple+insight, uid 스코프). insight가 있으면 검색
-    # 가산점(core/database.py PgMemoryCollection.query)으로 우선 노출된다.
+    # 통합 벡터 검색 (fact+triple+insight, uid 스코프). insight는 이 검색과 별개로
+    # 상시 티어(active_insights)로 프롬프트에 실린다.
     results = await asyncio.to_thread(
         collection.query, uid, [request.message], 5
     )

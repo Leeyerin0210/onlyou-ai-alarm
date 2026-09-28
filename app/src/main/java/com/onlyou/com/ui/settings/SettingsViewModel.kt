@@ -141,7 +141,7 @@ class SettingsViewModel @Inject constructor(
     private val _resetMemoryState = MutableStateFlow<ResetMemoryState>(ResetMemoryState.Idle)
     val resetMemoryState: StateFlow<ResetMemoryState> = _resetMemoryState
 
-    /** 서버 기억 + 로컬 기억 + 대화 기록 초기화. 서버 삭제 실패 시 로컬은 보존된다. */
+    /** 서버 기억 + 대화 기록 초기화. 서버 삭제 실패 시 로컬은 보존된다. */
     fun resetMemory() {
         if (_resetMemoryState.value == ResetMemoryState.Loading) return
         viewModelScope.launch {
