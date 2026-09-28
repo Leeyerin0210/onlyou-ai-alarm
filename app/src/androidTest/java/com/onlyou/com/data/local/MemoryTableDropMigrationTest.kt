@@ -41,6 +41,18 @@ class MemoryTableDropMigrationTest {
             VALUES ('p1', '미야', '', '설명', 1.0, 1.0, '', '주인님', 1, NULL, NULL, NULL, 'uid-1', 3, 0, 'casual_warm')
             """.trimIndent(),
         )
+        db.execSQL(
+            """
+            INSERT INTO alarms (id, title, time, isEnabled, repeatDays, date, personaId, label, isOneTime, isWeatherEnabled)
+            VALUES (1, '아침 알람', '07:00', 1, '', NULL, 'p1', NULL, 0, 1)
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            INSERT INTO ai_schedules (id, date, endDate, startTime, timeHint, repeatDays, title, description, location, isAlarmEnabled, updatedAt, pendingSync, isDeleted)
+            VALUES ('s1', '2026-09-28', NULL, '09:00', NULL, '', '치과 예약', NULL, NULL, 1, 1700000000000, 0, 0)
+            """.trimIndent(),
+        )
         db.close()
 
         db = helper.runMigrationsAndValidate(testDbName, 21, true, MIGRATION_20_21)
@@ -61,5 +73,17 @@ class MemoryTableDropMigrationTest {
         assertEquals("미야", personas.getString(0))
         assertEquals("casual_warm", personas.getString(1))
         personas.close()
+
+        val alarms = db.query("SELECT title, time FROM alarms WHERE id = 1")
+        assertTrue(alarms.moveToFirst())
+        assertEquals("아침 알람", alarms.getString(0))
+        assertEquals("07:00", alarms.getString(1))
+        alarms.close()
+
+        val schedules = db.query("SELECT title, startTime FROM ai_schedules WHERE id = 's1'")
+        assertTrue(schedules.moveToFirst())
+        assertEquals("치과 예약", schedules.getString(0))
+        assertEquals("09:00", schedules.getString(1))
+        schedules.close()
     }
 }

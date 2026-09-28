@@ -46,6 +46,13 @@ def select_context_lines(request: AlarmScriptRequest) -> str:
     return "\n".join(i.content for i in items if i.type in ALLOWED_CONTEXT_TYPES)
 
 
+async def assemble_mem_str(uid: str, request: AlarmScriptRequest) -> str:
+    """서버 기억(통찰·최근 사실) + 앱이 보낸 일정·날씨를 브리핑용 한 덩어리로."""
+    memory_str = await asyncio.to_thread(build_memory_context, uid)
+    context_str = select_context_lines(request)
+    return "\n".join(p for p in (memory_str, context_str) if p)
+
+
 def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: str) -> str:
     return f"""
     당신은 AI 비서 페르소나 '{persona.name}'입니다.
@@ -83,9 +90,7 @@ def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: s
 async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
-    memory_str = await asyncio.to_thread(build_memory_context, uid)
-    context_str = select_context_lines(request)
-    mem_str = "\n".join(p for p in (memory_str, context_str) if p)
+    mem_str = await assemble_mem_str(uid, request)
     persona = await asyncio.to_thread(load_active_persona, uid)
     prompt = build_prompt(persona, request, mem_str)
 
@@ -102,9 +107,7 @@ async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(
 async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = Depends(get_uid)):
     await asyncio.to_thread(check_rate_limit, uid, "alarm-script", SCRIPT_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "alarm-script", settings.GLOBAL_ALARM_SCRIPT_DAILY_LIMIT)
-    memory_str = await asyncio.to_thread(build_memory_context, uid)
-    context_str = select_context_lines(request)
-    mem_str = "\n".join(p for p in (memory_str, context_str) if p)
+    mem_str = await assemble_mem_str(uid, request)
     persona = await asyncio.to_thread(load_active_persona, uid)
 
     async def event_generator():

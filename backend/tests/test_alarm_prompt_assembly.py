@@ -100,3 +100,59 @@ def test_build_memory_context_puts_insights_before_facts(monkeypatch):
 
     assert out.index("카페인에 예민한 편이다") < out.index("어제 야근했다")
     assert "[통찰]" in out
+
+
+def _fake_gemini(text):
+    """LLM 호출을 가로채 받은 contents를 캡처하는 client 대역."""
+    import types
+
+    captured = {}
+
+    async def generate_content(*, model, contents):
+        captured["contents"] = contents
+        return types.SimpleNamespace(text=text)
+
+    return types.SimpleNamespace(
+        aio=types.SimpleNamespace(
+            models=types.SimpleNamespace(generate_content=generate_content)
+        )
+    ), captured
+
+
+def test_route_assembles_prompt_from_server_memories_and_app_context(client, monkeypatch):
+    """/alarm/script — 서버가 소유한 insight/fact와 앱이 보낸 일정만 프롬프트에 실리고,
+    앱이 보낸 기억 계열 항목(PREFERENCE)은 여전히 걸러진다."""
+    import routers.alarm as alarm_router
+    from core import database
+    from core.database import collection
+
+    TEST_UID = "test-uid"
+
+    monkeypatch.setattr(database, "_embed", lambda texts: [[1.0, 0.0, 0.0] for _ in texts])
+    collection.add(
+        TEST_UID, ["카페인에 예민한 편이다"],
+        [{"timestamp": "2026-09-20T03:00:00+09:00", "uid": TEST_UID, "type": "insight"}],
+        ["i-1"],
+    )
+    collection.add(
+        TEST_UID, ["어제 야근했다"],
+        [{"timestamp": "2026-09-27T22:00:00+09:00", "uid": TEST_UID, "type": "fact"}],
+        ["f-1"],
+    )
+
+    fake_client, captured = _fake_gemini("좋은 아침이에요")
+    monkeypatch.setattr(alarm_router, "client", fake_client)
+
+    res = client.post("/alarm/script", json={
+        "context_items": [
+            {"type": "SCHEDULE", "content": "[오늘 일정] 09:00 - 치과"},
+            {"type": "PREFERENCE", "content": "민초를 좋아함"},
+        ],
+    })
+
+    assert res.status_code == 200
+    prompt = captured["contents"]
+    assert "카페인에 예민한 편이다" in prompt
+    assert "어제 야근했다" in prompt
+    assert "[오늘 일정] 09:00 - 치과" in prompt
+    assert "민초를 좋아함" not in prompt
