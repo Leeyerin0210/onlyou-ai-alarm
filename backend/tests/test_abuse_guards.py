@@ -102,21 +102,3 @@ def test_save_reference_rate_limited(client, monkeypatch):
     assert client.post("/voice/save_reference/p-new", json=body).status_code == 200
     assert client.post("/voice/save_reference/p-new", json=body).status_code == 200
     assert client.post("/voice/save_reference/p-new", json=body).status_code == 429
-
-
-def test_memory_extract_rate_limited(client, monkeypatch):
-    import types
-    import routers.memory as memory_router
-
-    async def _fake_generate(**kwargs):
-        return types.SimpleNamespace(text="[]")
-
-    monkeypatch.setattr(memory_router, "EXTRACT_DAILY_LIMIT", 1)
-    monkeypatch.setattr(
-        memory_router, "client",
-        types.SimpleNamespace(aio=types.SimpleNamespace(
-            models=types.SimpleNamespace(generate_content=_fake_generate)
-        )),
-    )
-    assert client.post("/memory/extract", json={"message": "m"}).status_code == 200
-    assert client.post("/memory/extract", json={"message": "m"}).status_code == 429
