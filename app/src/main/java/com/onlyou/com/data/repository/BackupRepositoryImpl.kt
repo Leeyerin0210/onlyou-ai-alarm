@@ -5,7 +5,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.onlyou.com.data.local.AiScheduleDao
 import com.onlyou.com.data.local.ChatDao
-import com.onlyou.com.data.local.MemoryDao
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.domain.repository.BackupRepository
 import com.onlyou.com.domain.repository.BackupState
@@ -23,7 +22,6 @@ import javax.inject.Inject
 class BackupRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
     private val scheduleDao: AiScheduleDao,
-    private val memoryDao: MemoryDao,
     private val api: MiyaApiService,
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context
@@ -54,7 +52,6 @@ class BackupRepositoryImpl @Inject constructor(
             // 1. 모든 데이터 조회
             val chats = chatDao.getChatMessagesOnce()
             val schedules = scheduleDao.getAllSchedulesOnce()
-            val memories = memoryDao.getAllMemoriesOnce()
 
             // 2. 직렬화
             // 3. 서버 업로드
@@ -62,7 +59,9 @@ class BackupRepositoryImpl @Inject constructor(
                 com.onlyou.com.data.remote.BackupDto(
                     chats = gson.toJson(chats),
                     schedules = gson.toJson(schedules),
-                    memories = gson.toJson(memories),
+                    // 기억은 서버가 단일 소유하므로 백업 대상이 아니다. 서버
+                    // BackupDto.memories가 필수 문자열이라 빈 배열을 넣어 자리만 채운다.
+                    memories = "[]",
                     timestamp = System.currentTimeMillis(),
                 ),
             )
@@ -106,16 +105,15 @@ class BackupRepositoryImpl @Inject constructor(
             }
             val chatsJson = backup.chats
             val schedulesJson = backup.schedules
-            val memoriesJson = backup.memories
+            // backup.memories는 무시한다 — 구버전 백업에 남아 있어도 복원하지 않는다.
+            // 기억은 서버가 단일 소유하고, 서버 기억은 계정에 붙어 있어 복원이 필요 없다.
 
             // 2. 역직렬화
             val chatsType = object : com.google.gson.reflect.TypeToken<List<com.onlyou.com.data.local.ChatMessageEntity>>() {}.type
             val schedulesType = object : com.google.gson.reflect.TypeToken<List<com.onlyou.com.data.local.AiScheduleEntity>>() {}.type
-            val memoriesType = object : com.google.gson.reflect.TypeToken<List<com.onlyou.com.data.local.MemoryEntity>>() {}.type
 
             val chats: List<com.onlyou.com.data.local.ChatMessageEntity> = gson.fromJson(chatsJson, chatsType)
             val schedules: List<com.onlyou.com.data.local.AiScheduleEntity> = gson.fromJson(schedulesJson, schedulesType)
-            val memories: List<com.onlyou.com.data.local.MemoryEntity> = gson.fromJson(memoriesJson, memoriesType)
 
             // 3. 기존 데이터 삭제 후 일괄 삽입
             chatDao.clearHistory()
@@ -126,9 +124,6 @@ class BackupRepositoryImpl @Inject constructor(
             val existingSchedules = scheduleDao.getAllSchedulesOnce()
             existingSchedules.forEach { scheduleDao.deleteSchedule(it) }
             schedules.forEach { scheduleDao.insertSchedule(it) }
-
-            memoryDao.clearAll()
-            memories.forEach { memoryDao.insertMemory(it) }
 
             _restoreState.value = BackupState.Success
         } catch (e: Exception) {
