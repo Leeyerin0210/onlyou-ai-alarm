@@ -1,6 +1,5 @@
 package com.onlyou.com.ui.shop
 
-import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyou.com.domain.model.FeaturedPersonas
@@ -49,21 +48,14 @@ class ShopViewModel
             )
         val uiState: StateFlow<ShopUiState> = _uiState
 
-        private var mediaPlayer: MediaPlayer? = null
-        private var previewJob: kotlinx.coroutines.Job? = null
+        private val voicePreview = VoicePreviewPlayer(context, voiceRepository, viewModelScope)
 
         init {
-            mediaPlayer = MediaPlayer().apply {
-                setOnPreparedListener {
-                    _uiState.update { state -> state.copy(isBuffering = false, isPlaying = true) }
-                    start()
-                }
-                setOnCompletionListener {
-                    _uiState.update { state -> state.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-                }
-                setOnErrorListener { _, _, _ ->
-                    _uiState.update { state -> state.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-                    true
+            viewModelScope.launch {
+                voicePreview.state.collect { v ->
+                    _uiState.update {
+                        it.copy(currentlyPlayingPersonaId = v.personaId, isPlaying = v.isPlaying, isBuffering = v.isBuffering)
+                    }
                 }
             }
 
@@ -135,52 +127,13 @@ class ShopViewModel
             }
         }
 
-        /** 비서의 참조 음성(서버 /voice/reference)을 받아 재생한다. 같은 비서를 다시 누르면 정지. */
-        fun playPreview(personaId: String) {
-            val st = _uiState.value
-            if (st.currentlyPlayingPersonaId == personaId && (st.isPlaying || st.isBuffering)) {
-                stopVoice()
-                return
-            }
+        /** 비서의 참조 음성을 재생한다. 같은 비서를 다시 누르면 정지. */
+        fun playPreview(personaId: String) = voicePreview.toggle(personaId)
 
-            stopVoice()
-
-            _uiState.update { it.copy(currentlyPlayingPersonaId = personaId, isBuffering = true, isPlaying = false) }
-            previewJob = viewModelScope.launch {
-                val audio = voiceRepository.getReferenceVoice(personaId)
-                if (audio == null) {
-                    _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
-                    return@launch
-                }
-                try {
-                    // MediaPlayer는 바이트 배열을 직접 못 받으므로 캐시 파일을 거친다
-                    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        java.io.File(context.cacheDir, "voice_preview.wav").apply { writeBytes(audio) }
-                    }
-                    mediaPlayer?.apply {
-                        reset()
-                        setDataSource(file.absolutePath)
-                        prepareAsync()
-                    }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
-                }
-            }
-        }
-
-        fun stopVoice() {
-            previewJob?.cancel()
-            previewJob = null
-            if (mediaPlayer?.isPlaying == true) {
-                mediaPlayer?.pause()
-            }
-            mediaPlayer?.reset()
-            _uiState.update { it.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-        }
+        fun stopVoice() = voicePreview.stop()
 
         override fun onCleared() {
             super.onCleared()
-            mediaPlayer?.release()
-            mediaPlayer = null
+            voicePreview.release()
         }
     }
