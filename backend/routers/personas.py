@@ -1,7 +1,9 @@
 from contextlib import closing
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from core import themes
 from core.presets import get_preset, is_valid_preset_id
 from core.rdb import get_conn
 from core.tags import normalize_tags
@@ -42,6 +44,28 @@ def list_personas(uid: str = Depends(get_uid)):
             (uid,),
         )
         return [_row_to_dict(r) for r in cur.fetchall()]
+
+
+FEATURED_LIMIT = 10
+
+
+@router.get("/featured")
+def featured_personas(uid: str = Depends(get_uid)):
+    """상점 '이번 주 테마' — 테마가 없으면(소속 비서 부족) theme=None."""
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        theme = themes.current_theme(cur, date.today())
+        if theme is None:
+            return {"theme": None, "personas": []}
+        cur.execute(
+            f"SELECT {COLS} FROM personas "
+            "WHERE is_private = FALSE AND tags @> ARRAY[%s] "
+            "ORDER BY usage_count DESC, id LIMIT %s",
+            (theme.tag, FEATURED_LIMIT),
+        )
+        return {
+            "theme": {"tag": theme.tag, "title": theme.title},
+            "personas": [_row_to_dict(r) for r in cur.fetchall()],
+        }
 
 
 @router.put("/{persona_id}")
