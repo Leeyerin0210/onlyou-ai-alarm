@@ -144,3 +144,20 @@ def test_upsert_ignores_legacy_free_text_fields(client):
         cur.execute("SELECT prompt, voice_prompt, image_url FROM personas WHERE id='p1'")
         row = cur.fetchone()
     assert row == ("", None, None)
+
+
+def test_upsert_saves_normalized_tags(client):
+    client.put("/personas/p1", json={**_persona_body(), "tags": ["#아침", "아침", "Calm"]})
+    assert client.get("/personas").json()[0]["tags"] == ["아침", "calm"]
+
+
+def test_old_client_upsert_without_tags_preserves_tags(client):
+    client.put("/personas/p1", json={**_persona_body(), "tags": ["아침"]})
+    client.put("/personas/p1", json=_persona_body())  # 구버전 앱: tags 없음
+    assert client.get("/personas").json()[0]["tags"] == ["아침"]
+
+
+def test_empty_tags_list_clears_tags(client):
+    client.put("/personas/p1", json={**_persona_body(), "tags": ["아침"]})
+    client.put("/personas/p1", json={**_persona_body(), "tags": []})
+    assert client.get("/personas").json()[0]["tags"] == []

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from core.presets import get_preset, is_valid_preset_id
 from core.rdb import get_conn
+from core.tags import normalize_tags
 from core.security import get_uid
 from models.schemas import PersonaIn
 
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/personas", tags=["personas"])
 
 COLS = (
     "id, name, description, user_call_sign, primary_hex, secondary_hex, "
-    "creator_id, usage_count, is_private, updated_at, preset_key"
+    "creator_id, usage_count, is_private, updated_at, preset_key, tags"
 )
 
 
@@ -28,6 +29,7 @@ def _row_to_dict(r):
         # 구버전 앱은 이 값을 읽어 자기가 시스템 프롬프트를 조립한다.
         # 신버전 앱은 무시한다(서버가 조립). 4번 단위에서 제거.
         "prompt": preset.prompt,
+        "tags": list(r[11] or []),
     }
 
 
@@ -53,22 +55,25 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
         if row is not None and row[0] != uid:
             raise HTTPException(status_code=403, detail="not owner")
 
+        # tags=None(구버전 앱)이면 COALESCE가 기존 태그를 유지한다
+        tags = normalize_tags(body.tags) if body.tags is not None else None
         cur.execute(
             "INSERT INTO personas (id, name, description, user_call_sign, "
             "primary_hex, secondary_hex, creator_id, usage_count, is_private, "
-            "updated_at, preset_key) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+            "updated_at, preset_key, tags) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s::text[], '{}')) "
             "ON CONFLICT (id) DO UPDATE SET "
             "name=EXCLUDED.name, description=EXCLUDED.description, "
             "user_call_sign=EXCLUDED.user_call_sign, "
             "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
             "is_private=EXCLUDED.is_private, updated_at=EXCLUDED.updated_at, "
-            "preset_key=EXCLUDED.preset_key",
+            "preset_key=EXCLUDED.preset_key, "
+            "tags=COALESCE(%s::text[], personas.tags)",
             # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
             # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
             (persona_id, body.name, body.description, body.userCallSign,
              body.primaryHex, body.secondaryHex, uid, 0,
-             body.isPrivate, body.updatedAt, body.presetKey),
+             body.isPrivate, body.updatedAt, body.presetKey, tags, tags),
         )
     return {"ok": True}
 
