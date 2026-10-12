@@ -1,3 +1,6 @@
+import os
+
+
 def _persona_body(pid="p1", private=False, preset_key="casual_warm"):
     return {
         "name": "미야", "description": "설명",
@@ -161,3 +164,29 @@ def test_empty_tags_list_clears_tags(client):
     client.put("/personas/p1", json={**_persona_body(), "tags": ["아침"]})
     client.put("/personas/p1", json={**_persona_body(), "tags": []})
     assert client.get("/personas").json()[0]["tags"] == []
+
+
+def test_image_url_is_server_managed(client):
+    """사진은 서버가 지정한다 — 조회엔 나오고, 앱 upsert로는 바뀌지도 지워지지도 않는다."""
+    client.put("/personas/p1", json=_persona_body())
+    from core.rdb import get_conn
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE personas SET image_url='persona-images/p1.jpg' WHERE id='p1'")
+        conn.commit()
+    assert client.get("/personas").json()[0]["imageUrl"] == "persona-images/p1.jpg"
+
+    client.put("/personas/p1", json={**_persona_body(), "imageUrl": "https://evil.example/x.png"})
+    assert client.get("/personas").json()[0]["imageUrl"] == "persona-images/p1.jpg"
+
+
+def test_persona_images_are_served_statically(client):
+    import main
+    path = os.path.join(main.PERSONA_IMAGE_DIR, "_test_image.jpg")
+    with open(path, "wb") as f:
+        f.write(b"\xff\xd8test")
+    try:
+        res = client.get("/persona-images/_test_image.jpg")
+        assert res.status_code == 200
+        assert res.content == b"\xff\xd8test"
+    finally:
+        os.remove(path)

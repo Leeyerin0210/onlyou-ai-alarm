@@ -41,17 +41,19 @@ def seed():
         for p in PERSONAS:
             assert p["preset_key"] in PRESETS, f"미지의 preset_key: {p['preset_key']}"
             row = {**p, "creator_id": SYSTEM_CREATOR,
-                   "description": PRESETS[p["preset_key"]].description}
+                   "description": PRESETS[p["preset_key"]].description,
+                   # 사진 파일은 persona_images/{id}.jpg (main.py가 /persona-images로 서빙)
+                   "image_url": f"persona-images/{p['id']}.jpg"}
             cur.execute(
                 "INSERT INTO personas (id, name, description, user_call_sign, "
-                "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags) "
+                "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags, image_url) "
                 "VALUES (%(id)s,%(name)s,%(description)s,%(user_call_sign)s,"
-                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s) "
+                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s, %(image_url)s) "
                 "ON CONFLICT (id) DO UPDATE SET "
                 "name=EXCLUDED.name, description=EXCLUDED.description, "
                 "user_call_sign=EXCLUDED.user_call_sign, "
                 "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
-                "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags",
+                "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags, image_url=EXCLUDED.image_url",
                 row,
             )
     print(f"seeded {len(PERSONAS)} personas")

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/personas", tags=["personas"])
 
 COLS = (
     "id, name, description, user_call_sign, primary_hex, secondary_hex, "
-    "creator_id, usage_count, is_private, updated_at, preset_key, tags"
+    "creator_id, usage_count, is_private, updated_at, preset_key, tags, image_url"
 )
 
 
@@ -32,6 +32,8 @@ def _row_to_dict(r):
         # 신버전 앱은 무시한다(서버가 조립). 4번 단위에서 제거.
         "prompt": preset.prompt,
         "tags": list(r[11] or []),
+        # 서버가 지정하는 상대 경로(예: persona-images/x.jpg) — 앱 upsert로는 바꿀 수 없다
+        "imageUrl": r[12],
     }
 
 
