@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,14 +49,7 @@ fun ShopScreen(
     val colors = MiyaTheme.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-    val categories = listOf("전체", "내 페르소나", "전문가형", "친구형", "유쾌형")
-    var selectedCategory by remember { mutableStateOf("전체") }
     var isFabExpanded by remember { mutableStateOf(false) }
-
-    val filteredByCategory = when (selectedCategory) {
-        "내 페르소나" -> uiState.filteredPersonas.filter { it.creatorId == uiState.currentUserId }
-        else -> uiState.filteredPersonas
-    }
 
     // FAB이 콘텐츠 위에 겹쳐 뜨도록 전체를 하나의 Box로 감싼다.
     // (감싸지 않으면 부모 레이아웃이 콘텐츠와 FAB을 세로로 쌓아 FAB이 화면 밖으로 밀린다)
@@ -87,39 +81,6 @@ fun ShopScreen(
             Spacer(Modifier.width(8.dp))
         }
 
-        // Hero 텍스트
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-            Text("당신의 일상을 함께할", fontSize = 16.sp, color = colors.neutral)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("AI 에이전트를 만나보세요", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
-                Text("✨", fontSize = 16.sp)
-            }
-        }
-
-        // 카테고리 필터 칩 (가로 스크롤)
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        ) {
-            items(categories) { cat ->
-                val isSelected = cat == selectedCategory
-                val bg by animateColorAsState(if (isSelected) colors.primary else colors.surfaceA, tween(180), label = "catBg")
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(bg)
-                        .clickable(remember { MutableInteractionSource() }, null) {
-                            selectedCategory = cat
-                        }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text(cat, fontSize = 13.sp, color = if (isSelected) colors.background else colors.onSurfaceA, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                }
-            }
-        }
-
-        // 에이전트 리스트
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = colors.primary)
@@ -127,20 +88,69 @@ fun ShopScreen(
         } else if (!uiState.isOnline) {
             com.onlyou.com.ui.components.OfflineView()
         } else {
+            val onPersonaClick: (Persona) -> Unit = { viewModel.selectPersona(it) }
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(filteredByCategory) { persona ->
-                    AgentListCard(
-                        persona = persona,
-                        currentUserId = uiState.currentUserId,
-                        onClick = { viewModel.selectPersona(persona) },
-                        onEditClick = { onNavigateToEdit(persona.id) }
+                // 1. 이번 주 테마 (테마가 없는 주에는 섹션 자체를 숨긴다)
+                uiState.featured?.let { featured ->
+                    item(key = "theme_header") {
+                        SectionHeader(
+                            caption = "이번 주 테마",
+                            title = featured.theme.title,
+                            badge = "#${featured.theme.tag}",
+                        )
+                    }
+                    item(key = "theme_row") {
+                        PersonaRow(featured.personas, ranked = false, onClick = onPersonaClick)
+                    }
+                }
+
+                // 2. 인기 TOP 5
+                if (uiState.trendingPersonas.isNotEmpty()) {
+                    item(key = "top_header") { SectionHeader(caption = "많이 쓰는 비서", title = "인기 TOP 5") }
+                    item(key = "top_row") {
+                        PersonaRow(uiState.trendingPersonas, ranked = true, onClick = onPersonaClick)
+                    }
+                }
+
+                // 3. 찾아보기 — 검색 + 태그 칩 + 전체 목록
+                item(key = "browse_header") { SectionHeader(caption = null, title = "찾아보기") }
+                item(key = "search") {
+                    ShopSearchField(
+                        query = uiState.searchQuery,
+                        onQueryChange = viewModel::onSearchQueryChange,
                     )
                 }
-                item { Spacer(Modifier.height(80.dp)) }
+                item(key = "chips") {
+                    FilterChipRow(
+                        selected = uiState.filter,
+                        topTags = uiState.topTags,
+                        onSelect = viewModel::onFilterChange,
+                    )
+                }
+                if (uiState.filteredPersonas.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            "조건에 맞는 비서가 없어요.",
+                            fontSize = 13.sp,
+                            color = colors.neutral,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                }
+                items(uiState.filteredPersonas, key = { it.id }) { persona ->
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        AgentListCard(
+                            persona = persona,
+                            currentUserId = uiState.currentUserId,
+                            onClick = { onPersonaClick(persona) },
+                            onEditClick = { onNavigateToEdit(persona.id) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -285,6 +295,11 @@ fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit,
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(persona.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
                 Text(persona.description, fontSize = 12.sp, color = colors.neutral, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp)
+                if (persona.tags.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        persona.tags.take(3).forEach { TagChip(it) }
+                    }
+                }
             }
 
             // 액션 버튼
@@ -322,18 +337,168 @@ fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit,
 }
 
 @Composable
-fun TrendingPersonaCard(persona: Persona, onClick: () -> Unit) {
+private fun SectionHeader(caption: String?, title: String, badge: String? = null) {
     val colors = MiyaTheme.colors
-    Card(
-        modifier = Modifier.width(160.dp).height(220.dp).clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceB),
+    Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 10.dp)) {
+        if (caption != null) {
+            Text(caption, fontSize = 12.sp, color = colors.neutral)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.onSurfaceA,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (badge != null) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(10.dp)).background(colors.primary.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                ) {
+                    Text(badge, fontSize = 12.sp, color = colors.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonaRow(personas: List<Persona>, ranked: Boolean, onClick: (Persona) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)), startY = 150f)))
-            Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
-                Text(persona.name, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                Text("인기 #${persona.usageCount}", style = MaterialTheme.typography.labelSmall, color = colors.primary)
+        itemsIndexed(personas, key = { _, p -> p.id }) { index, persona ->
+            PersonaRowCard(persona = persona, rank = if (ranked) index + 1 else null, onClick = { onClick(persona) })
+        }
+    }
+}
+
+/** 가로 리스트 카드 — rank가 있으면 좌상단에 순위 배지를 단다. */
+@Composable
+fun PersonaRowCard(persona: Persona, rank: Int?, onClick: () -> Unit) {
+    val colors = MiyaTheme.colors
+    Surface(
+        color = colors.surfaceA,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.width(148.dp).clickable { onClick() },
+    ) {
+        Column {
+            Box(
+                Modifier.fillMaxWidth().height(100.dp).background(
+                    Brush.verticalGradient(listOf(colors.primary.copy(alpha = 0.5f), colors.secondary.copy(alpha = 0.3f))),
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Person, null, tint = colors.background, modifier = Modifier.size(44.dp))
+                if (rank != null) {
+                    Box(
+                        Modifier.align(Alignment.TopStart).padding(8.dp).size(26.dp).clip(CircleShape)
+                            .background(if (rank == 1) colors.primary else colors.onSurfaceA.copy(alpha = 0.75f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("$rank", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.background)
+                    }
+                }
+                if (persona.isSelected) {
+                    Box(
+                        Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp))
+                            .background(colors.primary).padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text("사용 중", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.background)
+                    }
+                }
+            }
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(persona.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    persona.description.ifBlank { " " },
+                    fontSize = 12.sp,
+                    color = colors.neutral,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                persona.tags.firstOrNull()?.let { TagChip(it) }
+            }
+        }
+    }
+}
+
+@Composable
+fun TagChip(tag: String) {
+    val colors = MiyaTheme.colors
+    Box(
+        Modifier.clip(RoundedCornerShape(8.dp)).background(colors.primary.copy(alpha = 0.12f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text("#$tag", fontSize = 11.sp, color = colors.primary, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ShopSearchField(query: String, onQueryChange: (String) -> Unit) {
+    val colors = MiyaTheme.colors
+    Row(
+        Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(colors.surfaceA).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Default.Search, null, tint = colors.neutral, modifier = Modifier.size(18.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text("이름, 설명, #태그로 찾기", fontSize = 14.sp, color = colors.neutral)
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = colors.onSurfaceA),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primary),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (query.isNotEmpty()) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = "검색어 지우기",
+                tint = colors.neutral,
+                modifier = Modifier.size(18.dp).clickable { onQueryChange("") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterChipRow(selected: ShopFilter, topTags: List<String>, onSelect: (ShopFilter) -> Unit) {
+    val colors = MiyaTheme.colors
+    val chips: List<Pair<String, ShopFilter>> =
+        listOf("전체" to ShopFilter.All, "내 비서" to ShopFilter.Mine) +
+            topTags.map { "#$it" to ShopFilter.Tag(it) }
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+    ) {
+        items(chips, key = { it.first }) { (label, filter) ->
+            val isSelected = filter == selected
+            val bg by animateColorAsState(if (isSelected) colors.primary else colors.surfaceA, tween(180), label = "chipBg")
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(bg)
+                    .clickable(remember { MutableInteractionSource() }, null) { onSelect(filter) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    label,
+                    fontSize = 13.sp,
+                    color = if (isSelected) colors.background else colors.onSurfaceA,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
@@ -361,6 +526,12 @@ fun PersonaDetailSheetContent(
         Text(persona.name, style = MaterialTheme.typography.headlineSmall, color = colors.onSurfaceA, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(persona.description, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceA.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        if (persona.tags.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                persona.tags.forEach { TagChip(it) }
+            }
+        }
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Surface(
