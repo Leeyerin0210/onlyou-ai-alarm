@@ -210,6 +210,7 @@ internal fun PersonaEntity.toDomain() =
         usageCount = usageCount,
         isPrivate = isPrivate,
         tags = parseTags(tags),
+        imageUrl = imageUrl,
         themeColors = if (primaryHex != null && secondaryHex != null) {
             StreamerTheme(
                 primaryHex = primaryHex,
@@ -246,7 +247,7 @@ internal fun Persona.toEntity() =
         voicePrompt = "",
         userCallSign = userCallSign,
         isSelected = isSelected,
-        imageUrl = null,
+        imageUrl = imageUrl,
         primaryHex = themeColors?.primaryHex,
         secondaryHex = themeColors?.secondaryHex,
         creatorId = creatorId,
@@ -274,12 +275,12 @@ internal fun PersonaDto.toEntity(isSelected: Boolean) =
     PersonaEntity(
         id = id,
         name = name,
-        // 아래 5개는 4번 단위에서 컬럼째 제거될 잔여 필드다
+        // 아래 4개는 4번 단위에서 컬럼째 제거될 잔여 필드다
         prompt = "",
         voiceTone = 1.0f,
         voiceSpeed = 1.0f,
         voicePrompt = "",
-        imageUrl = null,
+        imageUrl = imageUrl,
         // Gson은 Kotlin 기본값을 우회해 null을 대입할 수 있으므로 방어적으로 처리한다
         description = description ?: "",
         userCallSign = userCallSign ?: "주인님",

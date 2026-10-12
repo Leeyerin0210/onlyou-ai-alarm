@@ -19,12 +19,6 @@ class ShopLogicTest {
     )
 
     @Test
-    fun `topFive는 공개 비서만 사용 횟수 내림차순으로 5개`() {
-        val list = (1..7).map { p("p$it", usage = it) } + p("secret", usage = 100, private = true)
-        assertEquals(listOf("p7", "p6", "p5", "p4", "p3"), topFive(list).map { it.id })
-    }
-
-    @Test
     fun `topTags는 공개 비서 수 기준 내림차순, 동률은 사전순`() {
         val list = listOf(
             p("a", tags = listOf("아침", "다정")),
@@ -60,5 +54,12 @@ class ShopLogicTest {
         assertEquals(listOf("a", "c"), filterPersonas(list, ShopFilter.All, "#아침", null).map { it.id })
         assertEquals(listOf("b"), filterPersonas(list, ShopFilter.All, "luna", null).map { it.id })
         assertEquals(4, filterPersonas(list, ShopFilter.All, "  ", null).size)
+    }
+
+    @Test
+    fun `세로 목록은 사용 횟수 내림차순 랭킹이다`() {
+        val list = listOf(p("a", usage = 1), p("b", usage = 9), p("c", usage = 5, tags = listOf("아침")), p("d", usage = 7, tags = listOf("아침")))
+        assertEquals(listOf("b", "d", "c", "a"), filterPersonas(list, ShopFilter.All, "", null).map { it.id })
+        assertEquals(listOf("d", "c"), filterPersonas(list, ShopFilter.Tag("아침"), "", null).map { it.id })
     }
 }

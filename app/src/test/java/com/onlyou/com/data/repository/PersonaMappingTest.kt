@@ -68,4 +68,12 @@ class PersonaMappingTest {
         val dto = com.onlyou.com.data.remote.PersonaDto(id = "p1", name = "미야", tags = null)
         assertEquals(emptyList<String>(), dto.toEntity(isSelected = false).toDomain().tags)
     }
+
+    @Test
+    fun `서버 사진 경로가 동기화되고 도메인 왕복 후에도 보존된다`() {
+        val dto = com.onlyou.com.data.remote.PersonaDto(id = "p1", name = "미야", imageUrl = "persona-images/p1.jpg")
+        val domain = dto.toEntity(isSelected = false).toDomain()
+        assertEquals("persona-images/p1.jpg", domain.imageUrl)
+        assertEquals("persona-images/p1.jpg", domain.toEntity().toDomain().imageUrl)
+    }
 }

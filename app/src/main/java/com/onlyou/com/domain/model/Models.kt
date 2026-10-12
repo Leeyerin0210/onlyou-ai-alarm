@@ -77,6 +77,8 @@ data class Persona(
     val isPrivate: Boolean = false,
     // 정규화된 해시태그(# 없이 저장) — TagNormalizer 참고
     val tags: List<String> = emptyList(),
+    // 서버 기준 상대 경로 또는 절대 URL — PersonaAvatar가 BASE_URL로 해석한다
+    val imageUrl: String? = null,
 )
 
 /** 상점 '이번 주 테마' — 테마 결정은 서버(core/themes.py)가 한다. */

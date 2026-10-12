@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,12 +90,21 @@ fun ShopScreen(
             com.onlyou.com.ui.components.OfflineView()
         } else {
             val onPersonaClick: (Persona) -> Unit = { viewModel.selectPersona(it) }
+            // 검색은 스크롤과 무관하게 최상단에 고정한다
+            Box(Modifier.padding(top = 4.dp, bottom = 8.dp)) {
+                ShopSearchField(
+                    query = uiState.searchQuery,
+                    onQueryChange = viewModel::onSearchQueryChange,
+                )
+            }
+            // 검색 중에는 테마·TOP 5를 숨겨 결과가 바로 보이게 한다
+            val isSearching = uiState.searchQuery.isNotBlank()
             LazyColumn(
                 contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 // 1. 이번 주 테마 (테마가 없는 주에는 섹션 자체를 숨긴다)
-                uiState.featured?.let { featured ->
+                uiState.featured?.takeIf { !isSearching }?.let { featured ->
                     item(key = "theme_header") {
                         SectionHeader(
                             caption = "이번 주 테마",
@@ -103,25 +113,13 @@ fun ShopScreen(
                         )
                     }
                     item(key = "theme_row") {
-                        PersonaRow(featured.personas, ranked = false, onClick = onPersonaClick)
+                        PersonaRow(featured.personas, onClick = onPersonaClick)
                     }
                 }
 
-                // 2. 인기 TOP 5
-                if (uiState.trendingPersonas.isNotEmpty()) {
-                    item(key = "top_header") { SectionHeader(caption = "많이 쓰는 비서", title = "인기 TOP 5") }
-                    item(key = "top_row") {
-                        PersonaRow(uiState.trendingPersonas, ranked = true, onClick = onPersonaClick)
-                    }
-                }
-
-                // 3. 찾아보기 — 검색 + 태그 칩 + 전체 목록
-                item(key = "browse_header") { SectionHeader(caption = null, title = "찾아보기") }
-                item(key = "search") {
-                    ShopSearchField(
-                        query = uiState.searchQuery,
-                        onQueryChange = viewModel::onSearchQueryChange,
-                    )
+                // 2. 인기 순위 — 태그 칩 + 사용 횟수순 세로 목록
+                item(key = "rank_header") {
+                    SectionHeader(caption = null, title = if (isSearching) "검색 결과" else "인기 순위")
                 }
                 item(key = "chips") {
                     FilterChipRow(
@@ -141,10 +139,12 @@ fun ShopScreen(
                         )
                     }
                 }
-                items(uiState.filteredPersonas, key = { it.id }) { persona ->
+                itemsIndexed(uiState.filteredPersonas, key = { _, p -> p.id }) { index, persona ->
                     Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                         AgentListCard(
                             persona = persona,
+                            // 검색 결과는 순위가 아니므로 번호를 달지 않는다
+                            rank = if (isSearching) null else index + 1,
                             currentUserId = uiState.currentUserId,
                             onClick = { onPersonaClick(persona) },
                             onEditClick = { onNavigateToEdit(persona.id) },
@@ -262,7 +262,7 @@ fun ShopScreen(
                 isPlaying = uiState.isPlaying,
                 isBuffering = uiState.isBuffering,
                 onSetCurrent = { viewModel.setCurrentPersona(it); viewModel.selectPersona(null) },
-                onPlayPreview = { id, url -> viewModel.playPreview(id, url) },
+                onPlayPreview = viewModel::playPreview,
             )
         }
     }
@@ -270,7 +270,7 @@ fun ShopScreen(
 }
 
 @Composable
-fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit, onEditClick: () -> Unit) {
+fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit, onEditClick: () -> Unit, rank: Int? = null) {
     val colors = MiyaTheme.colors
     Surface(
         color = colors.surfaceA,
@@ -289,7 +289,16 @@ fun AgentListCard(persona: Persona, currentUserId: String?, onClick: () -> Unit,
                 ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Person, null, tint = colors.background, modifier = Modifier.size(36.dp))
+                PersonaImage(persona.imageUrl, iconSize = 36.dp, iconTint = colors.background)
+                if (rank != null) {
+                    Box(
+                        Modifier.align(Alignment.TopStart).padding(4.dp).size(22.dp).clip(CircleShape)
+                            .background(if (rank <= 3) colors.primary else Color.Black.copy(alpha = 0.55f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("$rank", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
             }
 
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -365,63 +374,77 @@ private fun SectionHeader(caption: String?, title: String, badge: String? = null
     }
 }
 
+/**
+ * 가로 리스트 끝에서 남은 스크롤·플링을 여기서 소비한다.
+ * 그대로 두면 메인 탭 HorizontalPager로 전달돼 옆 탭으로 넘어간다.
+ */
+private object ConsumeHorizontalOverscroll : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+    override fun onPostScroll(
+        consumed: androidx.compose.ui.geometry.Offset,
+        available: androidx.compose.ui.geometry.Offset,
+        source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+    ) = available.copy(y = 0f)
+
+    override suspend fun onPostFling(
+        consumed: androidx.compose.ui.unit.Velocity,
+        available: androidx.compose.ui.unit.Velocity,
+    ) = available.copy(y = 0f)
+}
+
 @Composable
-private fun PersonaRow(personas: List<Persona>, ranked: Boolean, onClick: (Persona) -> Unit) {
+private fun PersonaRow(personas: List<Persona>, onClick: (Persona) -> Unit) {
     LazyRow(
+        modifier = Modifier.nestedScroll(ConsumeHorizontalOverscroll),
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        itemsIndexed(personas, key = { _, p -> p.id }) { index, persona ->
-            PersonaRowCard(persona = persona, rank = if (ranked) index + 1 else null, onClick = { onClick(persona) })
+        items(personas, key = { it.id }) { persona ->
+            PersonaRowCard(persona = persona, onClick = { onClick(persona) })
         }
     }
 }
 
-/** 가로 리스트 카드 — rank가 있으면 좌상단에 순위 배지를 단다. */
+/** 이번 주 테마 가로 리스트 카드 */
 @Composable
-fun PersonaRowCard(persona: Persona, rank: Int?, onClick: () -> Unit) {
+fun PersonaRowCard(persona: Persona, onClick: () -> Unit) {
     val colors = MiyaTheme.colors
-    Surface(
-        color = colors.surfaceA,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.width(148.dp).clickable { onClick() },
+    // 정사각형 이미지 위에 하단 검은 그라데이션을 깔고 글자를 얹는다
+    Box(
+        Modifier
+            .width(148.dp)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.verticalGradient(listOf(colors.primary.copy(alpha = 0.5f), colors.secondary.copy(alpha = 0.3f))),
+            )
+            .clickable { onClick() },
     ) {
-        Column {
-            Box(
-                Modifier.fillMaxWidth().height(100.dp).background(
-                    Brush.verticalGradient(listOf(colors.primary.copy(alpha = 0.5f), colors.secondary.copy(alpha = 0.3f))),
-                ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.Person, null, tint = colors.background, modifier = Modifier.size(44.dp))
-                if (rank != null) {
-                    Box(
-                        Modifier.align(Alignment.TopStart).padding(8.dp).size(26.dp).clip(CircleShape)
-                            .background(if (rank == 1) colors.primary else colors.onSurfaceA.copy(alpha = 0.75f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("$rank", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.background)
-                    }
-                }
-                if (persona.isSelected) {
-                    Box(
-                        Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp))
-                            .background(colors.primary).padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text("사용 중", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.background)
-                    }
-                }
+        PersonaImage(
+            persona.imageUrl,
+            iconSize = 52.dp,
+            iconTint = Color.White.copy(alpha = 0.9f),
+            iconModifier = Modifier.offset(y = (-14).dp),
+        )
+        Column(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
+                .padding(start = 12.dp, end = 12.dp, top = 28.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(persona.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val sub = persona.tags.firstOrNull()?.let { "#$it" } ?: persona.description
+            if (sub.isNotBlank()) {
+                Text(sub, fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(persona.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    persona.description.ifBlank { " " },
-                    fontSize = 12.sp,
-                    color = colors.neutral,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                persona.tags.firstOrNull()?.let { TagChip(it) }
+        }
+        if (persona.isSelected) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(8.dp))
+                    .background(colors.primary).padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text("사용 중", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
@@ -481,7 +504,7 @@ private fun FilterChipRow(selected: ShopFilter, topTags: List<String>, onSelect:
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).nestedScroll(ConsumeHorizontalOverscroll),
     ) {
         items(chips, key = { it.first }) { (label, filter) ->
             val isSelected = filter == selected
@@ -510,7 +533,7 @@ fun PersonaDetailSheetContent(
     isPlaying: Boolean,
     isBuffering: Boolean,
     onSetCurrent: (Persona) -> Unit,
-    onPlayPreview: (String, String?) -> Unit,
+    onPlayPreview: (String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
     Column(
@@ -518,9 +541,7 @@ fun PersonaDetailSheetContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(100.dp).clip(RoundedCornerShape(24.dp)).background(colors.surfaceB)) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Person, null, tint = colors.neutral, modifier = Modifier.size(48.dp))
-            }
+            PersonaImage(persona.imageUrl, iconSize = 48.dp, iconTint = colors.neutral)
         }
         Spacer(Modifier.height(16.dp))
         Text(persona.name, style = MaterialTheme.typography.headlineSmall, color = colors.onSurfaceA, fontWeight = FontWeight.Bold)
@@ -537,7 +558,7 @@ fun PersonaDetailSheetContent(
             Surface(
                 shape = RoundedCornerShape(50),
                 color = colors.secondary.copy(alpha = 0.1f),
-                modifier = Modifier.weight(1f).height(52.dp).clickable { onPlayPreview(persona.id, null) },
+                modifier = Modifier.weight(1f).height(52.dp).clickable { onPlayPreview(persona.id) },
             ) {
                 Row(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterVertically) {
                     Icon(Icons.Default.PlayArrow, null, tint = colors.secondary)

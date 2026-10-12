@@ -74,6 +74,8 @@ data class PersonaDto(
     val updatedAt: Long = 0L,
     // 송신 시 null이면 서버가 기존 태그를 보존한다(구버전 호환). 수신 시 Gson이 null을 넣을 수 있다.
     val tags: List<String>? = null,
+    // 서버가 지정하는 사진 경로(예: persona-images/x.jpg). 앱이 보내도 서버가 무시한다.
+    val imageUrl: String? = null,
 )
 
 data class FeaturedThemeDto(

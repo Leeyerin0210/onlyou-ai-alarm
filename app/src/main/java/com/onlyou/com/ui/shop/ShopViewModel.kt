@@ -16,7 +16,6 @@ import javax.inject.Inject
 
 data class ShopUiState(
     val personas: List<Persona> = emptyList(),
-    val trendingPersonas: List<Persona> = emptyList(),
     val filteredPersonas: List<Persona> = emptyList(),
     val topTags: List<String> = emptyList(),
     val featured: FeaturedPersonas? = null,
@@ -38,6 +37,8 @@ class ShopViewModel
         private val personaRepository: PersonaRepository,
         private val auth: com.google.firebase.auth.FirebaseAuth,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
+        private val voiceRepository: com.onlyou.com.domain.repository.VoiceRepository,
+        @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
@@ -49,6 +50,7 @@ class ShopViewModel
         val uiState: StateFlow<ShopUiState> = _uiState
 
         private var mediaPlayer: MediaPlayer? = null
+        private var previewJob: kotlinx.coroutines.Job? = null
 
         init {
             mediaPlayer = MediaPlayer().apply {
@@ -95,7 +97,6 @@ class ShopViewModel
                         
                         state.copy(
                             personas = allPersonas,
-                            trendingPersonas = topFive(allPersonas),
                             topTags = topTags(allPersonas),
                             filteredPersonas = filterPersonas(allPersonas, state.filter, state.searchQuery, state.currentUserId),
                             selectedPersona = updatedSelected ?: state.selectedPersona,
@@ -134,12 +135,8 @@ class ShopViewModel
             }
         }
 
-        fun playPreview(
-            personaId: String,
-            audioUrl: String?,
-        ) {
-            if (audioUrl.isNullOrBlank()) return
-
+        /** 비서의 참조 음성(서버 /voice/reference)을 받아 재생한다. 같은 비서를 다시 누르면 정지. */
+        fun playPreview(personaId: String) {
             val st = _uiState.value
             if (st.currentlyPlayingPersonaId == personaId && (st.isPlaying || st.isBuffering)) {
                 stopVoice()
@@ -149,18 +146,31 @@ class ShopViewModel
             stopVoice()
 
             _uiState.update { it.copy(currentlyPlayingPersonaId = personaId, isBuffering = true, isPlaying = false) }
-            try {
-                mediaPlayer?.apply {
-                    reset()
-                    setDataSource(audioUrl)
-                    prepareAsync()
+            previewJob = viewModelScope.launch {
+                val audio = voiceRepository.getReferenceVoice(personaId)
+                if (audio == null) {
+                    _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
+                    return@launch
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
+                try {
+                    // MediaPlayer는 바이트 배열을 직접 못 받으므로 캐시 파일을 거친다
+                    val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        java.io.File(context.cacheDir, "voice_preview.wav").apply { writeBytes(audio) }
+                    }
+                    mediaPlayer?.apply {
+                        reset()
+                        setDataSource(file.absolutePath)
+                        prepareAsync()
+                    }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
+                }
             }
         }
 
         fun stopVoice() {
+            previewJob?.cancel()
+            previewJob = null
             if (mediaPlayer?.isPlaying == true) {
                 mediaPlayer?.pause()
             }
