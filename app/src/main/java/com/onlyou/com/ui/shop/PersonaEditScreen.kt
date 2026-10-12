@@ -206,6 +206,17 @@ fun PersonaEditContent(
                         }
                     }
 
+                    // 해시태그 섹션 — 상점 주간 테마·태그 칩이 이 값으로 매칭한다
+                    Column {
+                        SectionLabel("태그")
+                        TagInput(
+                            tags = persona.tags,
+                            onTagsChange = { onUpdatePersona(persona.copy(tags = it)) },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text("상점에서 이 태그로 비서를 찾을 수 있어요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                    }
+
                     Divider(color = borderColor)
 
                     // 공개 여부 설정
