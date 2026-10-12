@@ -69,6 +69,8 @@ data class PersonaEntity(
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
     val presetKey: String = "",
+    // JSON 배열 문자열 (예: ["아침","다정"]) — v22에서 추가
+    val tags: String = "[]",
 )
 
 @Entity(tableName = "chat_messages")

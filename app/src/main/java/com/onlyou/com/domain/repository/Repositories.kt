@@ -4,6 +4,7 @@ import com.onlyou.com.domain.model.AiSchedule
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.ChatEvent
 import com.onlyou.com.domain.model.ChatMessage
+import com.onlyou.com.domain.model.FeaturedPersonas
 import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.domain.model.Persona
 import kotlinx.coroutines.flow.Flow
@@ -51,6 +52,9 @@ interface PersonaRepository {
      * @return 서버 도달 및 동기화 성공 여부. 서버에 닿지 못하면 false(=오프라인).
      */
     suspend fun syncPersonas(): Boolean
+
+    /** 상점 '이번 주 테마'. 테마가 없거나 조회에 실패하면 null(섹션 숨김). */
+    suspend fun getFeatured(): FeaturedPersonas?
 
     suspend fun deletePersona(personaId: String)
 

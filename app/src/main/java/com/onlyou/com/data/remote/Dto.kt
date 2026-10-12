@@ -72,6 +72,18 @@ data class PersonaDto(
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
     val updatedAt: Long = 0L,
+    // 송신 시 null이면 서버가 기존 태그를 보존한다(구버전 호환). 수신 시 Gson이 null을 넣을 수 있다.
+    val tags: List<String>? = null,
+)
+
+data class FeaturedThemeDto(
+    val tag: String? = null,
+    val title: String? = null,
+)
+
+data class FeaturedDto(
+    val theme: FeaturedThemeDto? = null,
+    val personas: List<PersonaDto>? = null,
 )
 
 // Presets (성격 프리셋 카탈로그 — 프롬프트 본문은 서버가 내보내지 않는다)

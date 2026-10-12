@@ -2,6 +2,11 @@ package com.onlyou.com.data.repository
 
 import com.onlyou.com.data.local.PersonaDao
 import com.onlyou.com.data.local.PersonaEntity
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.onlyou.com.data.remote.PersonaDto
+import com.onlyou.com.domain.model.FeaturedPersonas
+import com.onlyou.com.domain.model.FeaturedTheme
 import com.onlyou.com.domain.model.MiyaFontType
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.model.StreamerTheme
@@ -57,30 +62,7 @@ class PersonaRepositoryImpl
                 val finalSelectedId = currentLocalSelectedId ?: selectedIdRemote
 
                 remote.forEach { dto ->
-                    val existing = personaDao.getAllPersonasOnce().find { it.id == dto.id }
-                    personaDao.upsertPersona(
-                        PersonaEntity(
-                            id = dto.id,
-                            name = dto.name,
-                            // 아래 5개는 4번 단위에서 컬럼째 제거될 잔여 필드다
-                            prompt = "",
-                            voiceTone = 1.0f,
-                            voiceSpeed = 1.0f,
-                            voicePrompt = "",
-                            imageUrl = null,
-                            description = dto.description,
-                            userCallSign = dto.userCallSign ?: "주인님",
-                            primaryHex = dto.primaryHex,
-                            secondaryHex = dto.secondaryHex,
-                            isSelected = dto.id == finalSelectedId,
-                            creatorId = dto.creatorId,
-                            usageCount = existing?.usageCount ?: dto.usageCount,
-                            isPrivate = dto.isPrivate,
-                            // 방어적 처리: 서버는 항상 non-null preset.id를 내려주지만,
-                            // Gson은 Kotlin 기본값을 우회해 실제로 null을 대입할 수 있다.
-                            presetKey = dto.presetKey ?: "",
-                        ),
-                    )
+                    personaDao.upsertPersona(dto.toEntity(isSelected = dto.id == finalSelectedId))
                 }
 
                 // 4. 서버에서 사라진 페르소나를 로컬에서도 정리 (예: 시드에서 제거된 기본 페르소나).
@@ -114,6 +96,26 @@ class PersonaRepositoryImpl
                 false
             }
         }
+
+        override suspend fun getFeatured(): FeaturedPersonas? =
+            try {
+                val dto = kotlinx.coroutines.withTimeout(5000L) { api.getFeaturedPersonas() }
+                val tag = dto.theme?.tag
+                val title = dto.theme?.title
+                if (tag == null || title == null) {
+                    null
+                } else {
+                    val selectedId = personaDao.getAllPersonasOnce().find { it.isSelected }?.id
+                    FeaturedPersonas(
+                        theme = FeaturedTheme(tag = tag, title = title),
+                        personas = dto.personas.orEmpty().map { it.toEntity(isSelected = it.id == selectedId).toDomain() },
+                    )
+                }
+            } catch (e: Exception) {
+                // 테마 섹션만 숨기면 되므로 상점 전체를 실패로 만들지 않는다
+                e.printStackTrace()
+                null
+            }
 
         override suspend fun deletePersona(personaId: String) {
             // 로컬 삭제 (선택된 페르소나였다면 getSelectedPersona의 fallback이 첫 페르소나를 재선택)
@@ -186,6 +188,7 @@ class PersonaRepositoryImpl
                         usageCount = updatedPersona.usageCount,
                         isPrivate = updatedPersona.isPrivate,
                         updatedAt = System.currentTimeMillis(),
+                        tags = updatedPersona.tags,
                     ),
                 )
             } catch (e: Exception) {
@@ -206,6 +209,7 @@ internal fun PersonaEntity.toDomain() =
         creatorId = creatorId,
         usageCount = usageCount,
         isPrivate = isPrivate,
+        tags = parseTags(tags),
         themeColors = if (primaryHex != null && secondaryHex != null) {
             StreamerTheme(
                 primaryHex = primaryHex,
@@ -249,4 +253,42 @@ internal fun Persona.toEntity() =
         usageCount = usageCount,
         isPrivate = isPrivate,
         presetKey = presetKey,
+        tags = gson.toJson(tags),
+    )
+
+private val gson = Gson()
+private val tagListType = object : TypeToken<List<String>>() {}.type
+
+private fun parseTags(json: String): List<String> =
+    try {
+        gson.fromJson<List<String>>(json, tagListType).orEmpty()
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+/**
+ * 서버 DTO → 로컬 엔티티. usageCount는 서버 값을 그대로 쓴다 —
+ * 서버가 인기 순위의 단일 원천이고, 로컬 값을 우선하면 상점 TOP 5가 갱신되지 않는다.
+ */
+internal fun PersonaDto.toEntity(isSelected: Boolean) =
+    PersonaEntity(
+        id = id,
+        name = name,
+        // 아래 5개는 4번 단위에서 컬럼째 제거될 잔여 필드다
+        prompt = "",
+        voiceTone = 1.0f,
+        voiceSpeed = 1.0f,
+        voicePrompt = "",
+        imageUrl = null,
+        // Gson은 Kotlin 기본값을 우회해 null을 대입할 수 있으므로 방어적으로 처리한다
+        description = description ?: "",
+        userCallSign = userCallSign ?: "주인님",
+        primaryHex = primaryHex,
+        secondaryHex = secondaryHex,
+        isSelected = isSelected,
+        creatorId = creatorId,
+        usageCount = usageCount,
+        isPrivate = isPrivate,
+        presetKey = presetKey ?: "",
+        tags = gson.toJson(tags.orEmpty()),
     )

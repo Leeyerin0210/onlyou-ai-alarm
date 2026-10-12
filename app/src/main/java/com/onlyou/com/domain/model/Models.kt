@@ -75,6 +75,19 @@ data class Persona(
     val creatorId: String? = null,
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
+    // 정규화된 해시태그(# 없이 저장) — TagNormalizer 참고
+    val tags: List<String> = emptyList(),
+)
+
+/** 상점 '이번 주 테마' — 테마 결정은 서버(core/themes.py)가 한다. */
+data class FeaturedTheme(
+    val tag: String,
+    val title: String,
+)
+
+data class FeaturedPersonas(
+    val theme: FeaturedTheme,
+    val personas: List<Persona>,
 )
 
 /**

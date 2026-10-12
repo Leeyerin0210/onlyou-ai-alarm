@@ -57,6 +57,13 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
     }
 }
 
+// 상점 해시태그 — 스펙: docs/superpowers/specs/2026-10-12-shop-redesign-design.md
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE personas ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -73,7 +80,7 @@ object DatabaseModule {
             )
             .addMigrations(
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18,
-                MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21,
+                MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
             )
             .fallbackToDestructiveMigration()
             .build()

@@ -39,4 +39,33 @@ class PersonaMappingTest {
         val roundTripped = entity("casual_blunt").toDomain().toEntity()
         assertEquals("casual_blunt", roundTripped.presetKey)
     }
+
+    @Test
+    fun `태그 JSON이 도메인 리스트로 변환되고 왕복 후에도 보존된다`() {
+        val domain = entity("casual_warm").copy(tags = "[\"아침\",\"다정\"]").toDomain()
+        assertEquals(listOf("아침", "다정"), domain.tags)
+        assertEquals(listOf("아침", "다정"), domain.toEntity().toDomain().tags)
+    }
+
+    @Test
+    fun `깨진 태그 JSON은 빈 리스트로 읽는다`() {
+        assertEquals(emptyList<String>(), entity("casual_warm").copy(tags = "oops").toDomain().tags)
+    }
+
+    @Test
+    fun `동기화 매핑은 서버 usageCount와 태그를 그대로 쓴다`() {
+        val dto = com.onlyou.com.data.remote.PersonaDto(
+            id = "p1", name = "미야", usageCount = 42, tags = listOf("아침"), presetKey = "casual_warm",
+        )
+        val e = dto.toEntity(isSelected = true)
+        assertEquals(42, e.usageCount)
+        assertEquals(listOf("아침"), e.toDomain().tags)
+        assertEquals(true, e.isSelected)
+    }
+
+    @Test
+    fun `서버가 tags를 null로 보내도 빈 리스트로 저장된다`() {
+        val dto = com.onlyou.com.data.remote.PersonaDto(id = "p1", name = "미야", tags = null)
+        assertEquals(emptyList<String>(), dto.toEntity(isSelected = false).toDomain().tags)
+    }
 }
