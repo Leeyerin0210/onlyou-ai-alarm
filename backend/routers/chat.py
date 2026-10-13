@@ -108,10 +108,10 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     current_date_str = now.strftime("%Y-%m-%d %A")
     timestamp_iso = now.isoformat()
 
-    # 통합 벡터 검색 (fact+triple+insight, uid 스코프). insight는 이 검색과 별개로
-    # 상시 티어(active_insights)로 프롬프트에 실린다.
+    # 통합 벡터 검색 (fact+triple+insight, uid 스코프). 최신 insight는 상시 티어
+    # (active_insights)로 프롬프트에 실리므로 검색에서는 제외한다(자리 중복 방지).
     results = await asyncio.to_thread(
-        collection.query, uid, [request.message], 5
+        collection.query, uid, [request.message], 5, ACTIVE_INSIGHT_LIMIT
     )
     relevant_memories = format_memories(results)
 

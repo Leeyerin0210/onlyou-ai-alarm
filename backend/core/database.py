@@ -116,7 +116,11 @@ class PgMemoryCollection:
         except Exception as e:
             print(f"ensure_schema warning: {e}")
 
-    def query(self, uid, query_texts, n_results: int = 3):
+    def query(self, uid, query_texts, n_results: int = 3, exclude_recent_insights: int = 0):
+        """uid 스코프 벡터 검색. 폐기된 기억(superseded_at)은 제외한다.
+
+        exclude_recent_insights=N이면 active_insights(uid, N)이 돌려주는 최신 N개 통찰을
+        결과에서 뺀다(상시 티어와 중복 방지). 0이면 제외하지 않는다."""
         empty = {"documents": [[]], "metadatas": [[]], "types": [[]]}
         if not self.dsn or not uid:
             return empty
@@ -128,10 +132,13 @@ class PgMemoryCollection:
                     # insight 가산점은 제거했다 — 상시 티어(active_insights)로 올라갔으므로
                     # 여기서 또 우선 노출하면 top-N 자리를 이중으로 차지한다.
                     "SELECT document, metadata, type FROM user_memories "
-                    "WHERE uid = %s "
+                    "WHERE uid = %s AND superseded_at IS NULL "
+                    "AND id NOT IN (SELECT id FROM user_memories "
+                    "WHERE uid = %s AND type = 'insight' AND superseded_at IS NULL "
+                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s) "
                     "ORDER BY embedding <=> %s::vector "
                     "LIMIT %s",
-                    (uid, _vec_literal(emb), n_results),
+                    (uid, uid, exclude_recent_insights, _vec_literal(emb), n_results),
                 )
                 rows = cur.fetchall()
             docs = [r[0] for r in rows]
@@ -143,23 +150,6 @@ class PgMemoryCollection:
             print(f"Memory query warning: {e}")
             return empty
 
-    def get(self, uid):
-        if not self.dsn or not uid:
-            return {"ids": []}
-        try:
-            with closing(self._conn()) as conn, conn.cursor() as cur:
-                cur.execute("SELECT id FROM user_memories WHERE uid = %s", (uid,))
-                return {"ids": [r[0] for r in cur.fetchall()]}
-        except Exception as e:
-            print(f"Memory get warning: {e}")
-            return {"ids": []}
-
-    def delete(self, ids):
-        if not self.dsn or not ids:
-            return
-        with closing(self._conn()) as conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM user_memories WHERE id = ANY(%s)", (list(ids),))
-
     def delete_by_uid(self, uid):
         """해당 사용자의 벡터 기억만 전부 삭제."""
         if not self.dsn or not uid:
@@ -169,14 +159,15 @@ class PgMemoryCollection:
 
     def get_active_uids_since(self, start_iso: str) -> list[str]:
         """지정 시각 이후 fact/triple(=실제 대화에서 나온 raw 기억)이 있는 uid 목록.
-        reflection 배치가 '오늘 채팅한 유저만' 고르는 데 쓴다."""
+        reflection 배치가 '오늘 채팅한 유저만' 고르는 데 쓴다. 폐기된 기억(superseded_at)은 제외한다."""
         if not self.dsn:
             return []
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "SELECT DISTINCT uid FROM user_memories "
-                    "WHERE type IN ('fact','triple') AND metadata->>'timestamp' >= %s",
+                    "WHERE type IN ('fact','triple') AND superseded_at IS NULL "
+                    "AND metadata->>'timestamp' >= %s",
                     (start_iso,),
                 )
                 return [r[0] for r in cur.fetchall()]
@@ -189,7 +180,7 @@ class PgMemoryCollection:
 
         A에서 `user_notes`(앱이 매 턴 올려보내던 값)를 대체한다. 상한 10은 하루
         1~3개 생성 기준 며칠 분량이고, 최종 절단은 prompt_builder의
-        MAX_INSIGHTS_CHARS가 맡는다.
+        MAX_INSIGHTS_CHARS가 맡는다. 폐기된 기억(superseded_at)은 제외한다.
         """
         if not self.dsn or not uid:
             return []
@@ -197,7 +188,7 @@ class PgMemoryCollection:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "SELECT document FROM user_memories "
-                    "WHERE uid = %s AND type = 'insight' "
+                    "WHERE uid = %s AND type = 'insight' AND superseded_at IS NULL "
                     "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
                     (uid, limit),
                 )
@@ -207,14 +198,14 @@ class PgMemoryCollection:
             return []
 
     def last_insight_timestamp(self, uid: str) -> str | None:
-        """이 유저의 가장 최근 insight 생성 시각 (없으면 None)."""
+        """이 유저의 가장 최근 insight 생성 시각 (없으면 None). 폐기된 기억(superseded_at)은 제외한다."""
         if not self.dsn:
             return None
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "SELECT MAX(metadata->>'timestamp') FROM user_memories "
-                    "WHERE uid = %s AND type = 'insight'",
+                    "WHERE uid = %s AND type = 'insight' AND superseded_at IS NULL",
                     (uid,),
                 )
                 row = cur.fetchone()
@@ -225,14 +216,14 @@ class PgMemoryCollection:
 
     def pending_importance(self, uid: str, since: str | None) -> int:
         """마지막 insight(since) 이후 쌓인 fact/triple importance 합.
-        reflection 트리거 임계값 비교에 쓴다."""
+        reflection 트리거 임계값 비교에 쓴다. 폐기된 기억(superseded_at)은 제외한다."""
         if not self.dsn:
             return 0
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "SELECT COALESCE(SUM(importance), 0) FROM user_memories "
-                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "WHERE uid = %s AND type IN ('fact','triple') AND superseded_at IS NULL "
                     "AND (%s::text IS NULL OR metadata->>'timestamp' > %s)",
                     (uid, since, since),
                 )
@@ -242,14 +233,14 @@ class PgMemoryCollection:
             return 0
 
     def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
-        """마지막 insight(since) 이후 raw 기억 문장들 (최신순). reflection LLM 프롬프트 재료."""
+        """마지막 insight(since) 이후 raw 기억 문장들 (최신순). reflection LLM 프롬프트 재료. 폐기된 기억(superseded_at)은 제외한다."""
         if not self.dsn:
             return []
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "SELECT document FROM user_memories "
-                    "WHERE uid = %s AND type IN ('fact','triple') "
+                    "WHERE uid = %s AND type IN ('fact','triple') AND superseded_at IS NULL "
                     "AND (%s::text IS NULL OR metadata->>'timestamp' > %s) "
                     "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
                     (uid, since, since, limit),

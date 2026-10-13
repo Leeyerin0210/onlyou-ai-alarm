@@ -202,3 +202,82 @@ def test_add_leaves_superseded_at_null_by_default():
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute("SELECT superseded_at FROM user_memories WHERE id = %s", ("f1",))
         assert cur.fetchone()[0] is None
+
+
+def _supersede(memory_id):
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE user_memories SET superseded_at = %s WHERE id = %s",
+            ("2026-09-28T03:00:00+09:00", memory_id),
+        )
+
+
+def test_every_read_path_excludes_superseded_memories():
+    """폐기된 기억은 어떤 읽기 경로로도 되살아나선 안 된다.
+
+    이 단정 목록이 계약이다 — 읽기 경로를 추가할 때 여기에 한 줄을 같이 넣어야 한다.
+    스펙의 'B: 읽기 경로 계약' 표와 1:1로 대응한다.
+    """
+    collection.add("u1", ["폐기될 사실"], [{"timestamp": "2026-09-20T00:00:00+09:00", "uid": "u1", "type": "fact", "importance": 9}], ["dead_fact"])
+    collection.add("u1", ["폐기될 통찰"], [{"timestamp": "2026-09-21T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["dead_insight"])
+    collection.add("u1", ["살아있는 사실"], [{"timestamp": "2026-09-22T00:00:00+09:00", "uid": "u1", "type": "fact", "importance": 3}], ["live_fact"])
+    _supersede("dead_fact")
+    _supersede("dead_insight")
+
+    # 1. 채팅 벡터 검색
+    docs = collection.query("u1", ["사실"], 10)["documents"][0]
+    assert "폐기될 사실" not in docs
+    assert "살아있는 사실" in docs
+
+    # 2. 프롬프트 상시 티어
+    assert collection.active_insights("u1", 10) == []
+
+    # 3. reflection 입력
+    assert collection.recent_memory_texts("u1", None, 10) == ["살아있는 사실"]
+
+    # 4. reflection 트리거 임계값 — 폐기분(9)이 합산되면 안 된다
+    assert collection.pending_importance("u1", None) == 3
+
+    # 5. 하루 1회 가드 — 폐기된 통찰은 "오늘 이미 했다"의 근거가 될 수 없다
+    assert collection.last_insight_timestamp("u1") is None
+
+    # 6. 배치 후보 선정
+    assert collection.get_active_uids_since("2026-09-01T00:00:00+09:00") == ["u1"]
+
+
+def test_fully_superseded_uid_returns_to_batch_once_new_fact_arrives():
+    """기억이 전부 폐기된 유저는 배치 후보에서 빠지지만, 영구 제외여선 안 된다.
+
+    새 fact가 하나만 들어와도 다시 후보가 되어야 한다 — 그렇지 않으면 대량 폐기된
+    유저는 이후 모순이 아무리 쌓여도 영영 정리되지 않는다.
+    """
+    collection.add("u9", ["폐기될 사실"], [{"timestamp": "2026-09-20T00:00:00+09:00", "uid": "u9", "type": "fact"}], ["only"])
+    _supersede("only")
+
+    assert collection.get_active_uids_since("2026-09-01T00:00:00+09:00") == []
+
+    collection.add("u9", ["새 사실"], [{"timestamp": "2026-09-25T00:00:00+09:00", "uid": "u9", "type": "fact"}], ["fresh"])
+
+    assert collection.get_active_uids_since("2026-09-01T00:00:00+09:00") == ["u9"]
+
+
+def test_query_exclude_recent_insights_skips_only_the_newest_n():
+    """상시 티어(active_insights)가 이미 싣는 최신 N개 통찰은 벡터 검색 자리를 또 차지하면 안 된다.
+    더 오래된 통찰은 여전히 검색 대상이어야 한다."""
+    for i, day in enumerate(["01", "02", "03"], start=1):
+        collection.add("u1", [f"통찰{i}"], [{"timestamp": f"2026-09-{day}T00:00:00+09:00", "uid": "u1", "type": "insight"}], [f"i{i}"])
+    collection.add("u1", ["사실"], [{"timestamp": "2026-09-10T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    collection.add("u1", ["폐기된통찰"], [{"timestamp": "2026-09-20T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["dead"])
+    _supersede("dead")
+
+    docs = collection.query("u1", ["사실"], 10, exclude_recent_insights=2)["documents"][0]
+    assert sorted(docs) == ["사실", "통찰1"]
+
+    # 기본값 0은 아무것도 제외하지 않는다 (폐기분은 여전히 제외)
+    docs = collection.query("u1", ["사실"], 10)["documents"][0]
+    assert sorted(docs) == ["사실", "통찰1", "통찰2", "통찰3"]
+
+    # 다른 유저의 최신 통찰은 영향을 주지 않는다
+    collection.add("u2", ["남의통찰"], [{"timestamp": "2026-09-30T00:00:00+09:00", "uid": "u2", "type": "insight"}], ["x1"])
+    docs = collection.query("u1", ["사실"], 10, exclude_recent_insights=2)["documents"][0]
+    assert sorted(docs) == ["사실", "통찰1"]
