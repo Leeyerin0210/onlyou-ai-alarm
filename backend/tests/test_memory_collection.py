@@ -191,6 +191,38 @@ def test_near_duplicate_pairs_respects_pair_limit(monkeypatch):
     assert len(collection.near_duplicate_pairs("u1", 0.15, 2)) == 2
 
 
+def test_near_duplicate_pairs_returns_closest_pair_first(monkeypatch):
+    """거리 오름차순 정렬 검증: 가장 가까운 쌍(A,B ≈0.0005)이 limit=1에서 나와야 한다.
+    A-C ≈0.0072, B-C ≈0.0041 — 셋 다 threshold 0.15 이내지만 A-B가 가장 가깝다."""
+    vectors = {
+        "A": [1.0, 0.0, 0.0],
+        "B": [0.999, 0.03, 0.0],
+        "C": [0.99, 0.12, 0.0],
+    }
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+    for i, text in enumerate(vectors):
+        collection.add("u1", [text], [{"timestamp": f"2026-09-0{i + 1}T00:00:00+09:00", "uid": "u1", "type": "fact"}], [f"m{text}"])
+
+    pairs = collection.near_duplicate_pairs("u1", 0.15, 1)
+
+    assert len(pairs) == 1
+    assert {pairs[0][1], pairs[0][3]} == {"A", "B"}
+
+
+def test_near_duplicate_pairs_scan_limit_excludes_older_memories(monkeypatch):
+    """scan_limit은 최근 N개만 자기조인한다: 가장 오래된 기억은 쌍에 등장하면 안 된다."""
+    monkeypatch.setattr(database, "_embed", lambda texts: [[1.0, 0.0, 0.0] for _ in texts])
+    collection.add("u1", ["오래됨"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["old"])
+    collection.add("u1", ["최근1"], [{"timestamp": "2026-09-02T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["new1"])
+    collection.add("u1", ["최근2"], [{"timestamp": "2026-09-03T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["new2"])
+
+    pairs = collection.near_duplicate_pairs("u1", 0.15, 10, scan_limit=2)
+
+    ids = {p[0] for p in pairs} | {p[2] for p in pairs}
+    assert "old" not in ids
+    assert ids == {"new1", "new2"}
+
+
 def test_ensure_schema_adds_new_columns_to_pre_existing_old_schema_table():
     """기존 배포 테이블(신규 컬럼 없음)에 대해 add() 없이 startup에서 호출해도
     type/subject/predicate/object/importance 컬럼이 생겨야 한다 — 그렇지 않으면
