@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS persona_reports (
 ### `PUT /personas/{id}` 응답
 
 ```json
-{ "status": "ok",
+{ "ok": true,
   "isPrivate": true,
   "moderation": {"status": "approved" | "rejected" | "unavailable" | "locked" | "skipped",
                  "reason": "..."} }
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS persona_reports (
 - 만든 사람은 비공개로 계속 쓴다. 선택해 둔 다른 유저는 위 폴백 규칙으로 기본 비서가 된다.
 - 해제는 운영자가 DB에서: `UPDATE personas SET report_locked_at = NULL WHERE id = ...;
   DELETE FROM persona_reports WHERE persona_id = ...;` — `docs/deployment.md`에 기록한다.
-- `GET /personas` 각 항목에 `reportLocked: bool`과 세 칸(`speechStyle`·`personality`·`role`).
+- `GET /personas` 각 항목에 `reportLocked: bool`, `isOfficial: bool`(공식 비서 여부 — 앱이 신고 버튼을 숨긴다)과 세 칸(`speechStyle`·`personality`·`role`).
   지금 내려주는 `prompt`(프리셋 본문)는 구버전 앱 호환을 위해 한 릴리스 동안 세 칸을 이어붙인
   문자열로 채워 둔다.
 
