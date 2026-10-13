@@ -30,24 +30,32 @@ from core.rate_limit import check_global_budget
 RECENT_MEMORY_LIMIT = 30
 
 
+def _annotate(mid: str, doc: str, ts: str | None, mtype: str) -> str:
+    """`[id] (YYYY-MM-DD, type) 문장` — LLM이 어느 쪽이 최신인지 판단할 근거를 붙인다."""
+    date = ts[:10] if ts else "날짜 없음"
+    return f"[{mid}] ({date}, {mtype}) {doc}"
+
+
 def build_reflection_prompt(
-    memories: list[tuple[str, str]],
-    duplicate_pairs: list[tuple[str, str, str, str]],
+    memories: list[tuple[str, str, str | None, str]],
+    duplicate_pairs: list[tuple[str, str, str | None, str, str, str, str | None, str]],
 ) -> str:
-    joined = "\n".join(f"- [{mid}] {doc}" for mid, doc in memories)
+    joined = "\n".join(f"- {_annotate(*m)}" for m in memories)
     pair_section = ""
     if duplicate_pairs:
         pair_lines = "\n".join(
-            f"- [{a_id}] {a_doc}  ⟷  [{b_id}] {b_doc}" for a_id, a_doc, b_id, b_doc in duplicate_pairs
+            f"- {_annotate(*p[:4])}  ⟷  {_annotate(*p[4:])}" for p in duplicate_pairs
         )
         pair_section = f"""
 
 아래는 서로 내용이 비슷해 보이는 기억 쌍입니다. 같은 사실의 중복이거나 한쪽이
-낡아서 더 이상 맞지 않는 경우일 수 있습니다.
+낡아서 더 이상 맞지 않는 경우일 수 있습니다. 각 쌍은 왼쪽이 더 오래된 기억입니다.
 
 {pair_lines}"""
 
-    return f"""다음은 한 사용자에 대해 최근 관찰된 사실/관계 목록입니다. 각 항목 앞의 [대괄호]는 기억 id입니다.
+    return f"""다음은 한 사용자에 대해 최근 관찰된 사실/관계 목록입니다. 각 항목 앞의 [대괄호]는 기억 id이고,
+(날짜, 종류)의 날짜는 그 기억이 기록된 날입니다. 날짜가 나중일수록 더 최신 정보입니다.
+이 목록은 최신순입니다.
 
 {joined}{pair_section}
 
@@ -172,8 +180,12 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
 
     # 통찰이 없어도 폐기는 반영한다 — 모순 정리를 하루 미룰 이유가 없다.
     # 프롬프트에 실제로 보여준 id만 허용 — LLM이 지어낸 id가 우연히 이 유저의 다른 기억과 일치해도 폐기하지 않는다.
-    shown_ids = {mid for mid, _ in memories} | {i for a, _, b, _ in duplicate_pairs for i in (a, b)}
+    shown_ids = {m[0] for m in memories} | {p[i] for p in duplicate_pairs for i in (0, 4)}
     superseded_ids = [i for i in superseded_ids if i in shown_ids]
+    # 중복 쌍의 양쪽이 다 지목되면 그 사실이 통째로 사라진다 — 더 최근(b) 쪽은 남긴다.
+    for p in duplicate_pairs:
+        if p[0] in superseded_ids and p[4] in superseded_ids:
+            superseded_ids = [i for i in superseded_ids if i != p[4]]
     if superseded_ids:
         marked = await asyncio.to_thread(
             collection.mark_superseded, uid, superseded_ids, timestamp

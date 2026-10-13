@@ -17,8 +17,8 @@ def test_build_reflection_prompt_includes_memory_ids_and_pairs():
     from services.reflection_service import build_reflection_prompt
 
     prompt = build_reflection_prompt(
-        [("mem_a", "유저는 커피를 안 마심"), ("mem_b", "유저는 밤에 잠을 잘 못잠")],
-        [("mem_c", "민초를 좋아함", "mem_d", "민초가 싫어짐")],
+        [("mem_a", "유저는 커피를 안 마심", "2026-09-03T00:00:00+09:00", "fact"), ("mem_b", "유저는 밤에 잠을 잘 못잠", "2026-09-03T00:00:00+09:00", "fact")],
+        [("mem_c", "민초를 좋아함", "2026-09-01T00:00:00+09:00", "fact", "mem_d", "민초가 싫어짐", "2026-09-02T00:00:00+09:00", "fact")],
     )
 
     # id가 노출돼야 LLM이 폐기 대상을 지목할 수 있다
@@ -33,10 +33,35 @@ def test_build_reflection_prompt_includes_memory_ids_and_pairs():
     assert "superseded_ids" in prompt
 
 
+def test_build_reflection_prompt_shows_dates_types_and_orders_pair_older_first():
+    from services.reflection_service import build_reflection_prompt
+
+    prompt = build_reflection_prompt(
+        [("mem_a", "유저는 커피를 안 마심", "2026-09-27T10:00:00+09:00", "fact")],
+        [("mem_old", "민초를 좋아함", "2026-08-01T00:00:00+09:00", "triple",
+          "mem_new", "민초가 싫어짐", "2026-09-20T00:00:00+09:00", "insight")],
+    )
+
+    assert "- [mem_a] (2026-09-27, fact) 유저는 커피를 안 마심" in prompt
+    older = "[mem_old] (2026-08-01, triple) 민초를 좋아함"
+    newer = "[mem_new] (2026-09-20, insight) 민초가 싫어짐"
+    assert f"{older}  ⟷  {newer}" in prompt
+    assert "최신순" in prompt
+    assert "더 오래된" in prompt
+
+
+def test_build_reflection_prompt_marks_missing_timestamp():
+    from services.reflection_service import build_reflection_prompt
+
+    prompt = build_reflection_prompt([("mem_a", "문장", None, "fact")], [])
+
+    assert "- [mem_a] (날짜 없음, fact) 문장" in prompt
+
+
 def test_build_reflection_prompt_without_pairs_omits_pair_section():
     from services.reflection_service import build_reflection_prompt
 
-    prompt = build_reflection_prompt([("mem_a", "유저는 커피를 안 마심")], [])
+    prompt = build_reflection_prompt([("mem_a", "유저는 커피를 안 마심", "2026-09-03T00:00:00+09:00", "fact")], [])
 
     assert "mem_a" in prompt
     assert "superseded_ids" in prompt
@@ -150,7 +175,7 @@ def test_reflect_for_uid_generates_and_saves_insights_when_threshold_met(monkeyp
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
         def recent_memory_rows(self, uid, since, limit):
-            return [("m1", "유저는 커피를 안 마심"), ("m2", "유저는 밤에 잠을 잘 못잠")]
+            return [("m1", "유저는 커피를 안 마심", "2026-09-03T00:00:00+09:00", "fact"), ("m2", "유저는 밤에 잠을 잘 못잠", "2026-09-03T00:00:00+09:00", "fact")]
         def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
             return []
         def add(self, uid, documents, metadatas, ids):
@@ -274,7 +299,7 @@ def test_reflect_for_uid_checks_global_budget_right_before_llm_call(monkeypatch)
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
         def recent_memory_rows(self, uid, since, limit):
-            return [("m1", "유저는 커피를 안 마심")]
+            return [("m1", "유저는 커피를 안 마심", "2026-09-03T00:00:00+09:00", "fact")]
         def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
             return []
         def add(self, uid, documents, metadatas, ids):
@@ -302,7 +327,7 @@ def test_reflect_for_uid_propagates_budget_exhaustion_as_http_exception(monkeypa
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
         def recent_memory_rows(self, uid, since, limit):
-            return [("m1", "유저는 커피를 안 마심")]
+            return [("m1", "유저는 커피를 안 마심", "2026-09-03T00:00:00+09:00", "fact")]
         def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
             return []
 
@@ -367,10 +392,10 @@ def test_reflect_for_uid_saves_insights_and_supersedes(monkeypatch):
             return 999
 
         def recent_memory_rows(self, uid, since, limit):
-            return [("mem_a", "민초를 좋아함"), ("mem_b", "민초가 싫어짐")]
+            return [("mem_a", "민초를 좋아함", "2026-09-03T00:00:00+09:00", "fact"), ("mem_b", "민초가 싫어짐", "2026-09-03T00:00:00+09:00", "fact")]
 
         def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
-            return [("mem_a", "민초를 좋아함", "mem_b", "민초가 싫어짐")]
+            return [("mem_a", "민초를 좋아함", "2026-09-01T00:00:00+09:00", "fact", "mem_b", "민초가 싫어짐", "2026-09-02T00:00:00+09:00", "fact")]
 
         def add(self, uid, docs, metas, ids):
             calls["added"].append((uid, docs))
@@ -406,7 +431,7 @@ def test_reflect_for_uid_supersedes_even_when_no_insight(monkeypatch):
             return 999
 
         def recent_memory_rows(self, uid, since, limit):
-            return [("mem_a", "민초를 좋아함")]
+            return [("mem_a", "민초를 좋아함", "2026-09-03T00:00:00+09:00", "fact")]
 
         def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
             return []
@@ -460,7 +485,7 @@ def test_reflect_for_uid_drops_ids_not_shown_in_prompt(monkeypatch):
 
     calls = []
     monkeypatch.setattr(
-        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함")], [])
+        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함", "2026-09-03T00:00:00+09:00", "fact")], [])
     )
     monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
     monkeypatch.setattr(
@@ -479,7 +504,7 @@ def test_reflect_for_uid_accepts_ids_that_appear_only_in_duplicate_pairs(monkeyp
     monkeypatch.setattr(
         rs, "collection",
         _supersede_fake_collection(
-            calls, [("mem_a", "최근 기억")], [("mem_old", "오래된 기억", "mem_older", "더 오래된 기억")]
+            calls, [("mem_a", "최근 기억", "2026-09-03T00:00:00+09:00", "fact")], [("mem_old", "오래된 기억", "2026-09-01T00:00:00+09:00", "fact", "mem_older", "더 오래된 기억", "2026-09-02T00:00:00+09:00", "fact")]
         ),
     )
     monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
@@ -497,7 +522,7 @@ def test_reflect_for_uid_skips_mark_superseded_when_all_ids_filtered_out(monkeyp
 
     calls = []
     monkeypatch.setattr(
-        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함")], [])
+        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함", "2026-09-03T00:00:00+09:00", "fact")], [])
     )
     monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
     monkeypatch.setattr(
@@ -537,3 +562,25 @@ def test_parse_reflection_response_does_not_salvage_other_arrays_as_insights():
     from services.reflection_service import parse_reflection_response
 
     assert parse_reflection_response('{"insights": null, "superseded_ids": ["mem_c"]') == ([], [])
+
+
+def test_reflect_for_uid_keeps_newer_copy_when_both_pair_ids_superseded(monkeypatch):
+    """쌍의 양쪽이 모두 지목되면 사실이 통째로 사라진다 — 더 최근(b) 쪽은 살린다."""
+    import services.reflection_service as rs
+
+    calls = []
+    rows = [("mem_x", "무관한 기억", "2026-09-03T00:00:00+09:00", "fact")]
+    pairs = [(
+        "mem_old", "민초를 좋아함", "2026-08-01T00:00:00+09:00", "fact",
+        "mem_new", "민초를 좋아함", "2026-09-01T00:00:00+09:00", "fact",
+    )]
+    monkeypatch.setattr(rs, "collection", _supersede_fake_collection(calls, rows, pairs))
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client",
+        _fake_gemini('{"insights": [], "superseded_ids": ["mem_new", "mem_old", "mem_x"]}'),
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls == [["mem_old", "mem_x"]]

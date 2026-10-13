@@ -135,7 +135,7 @@ class PgMemoryCollection:
                     "WHERE uid = %s AND superseded_at IS NULL "
                     "AND id NOT IN (SELECT id FROM user_memories "
                     "WHERE uid = %s AND type = 'insight' AND superseded_at IS NULL "
-                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s) "
+                    "ORDER BY metadata->>'timestamp' DESC, id DESC LIMIT %s) "
                     "ORDER BY embedding <=> %s::vector "
                     "LIMIT %s",
                     (uid, uid, exclude_recent_insights, _vec_literal(emb), n_results),
@@ -189,7 +189,7 @@ class PgMemoryCollection:
                 cur.execute(
                     "SELECT document FROM user_memories "
                     "WHERE uid = %s AND type = 'insight' AND superseded_at IS NULL "
-                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
+                    "ORDER BY metadata->>'timestamp' DESC, id DESC LIMIT %s",
                     (uid, limit),
                 )
                 return [r[0] for r in cur.fetchall()]
@@ -232,40 +232,44 @@ class PgMemoryCollection:
             print(f"pending_importance warning: {e}")
             return 0
 
-    def recent_memory_rows(self, uid: str, since: str | None, limit: int = 30) -> list[tuple[str, str]]:
-        """마지막 insight(since) 이후 raw 기억 (id, 문장) 최신순. 폐기된 기억(superseded_at)은 제외한다.
+    def recent_memory_rows(self, uid: str, since: str | None, limit: int = 30) -> list[tuple[str, str, str | None, str]]:
+        """마지막 insight(since) 이후 raw 기억 (id, 문장, 시각, type) 최신순. 폐기된 기억(superseded_at)은 제외한다.
 
-        reflection이 모순으로 판정한 기억을 id로 지목해야 하므로 id를 함께 낸다.
+        reflection이 모순으로 판정한 기억을 id로 지목해야 하고, 어느 쪽이 최신인지
+        판단할 날짜·type도 필요하므로 함께 낸다.
         """
         if not self.dsn:
             return []
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, document FROM user_memories "
+                    "SELECT id, document, metadata->>'timestamp', type FROM user_memories "
                     "WHERE uid = %s AND type IN ('fact','triple') AND superseded_at IS NULL "
                     "AND (%s::text IS NULL OR metadata->>'timestamp' > %s) "
-                    "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
+                    "ORDER BY metadata->>'timestamp' DESC, id DESC LIMIT %s",
                     (uid, since, since, limit),
                 )
-                return [(r[0], r[1]) for r in cur.fetchall()]
+                return [(r[0], r[1], r[2], r[3]) for r in cur.fetchall()]
         except Exception as e:
             print(f"recent_memory_rows warning: {e}")
             return []
 
     def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
         """문장만 필요한 호출부(알람 브리핑)용 래퍼. 폐기된 기억(superseded_at)은 제외한다."""
-        return [doc for _id, doc in self.recent_memory_rows(uid, since, limit)]
+        return [row[1] for row in self.recent_memory_rows(uid, since, limit)]
 
     def near_duplicate_pairs(
         self, uid: str, threshold: float, limit: int, scan_limit: int = 200
-    ) -> list[tuple[str, str, str, str]]:
+    ) -> list[tuple[str, str, str | None, str, str, str, str | None, str]]:
         """임베딩상 서로 가까운 기억 쌍 — reflection의 모순 판정 후보.
 
         reflection 입력 창(최근 30개)을 넘어선 오래된 모순을 잡는 장치다.
         type을 가리지 않는다 — 낡은 insight도 새 insight에 밀려 폐기될 수 있어야 한다.
         진짜 모순("좋아함"→"싫어함")과 단순 중복(같은 사실 두 번)이 함께 올라오는데,
         둘 다 하나를 폐기하는 것이 옳은 동작이므로 구분하지 않는다.
+
+        각 쌍은 (id_a, doc_a, ts_a, type_a, id_b, doc_b, ts_b, type_b)이며 a가 더 오래된
+        쪽이다(시각 같으면 id 순) — LLM이 낡은 쪽을 가려낼 수 있게 순서에 의미를 둔다.
 
         자기조인이라 대상 행 수의 제곱으로 비용이 늘어난다 — scan_limit으로
         최근 기억만 보게 잘라 야간 배치가 헤비 유저에서 폭발하지 않게 한다.
@@ -276,18 +280,20 @@ class PgMemoryCollection:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
                     "WITH recent AS ("
-                    "  SELECT id, document, embedding FROM user_memories "
+                    "  SELECT id, document, embedding, type, metadata->>'timestamp' AS ts "
+                    "  FROM user_memories "
                     "  WHERE uid = %s AND superseded_at IS NULL "
-                    "  ORDER BY metadata->>'timestamp' DESC LIMIT %s"
+                    "  ORDER BY metadata->>'timestamp' DESC, id DESC LIMIT %s"
                     ") "
-                    "SELECT a.id, a.document, b.id, b.document "
-                    "FROM recent a JOIN recent b ON a.id < b.id "
+                    "SELECT a.id, a.document, a.ts, a.type, b.id, b.document, b.ts, b.type "
+                    "FROM recent a JOIN recent b "
+                    "ON (COALESCE(a.ts, ''), a.id) < (COALESCE(b.ts, ''), b.id) "
                     "WHERE (a.embedding <=> b.embedding) <= %s "
                     "ORDER BY (a.embedding <=> b.embedding) ASC "
                     "LIMIT %s",
                     (uid, scan_limit, threshold, limit),
                 )
-                return [(r[0], r[1], r[2], r[3]) for r in cur.fetchall()]
+                return [tuple(r) for r in cur.fetchall()]
         except Exception as e:
             print(f"near_duplicate_pairs warning: {e}")
             return []

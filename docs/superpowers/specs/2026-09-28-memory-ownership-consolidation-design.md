@@ -164,17 +164,20 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 
 ## B: reflection 확장
 
-1. **`recent_memory_rows`를 신규로 두어 (id, 문장)을 반환**한다. reflection이 폐기 대상을
-   id로 지목해야 한다. 프롬프트에는 `[id] 내용` 형태로 노출한다. `recent_memory_texts`는
+1. **`recent_memory_rows`를 신규로 두어 (id, 문장, 시각, type)을 반환**한다. reflection이 폐기 대상을
+   id로 지목해야 한다. 프롬프트에는 `- [id] (YYYY-MM-DD, type) 내용` 형태로 노출하고(시각이
+   없으면 "날짜 없음"), 날짜가 나중일수록 최신 정보이며 목록이 최신순이라고 한 문장으로 알린다. `recent_memory_texts`는
    문장만 필요한 호출부(알람 브리핑)를 위해 `recent_memory_rows` 위의 얇은 래퍼로 남긴다.
-2. **`near_duplicate_pairs(uid, threshold, limit)` 신규.** 같은 uid 안에서 코사인 거리
+2. **`near_duplicate_pairs(uid, threshold, limit, scan_limit)` 신규.** 같은 uid 안에서 코사인 거리
    (`<=>`)가 `threshold` 이내인 기억 쌍을 반환한다. reflection 입력 창(최근 30개)을
    넘어선 오래된 모순을 잡는 장치다. `limit`으로 입력 토큰 상한을 확정한다.
    - 시작값: `threshold=0.15`, `limit=10`. 둘 다 `core/config.py`의 설정으로 노출해
-     (`REFLECTION_DUP_THRESHOLD`, `REFLECTION_DUP_PAIR_LIMIT`) 재배포 없이 조정한다.
+     (`REFLECTION_DUP_THRESHOLD`, `REFLECTION_DUP_PAIR_LIMIT`, `REFLECTION_DUP_SCAN_LIMIT`) 재배포 없이 조정한다.
      실측 전이므로 이 값은 검증되지 않은 시작점이다.
    - 자기조인 비용은 대상 행 수의 제곱이라 `scan_limit`(기본 200,
      `REFLECTION_DUP_SCAN_LIMIT`)으로 최근 기억만 잘라 본다. 후보는 거리 오름차순이다.
+   - 각 쌍은 (id, 문장, 시각, type) 두 벌이며 **오래된 쪽이 앞(a)**이다(시각 같으면 id 순).
+     프롬프트도 `오래된 ⟷ 최신` 순으로 같은 주석을 달아, LLM이 낡은 쪽을 가려낼 수 있게 한다.
    - 모순이 아닌 단순 중복("민초를 좋아함"이 두 번 저장됨)도 같은 후보로 올라온다.
      그 경우 reflection이 하나를 폐기하는 것이 옳은 동작이므로 구분하지 않는다.
 3. **출력 스키마 변경**: 배열 → 객체.
@@ -193,7 +196,9 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
    기억을 폐기하는 것을 구조적으로 막는다. 존재하지 않는 id는 조용히 무시한다.
    이미 `superseded_at`이 있는 행은 덮어쓰지 않는다. 호출 전에 `reflect_for_uid`가
    LLM이 돌려준 `superseded_ids`를 프롬프트에 실제로 노출한 id(최근 기억 + 후보 쌍의 id)로
-   한 번 더 걸러, 지어낸 id가 들어가지 못하게 한다.
+   한 번 더 걸러, 지어낸 id가 들어가지 못하게 한다. 또한 한 후보 쌍의 양쪽이 모두
+   지목되면 사실이 통째로 사라지므로, 더 최근인 쪽(b)은 폐기 목록에서 빼 한 벌만 폐기한다.
+   같은 밤의 insight는 timestamp가 같을 수 있어 정렬에 `id DESC` 타이브레이커를 둔다.
 6. **낡은 insight도 폐기 후보에 포함한다.** A의 `active_insights`가
    `superseded_at IS NULL`을 보므로, 폐기된 통찰은 상시 티어에서 자동으로 빠진다.
    프롬프트에 후보를 넣을 때 insight도 id와 함께 노출한다.

@@ -120,13 +120,16 @@ def test_recent_memory_texts_orders_newest_first_and_respects_limit():
     assert texts == ["두번째"]
 
 
-def test_recent_memory_rows_returns_id_and_document_newest_first():
+def test_recent_memory_rows_returns_id_document_timestamp_type_newest_first():
     collection.add("u1", ["첫번째"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
     collection.add("u1", ["두번째"], [{"timestamp": "2026-09-02T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f2"])
 
     rows = collection.recent_memory_rows("u1", None, 10)
 
-    assert rows == [("f2", "두번째"), ("f1", "첫번째")]
+    assert rows == [
+        ("f2", "두번째", "2026-09-02T00:00:00+09:00", "fact"),
+        ("f1", "첫번째", "2026-09-01T00:00:00+09:00", "fact"),
+    ]
 
 
 def test_recent_memory_texts_still_returns_documents_only():
@@ -148,7 +151,7 @@ def test_near_duplicate_pairs_finds_close_memories(monkeypatch):
 
     pairs = collection.near_duplicate_pairs("u1", 0.15, 10)
 
-    docs = {frozenset((a_doc, b_doc)) for _a, a_doc, _b, b_doc in pairs}
+    docs = {frozenset((p[1], p[5])) for p in pairs}
     assert frozenset(("민초를 좋아함", "민초가 싫어짐")) in docs
     assert all("축구를 좋아함" not in pair for pair in docs)
 
@@ -162,7 +165,7 @@ def test_near_duplicate_pairs_includes_insights_as_candidates(monkeypatch):
 
     pairs = collection.near_duplicate_pairs("u1", 0.15, 10)
 
-    assert {p[0] for p in pairs} | {p[2] for p in pairs} == {"i1", "i2"}
+    assert {p[0] for p in pairs} | {p[4] for p in pairs} == {"i1", "i2"}
 
 
 def test_near_duplicate_pairs_does_not_cross_uid_boundary(monkeypatch):
@@ -207,7 +210,7 @@ def test_near_duplicate_pairs_returns_closest_pair_first(monkeypatch):
     pairs = collection.near_duplicate_pairs("u1", 0.15, 1)
 
     assert len(pairs) == 1
-    assert {pairs[0][1], pairs[0][3]} == {"A", "B"}
+    assert {pairs[0][1], pairs[0][5]} == {"A", "B"}
 
 
 def test_near_duplicate_pairs_scan_limit_excludes_older_memories(monkeypatch):
@@ -219,7 +222,7 @@ def test_near_duplicate_pairs_scan_limit_excludes_older_memories(monkeypatch):
 
     pairs = collection.near_duplicate_pairs("u1", 0.15, 10, scan_limit=2)
 
-    ids = {p[0] for p in pairs} | {p[2] for p in pairs}
+    ids = {p[0] for p in pairs} | {p[4] for p in pairs}
     assert "old" not in ids
     assert ids == {"new1", "new2"}
 
@@ -432,3 +435,35 @@ def test_mark_superseded_does_not_overwrite_existing_timestamp():
 
 def test_mark_superseded_with_empty_ids_is_noop():
     assert collection.mark_superseded("u1", [], "2026-09-28T03:00:00+09:00") == 0
+
+
+def test_near_duplicate_pairs_puts_older_row_first_regardless_of_id_order(monkeypatch):
+    """a가 항상 더 오래된 쪽이다 — id(무작위 hex) 순서가 아니라 시각 순서다."""
+    monkeypatch.setattr(database, "_embed", lambda texts: [[1.0, 0.0, 0.0] for _ in texts])
+    # id 사전순으로는 "a_new"가 앞이지만 시각은 더 최근이다
+    collection.add("u1", ["옛 기억"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["z_old"])
+    collection.add("u1", ["새 기억"], [{"timestamp": "2026-09-20T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["a_new"])
+
+    pairs = collection.near_duplicate_pairs("u1", 0.15, 10)
+
+    assert pairs == [(
+        "z_old", "옛 기억", "2026-09-01T00:00:00+09:00", "fact",
+        "a_new", "새 기억", "2026-09-20T00:00:00+09:00", "insight",
+    )]
+
+
+def test_query_exclude_matches_active_insights_when_timestamps_tie(monkeypatch):
+    """같은 밤에 만든 insight는 timestamp가 같다 — id DESC 타이브레이커가 없으면
+    query의 제외 집합과 active_insights가 어긋나 중복/누락이 생길 수 있다."""
+    monkeypatch.setattr(database, "_embed", lambda texts: [[1.0, 0.0, 0.0] for _ in texts])
+    ts = "2026-09-28T03:00:00+09:00"
+    for i in range(11):
+        collection.add("u1", [f"통찰{i}"], [{"timestamp": ts, "uid": "u1", "type": "insight"}], [f"insight_u1_{i:02d}"])
+
+    active = set(collection.active_insights("u1", 10))
+    result = collection.query("u1", ["질의"], 20, exclude_recent_insights=10)
+    queried = set(result["documents"][0])
+
+    assert len(active) == 10
+    assert active.isdisjoint(queried)
+    assert active | queried == {f"통찰{i}" for i in range(11)}
