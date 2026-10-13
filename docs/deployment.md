@@ -45,6 +45,9 @@ modal deploy tts-server/modal_app.py
 | `REFLECTION_HOUR` | 매일 밤 reflection 배치를 돌릴 시각(KST, 0~23). 기본 3(새벽 3시) |
 | `REFLECTION_IMPORTANCE_THRESHOLD` | reflection을 트리거할 누적 importance 임계값. 기본 20 |
 | `GLOBAL_REFLECT_DAILY_LIMIT` | reflection 배치의 전체 사용자 합산 일일 LLM 호출 상한. 기본 20000 |
+| `REFLECTION_DUP_THRESHOLD` | 모순 후보로 볼 기억 쌍의 코사인 거리 상한. 기본 0.15 |
+| `REFLECTION_DUP_PAIR_LIMIT` | reflection 프롬프트에 넣을 후보 쌍 개수. 기본 10 |
+| `REFLECTION_DUP_SCAN_LIMIT` | 후보 탐색 대상 최근 기억 수(자기조인 비용 상한). 기본 200 |
 
 ### PostgreSQL + pgvector (벡터 기억)
 

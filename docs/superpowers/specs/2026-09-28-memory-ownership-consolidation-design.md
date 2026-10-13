@@ -148,13 +148,13 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 
 | 메서드 | 비고 |
 |---|---|
-| `query` | 채팅 벡터 검색 |
+| `query` | 채팅 벡터 검색. 상시 티어에 올라간 최신 insight(`ACTIVE_INSIGHT_LIMIT`개)는 `exclude_recent_insights`로 결과에서 뺀다 — 더 오래된 insight는 계속 검색 대상 |
 | `active_insights` | A에서 신규 추가한 상시 티어 |
-| `recent_memory_texts` | reflection 입력 |
+| `recent_memory_rows` (`recent_memory_texts`는 이를 감싼 래퍼) | reflection 입력 |
 | `pending_importance` | reflection 트리거 임계값 |
 | `last_insight_timestamp` | 하루 1회 가드 |
 | `get_active_uids_since` | 배치 후보 선정 |
-| `near_duplicate_pairs` | B에서 신규 추가한 모순 후보 |
+| `near_duplicate_pairs` | B에서 신규 추가한 모순 후보. 조건은 최근 기억을 자르는 CTE 내부에 들어 있어 자기조인 양쪽이 모두 유효한 기억만 본다 |
 
 하나라도 빠지면 폐기된 기억이 되살아난다. 이 표의 모든 경로를 한 번에 찌르는 회귀
 테스트를 둔다(테스트 절 참조).
@@ -164,14 +164,17 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 
 ## B: reflection 확장
 
-1. **`recent_memory_texts`가 id를 함께 반환**하도록 변경한다. reflection이 폐기 대상을
-   id로 지목해야 한다. 프롬프트에는 `[id] 내용` 형태로 노출한다.
+1. **`recent_memory_rows`를 신규로 두어 (id, 문장)을 반환**한다. reflection이 폐기 대상을
+   id로 지목해야 한다. 프롬프트에는 `[id] 내용` 형태로 노출한다. `recent_memory_texts`는
+   문장만 필요한 호출부(알람 브리핑)를 위해 `recent_memory_rows` 위의 얇은 래퍼로 남긴다.
 2. **`near_duplicate_pairs(uid, threshold, limit)` 신규.** 같은 uid 안에서 코사인 거리
    (`<=>`)가 `threshold` 이내인 기억 쌍을 반환한다. reflection 입력 창(최근 30개)을
    넘어선 오래된 모순을 잡는 장치다. `limit`으로 입력 토큰 상한을 확정한다.
    - 시작값: `threshold=0.15`, `limit=10`. 둘 다 `core/config.py`의 설정으로 노출해
      (`REFLECTION_DUP_THRESHOLD`, `REFLECTION_DUP_PAIR_LIMIT`) 재배포 없이 조정한다.
      실측 전이므로 이 값은 검증되지 않은 시작점이다.
+   - 자기조인 비용은 대상 행 수의 제곱이라 `scan_limit`(기본 200,
+     `REFLECTION_DUP_SCAN_LIMIT`)으로 최근 기억만 잘라 본다. 후보는 거리 오름차순이다.
    - 모순이 아닌 단순 중복("민초를 좋아함"이 두 번 저장됨)도 같은 후보로 올라온다.
      그 경우 reflection이 하나를 폐기하는 것이 옳은 동작이므로 구분하지 않는다.
 3. **출력 스키마 변경**: 배열 → 객체.
@@ -183,10 +186,14 @@ ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ
 4. **부분 성공 처리.** `insights`만 파싱되면 통찰을 저장하고 모순 정리는 건너뛴다
    (다음 밤에 다시 후보로 올라온다). `superseded_ids`만 파싱되면 폐기만 반영한다.
    단일 호출에 출력을 더 얹는 구조의 알려진 약점이므로, `parse_memory_extract`와
-   같은 방어적 파싱(중괄호 범위 절단)을 적용한다.
+   같은 방어적 파싱(중괄호 범위 절단)을 적용한다. JSON 문법 자체가 깨진 경우(잘림 등)에는
+   `"insights"` 키 바로 뒤의 배열만 따로 회수해 통찰을 살리고, 이때 `superseded_ids`는
+   신뢰할 수 없으므로 버린다.
 5. **`mark_superseded(uid, ids, ts)` 신규.** **반드시 uid로 스코프**한다 — 다른 유저의
    기억을 폐기하는 것을 구조적으로 막는다. 존재하지 않는 id는 조용히 무시한다.
-   이미 `superseded_at`이 있는 행은 덮어쓰지 않는다.
+   이미 `superseded_at`이 있는 행은 덮어쓰지 않는다. 호출 전에 `reflect_for_uid`가
+   LLM이 돌려준 `superseded_ids`를 프롬프트에 실제로 노출한 id(최근 기억 + 후보 쌍의 id)로
+   한 번 더 걸러, 지어낸 id가 들어가지 못하게 한다.
 6. **낡은 insight도 폐기 후보에 포함한다.** A의 `active_insights`가
    `superseded_at IS NULL`을 보므로, 폐기된 통찰은 상시 티어에서 자동으로 빠진다.
    프롬프트에 후보를 넣을 때 insight도 id와 함께 노출한다.
