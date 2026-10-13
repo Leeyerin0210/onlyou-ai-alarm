@@ -232,23 +232,30 @@ class PgMemoryCollection:
             print(f"pending_importance warning: {e}")
             return 0
 
-    def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
-        """마지막 insight(since) 이후 raw 기억 문장들 (최신순). reflection LLM 프롬프트 재료. 폐기된 기억(superseded_at)은 제외한다."""
+    def recent_memory_rows(self, uid: str, since: str | None, limit: int = 30) -> list[tuple[str, str]]:
+        """마지막 insight(since) 이후 raw 기억 (id, 문장) 최신순. 폐기된 기억(superseded_at)은 제외한다.
+
+        reflection이 모순으로 판정한 기억을 id로 지목해야 하므로 id를 함께 낸다.
+        """
         if not self.dsn:
             return []
         try:
             with closing(self._conn()) as conn, conn.cursor() as cur:
                 cur.execute(
-                    "SELECT document FROM user_memories "
+                    "SELECT id, document FROM user_memories "
                     "WHERE uid = %s AND type IN ('fact','triple') AND superseded_at IS NULL "
                     "AND (%s::text IS NULL OR metadata->>'timestamp' > %s) "
                     "ORDER BY metadata->>'timestamp' DESC LIMIT %s",
                     (uid, since, since, limit),
                 )
-                return [r[0] for r in cur.fetchall()]
+                return [(r[0], r[1]) for r in cur.fetchall()]
         except Exception as e:
-            print(f"recent_memory_texts warning: {e}")
+            print(f"recent_memory_rows warning: {e}")
             return []
+
+    def recent_memory_texts(self, uid: str, since: str | None, limit: int = 30) -> list[str]:
+        """문장만 필요한 호출부(알람 브리핑)용 래퍼. 폐기된 기억(superseded_at)은 제외한다."""
+        return [doc for _id, doc in self.recent_memory_rows(uid, since, limit)]
 
 
 # 벡터 기억 (PostgreSQL + pgvector)

@@ -119,6 +119,22 @@ def test_recent_memory_texts_orders_newest_first_and_respects_limit():
     assert texts == ["두번째"]
 
 
+def test_recent_memory_rows_returns_id_and_document_newest_first():
+    collection.add("u1", ["첫번째"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    collection.add("u1", ["두번째"], [{"timestamp": "2026-09-02T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f2"])
+
+    rows = collection.recent_memory_rows("u1", None, 10)
+
+    assert rows == [("f2", "두번째"), ("f1", "첫번째")]
+
+
+def test_recent_memory_texts_still_returns_documents_only():
+    """알람 브리핑(routers/alarm.build_memory_context)이 이 형태에 의존한다."""
+    collection.add("u1", ["사실"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+
+    assert collection.recent_memory_texts("u1", None, 10) == ["사실"]
+
+
 def test_ensure_schema_adds_new_columns_to_pre_existing_old_schema_table():
     """기존 배포 테이블(신규 컬럼 없음)에 대해 add() 없이 startup에서 호출해도
     type/subject/predicate/object/importance 컬럼이 생겨야 한다 — 그렇지 않으면
