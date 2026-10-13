@@ -507,3 +507,26 @@ def test_reflect_for_uid_skips_mark_superseded_when_all_ids_filtered_out(monkeyp
     asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
 
     assert calls == []
+
+
+def test_parse_reflection_response_salvages_insights_from_truncated_output():
+    """출력이 꼬리에서 잘리면 JSON 문법이 깨진다 — 앞쪽 insights는 살린다."""
+    from services.reflection_service import parse_reflection_response
+
+    raw = '{"insights": ["야행성이다"], "superseded_ids": ["mem_c", '
+
+    assert parse_reflection_response(raw) == (["야행성이다"], [])
+
+
+def test_parse_reflection_response_salvages_insights_when_ids_have_trailing_comma():
+    from services.reflection_service import parse_reflection_response
+
+    raw = '{"insights": ["야행성이다"], "superseded_ids": ["mem_c",]}'
+
+    assert parse_reflection_response(raw) == (["야행성이다"], [])
+
+
+def test_parse_reflection_response_returns_empty_when_insights_array_is_truncated():
+    from services.reflection_service import parse_reflection_response
+
+    assert parse_reflection_response('{"insights": ["야행성이다", "카페') == ([], [])

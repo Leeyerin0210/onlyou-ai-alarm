@@ -63,39 +63,50 @@ def build_reflection_prompt(
 {{"insights": ["..."], "superseded_ids": ["mem_..."]}}"""
 
 
+def _clean_strings(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [item.strip() for item in raw if isinstance(item, str) and item.strip()]
+
+
+def _salvage_insights(text: str) -> list[str]:
+    """JSON 전체가 깨졌을 때 "insights" 배열만 따로 읽어낸다."""
+    key = text.find('"insights"')
+    idx = text.find("[", key) if key != -1 else -1
+    if idx == -1:
+        return []
+    try:
+        data, _ = json.JSONDecoder().raw_decode(text, idx)
+    except (json.JSONDecodeError, ValueError):
+        return []
+    return _clean_strings(data)
+
+
 def parse_reflection_response(raw_text: str) -> tuple[list[str], list[str]]:
     """(insights, superseded_ids)를 최대한 건져낸다.
 
     단일 호출에 출력을 둘 얹는 구조의 약점은 파싱 실패 시 둘이 함께 소실되는 것이다.
     한쪽만 형식이 어긋나면 그쪽만 버리고 나머지는 살린다 — 폐기 목록이 깨졌다고
-    그날 통찰까지 버리면 손해가 크다.
+    그날 통찰까지 버리면 손해가 크다. JSON 문법 자체가 깨진 경우(잘림 등)에도
+    앞쪽 insights 배열만은 따로 회수한다.
     """
     if not raw_text:
         return [], []
     text = raw_text.strip()
     start, end = text.find("{"), text.rfind("}") + 1
-    if start == -1 or end <= start:
+    if start == -1:
         return [], []
+    if end <= start:  # 닫는 중괄호 없이 잘린 출력
+        return _salvage_insights(text), []
     try:
         data = json.loads(text[start:end])
     except (json.JSONDecodeError, ValueError):
-        return [], []
+        return _salvage_insights(text), []
     if not isinstance(data, dict):
         return [], []
 
-    insights = []
-    raw_insights = data.get("insights")
-    if isinstance(raw_insights, list):
-        for item in raw_insights:
-            if isinstance(item, str) and item.strip():
-                insights.append(item.strip())
-
-    superseded_ids = []
-    raw_ids = data.get("superseded_ids")
-    if isinstance(raw_ids, list):
-        for item in raw_ids:
-            if isinstance(item, str) and item.strip():
-                superseded_ids.append(item.strip())
+    insights = _clean_strings(data.get("insights"))
+    superseded_ids = _clean_strings(data.get("superseded_ids"))
 
     return insights, superseded_ids
 
