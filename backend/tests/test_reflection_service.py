@@ -530,3 +530,10 @@ def test_parse_reflection_response_returns_empty_when_insights_array_is_truncate
     from services.reflection_service import parse_reflection_response
 
     assert parse_reflection_response('{"insights": ["야행성이다", "카페') == ([], [])
+
+
+def test_parse_reflection_response_does_not_salvage_other_arrays_as_insights():
+    """insights가 null이고 출력이 잘렸을 때 superseded_ids 배열을 통찰로 오인하면 안 된다."""
+    from services.reflection_service import parse_reflection_response
+
+    assert parse_reflection_response('{"insights": null, "superseded_ids": ["mem_c"]') == ([], [])

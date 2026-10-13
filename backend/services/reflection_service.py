@@ -12,6 +12,7 @@ Generative Agents(Park et al., 2023)의 reflection 패턴을 1단계로 단순�
 import asyncio
 import json
 import os
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -71,12 +72,11 @@ def _clean_strings(raw) -> list[str]:
 
 def _salvage_insights(text: str) -> list[str]:
     """JSON 전체가 깨졌을 때 "insights" 배열만 따로 읽어낸다."""
-    key = text.find('"insights"')
-    idx = text.find("[", key) if key != -1 else -1
-    if idx == -1:
+    m = re.search(r'"insights"\s*:\s*\[', text)  # [가 키의 값일 때만
+    if not m:
         return []
     try:
-        data, _ = json.JSONDecoder().raw_decode(text, idx)
+        data, _ = json.JSONDecoder().raw_decode(text, m.end() - 1)
     except (json.JSONDecodeError, ValueError):
         return []
     return _clean_strings(data)
