@@ -5,6 +5,7 @@ import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 
 # 현재 파일(main.py)이 있는 위치를 파이썬 경로에 추가
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +19,11 @@ from core.config import settings
 from services.reflection_service import run_nightly_reflection
 
 app = FastAPI(title="Onlyou Backend")
+
+# 비서 사진 — 서버가 지정한 personas.image_url(상대 경로)이 가리키는 공개 이미지
+PERSONA_IMAGE_DIR = os.path.join(current_dir, "persona_images")
+os.makedirs(PERSONA_IMAGE_DIR, exist_ok=True)
+app.mount("/persona-images", StaticFiles(directory=PERSONA_IMAGE_DIR), name="persona-images")
 
 scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
 

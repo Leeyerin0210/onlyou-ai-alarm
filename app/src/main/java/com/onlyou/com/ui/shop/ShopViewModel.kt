@@ -1,8 +1,8 @@
 package com.onlyou.com.ui.shop
 
-import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.onlyou.com.domain.model.FeaturedPersonas
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.PersonaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,8 +15,10 @@ import javax.inject.Inject
 
 data class ShopUiState(
     val personas: List<Persona> = emptyList(),
-    val trendingPersonas: List<Persona> = emptyList(),
     val filteredPersonas: List<Persona> = emptyList(),
+    val topTags: List<String> = emptyList(),
+    val featured: FeaturedPersonas? = null,
+    val filter: ShopFilter = ShopFilter.All,
     val searchQuery: String = "",
     val selectedPersona: Persona? = null,
     val currentlyPlayingPersonaId: String? = null,
@@ -34,6 +36,8 @@ class ShopViewModel
         private val personaRepository: PersonaRepository,
         private val auth: com.google.firebase.auth.FirebaseAuth,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
+        private val voiceRepository: com.onlyou.com.domain.repository.VoiceRepository,
+        @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
@@ -44,20 +48,14 @@ class ShopViewModel
             )
         val uiState: StateFlow<ShopUiState> = _uiState
 
-        private var mediaPlayer: MediaPlayer? = null
+        private val voicePreview = VoicePreviewPlayer(context, voiceRepository, viewModelScope)
 
         init {
-            mediaPlayer = MediaPlayer().apply {
-                setOnPreparedListener {
-                    _uiState.update { state -> state.copy(isBuffering = false, isPlaying = true) }
-                    start()
-                }
-                setOnCompletionListener {
-                    _uiState.update { state -> state.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-                }
-                setOnErrorListener { _, _, _ ->
-                    _uiState.update { state -> state.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-                    true
+            viewModelScope.launch {
+                voicePreview.state.collect { v ->
+                    _uiState.update {
+                        it.copy(currentlyPlayingPersonaId = v.personaId, isPlaying = v.isPlaying, isBuffering = v.isBuffering)
+                    }
                 }
             }
 
@@ -75,7 +73,9 @@ class ShopViewModel
                             e.printStackTrace()
                             false
                         }
-                        _uiState.update { it.copy(isOnline = reachable, isLoading = false) }
+                        // 테마는 부가 섹션 — 실패해도 null(숨김)일 뿐 상점은 정상 표시한다
+                        val featured = if (reachable) personaRepository.getFeatured() else null
+                        _uiState.update { it.copy(isOnline = reachable, isLoading = false, featured = featured) }
                     }
                 }
             }
@@ -87,13 +87,10 @@ class ShopViewModel
                             allPersonas.find { it.id == currentSelected.id }
                         }
                         
-                        // 사용 횟수가 높은 순으로 정렬하여 상위 5개를 화제인 페르소나로 선정
-                        val trending = allPersonas.sortedByDescending { it.usageCount }.take(5)
-
                         state.copy(
                             personas = allPersonas,
-                            trendingPersonas = trending,
-                            filteredPersonas = filterPersonas(allPersonas, state.searchQuery),
+                            topTags = topTags(allPersonas),
+                            filteredPersonas = filterPersonas(allPersonas, state.filter, state.searchQuery, state.currentUserId),
                             selectedPersona = updatedSelected ?: state.selectedPersona,
                         )
                     }
@@ -105,17 +102,18 @@ class ShopViewModel
             _uiState.update { state ->
                 state.copy(
                     searchQuery = query,
-                    filteredPersonas = filterPersonas(state.personas, query),
+                    filteredPersonas = filterPersonas(state.personas, state.filter, query, state.currentUserId),
                 )
             }
         }
 
-        private fun filterPersonas(
-            personas: List<Persona>,
-            query: String,
-        ): List<Persona> {
-            if (query.isBlank()) return personas
-            return personas.filter { it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true) }
+        fun onFilterChange(filter: ShopFilter) {
+            _uiState.update { state ->
+                state.copy(
+                    filter = filter,
+                    filteredPersonas = filterPersonas(state.personas, filter, state.searchQuery, state.currentUserId),
+                )
+            }
         }
 
         fun selectPersona(persona: Persona?) {
@@ -129,43 +127,13 @@ class ShopViewModel
             }
         }
 
-        fun playPreview(
-            personaId: String,
-            audioUrl: String?,
-        ) {
-            if (audioUrl.isNullOrBlank()) return
+        /** 비서의 참조 음성을 재생한다. 같은 비서를 다시 누르면 정지. */
+        fun playPreview(personaId: String) = voicePreview.toggle(personaId)
 
-            val st = _uiState.value
-            if (st.currentlyPlayingPersonaId == personaId && (st.isPlaying || st.isBuffering)) {
-                stopVoice()
-                return
-            }
-
-            stopVoice()
-
-            _uiState.update { it.copy(currentlyPlayingPersonaId = personaId, isBuffering = true, isPlaying = false) }
-            try {
-                mediaPlayer?.apply {
-                    reset()
-                    setDataSource(audioUrl)
-                    prepareAsync()
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(currentlyPlayingPersonaId = null, isBuffering = false, isPlaying = false) }
-            }
-        }
-
-        fun stopVoice() {
-            if (mediaPlayer?.isPlaying == true) {
-                mediaPlayer?.pause()
-            }
-            mediaPlayer?.reset()
-            _uiState.update { it.copy(currentlyPlayingPersonaId = null, isPlaying = false, isBuffering = false) }
-        }
+        fun stopVoice() = voicePreview.stop()
 
         override fun onCleared() {
             super.onCleared()
-            mediaPlayer?.release()
-            mediaPlayer = null
+            voicePreview.release()
         }
     }

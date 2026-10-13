@@ -62,6 +62,9 @@ interface MiyaApiService {
     @retrofit2.http.GET("personas")
     suspend fun getPersonas(): List<PersonaDto>
 
+    @retrofit2.http.GET("personas/featured")
+    suspend fun getFeaturedPersonas(): FeaturedDto
+
     @retrofit2.http.PUT("personas/{id}")
     suspend fun upsertPersona(
         @retrofit2.http.Path("id") id: String,

@@ -25,3 +25,6 @@ local.properties
 /.agents
 skills-lock.json
 /.worktrees
+# 로컬 개발 DB 전용 비서(dev_*)의 생성 사진·목소리 — 공식 비서 것만 커밋한다
+/backend/persona_images/dev_*
+/backend/reference_voices/dev_*

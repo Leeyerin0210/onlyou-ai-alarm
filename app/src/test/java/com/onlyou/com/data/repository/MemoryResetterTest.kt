@@ -124,6 +124,8 @@ private class FakeApiService(
 
     override suspend fun getPersonas(): List<PersonaDto> = unused()
 
+    override suspend fun getFeaturedPersonas(): com.onlyou.com.data.remote.FeaturedDto = unused()
+
     override suspend fun upsertPersona(id: String, body: PersonaDto): Response<Unit> = unused()
 
     override suspend fun deletePersona(id: String): Response<Unit> = unused()

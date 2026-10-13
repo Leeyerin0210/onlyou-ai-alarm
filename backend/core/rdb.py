@@ -96,6 +96,9 @@ CREATE TABLE IF NOT EXISTS reward_transactions (
 -- 기존 DB용 증분 마이그레이션. prompt/voice_prompt/image_url/voice_tone/voice_speed는
 -- 여기서 DROP하지 않는다 — 구버전 앱이 붙어 있는 동안 깨진다 (4번 단위에서 정리).
 ALTER TABLE personas ADD COLUMN IF NOT EXISTS preset_key TEXT;
+-- 해시태그 (core/tags.py가 정규화) — 상점 주간 테마·태그 칩이 이 값으로 매칭한다
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_personas_tags ON personas USING GIN (tags);
 """
 
 _pool: pg_pool.ThreadedConnectionPool | None = None

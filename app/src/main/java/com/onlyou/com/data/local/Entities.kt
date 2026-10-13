@@ -53,7 +53,8 @@ data class AiScheduleEntity(
 data class PersonaEntity(
     @PrimaryKey val id: String,
     val name: String,
-    // prompt·voicePrompt·voiceTone·voiceSpeed·imageUrl은 더 이상 읽지 않는다.
+    // prompt·voicePrompt·voiceTone·voiceSpeed는 더 이상 읽지 않는다.
+    // imageUrl은 서버가 지정한 비서 사진 경로로 다시 쓰인다.
     // SQLite 컬럼 삭제는 테이블 재생성이 필요해 위험이 크므로 4번 단위에서 정리한다.
     val prompt: String,
     val description: String,
@@ -69,6 +70,8 @@ data class PersonaEntity(
     val usageCount: Int = 0,
     val isPrivate: Boolean = false,
     val presetKey: String = "",
+    // JSON 배열 문자열 (예: ["아침","다정"]) — v22에서 추가
+    val tags: String = "[]",
 )
 
 @Entity(tableName = "chat_messages")

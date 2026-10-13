@@ -27,6 +27,10 @@ data class ChatUiState(
     val pendingSchedule: com.onlyou.com.domain.model.AiSchedule? = null,
     val isPendingScheduleUpdated: Boolean = false,
     val isOnline: Boolean = true,
+    // 채팅 온보딩: 비서를 막 고른 사용자에게 인사·추천 문장을 보여주고 첫 일정 등록으로 이끈다
+    val isOnboarding: Boolean = false,
+    // 온보딩 중 첫 일정이 등록됨 — 화면이 권한 안내를 띄운 뒤 finishOnboarding을 부른다
+    val onboardingScheduleCreated: Boolean = false,
 )
 
 @HiltViewModel
@@ -37,6 +41,7 @@ class ChatViewModel
         private val personaRepository: com.onlyou.com.domain.repository.PersonaRepository,
         private val scheduleRepository: com.onlyou.com.domain.repository.ScheduleRepository,
         private val networkMonitor: com.onlyou.com.util.NetworkMonitor,
+        private val onboardingPrefs: com.onlyou.com.util.OnboardingPrefs,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ChatUiState())
         val uiState: StateFlow<ChatUiState> = _uiState
@@ -45,6 +50,11 @@ class ChatViewModel
             observeSelectedPersona()
             observeMessages()
             observeNetwork()
+            viewModelScope.launch {
+                onboardingPrefs.chatOnboardingPending.collectLatest { pending ->
+                    _uiState.update { it.copy(isOnboarding = pending) }
+                }
+            }
         }
 
         private fun observeNetwork() {
@@ -75,6 +85,17 @@ class ChatViewModel
             _uiState.update { it.copy(inputText = text) }
         }
 
+        /** 추천 문장을 눌렀을 때 — 입력창을 거치지 않고 바로 보낸다. */
+        fun sendSuggestion(text: String) {
+            _uiState.update { it.copy(inputText = text) }
+            sendMessage()
+        }
+
+        fun finishOnboarding() {
+            onboardingPrefs.finishChatOnboarding()
+            _uiState.update { it.copy(onboardingScheduleCreated = false) }
+        }
+
         fun sendMessage() {
             val text = _uiState.value.inputText
             val persona = _uiState.value.persona ?: return
@@ -96,7 +117,13 @@ class ChatViewModel
                             }
                         }
                         is ChatEvent.ScheduleCreated -> {
-                            _uiState.update { it.copy(pendingSchedule = event.schedule, isPendingScheduleUpdated = false) }
+                            _uiState.update {
+                                it.copy(
+                                    pendingSchedule = event.schedule,
+                                    isPendingScheduleUpdated = false,
+                                    onboardingScheduleCreated = it.isOnboarding,
+                                )
+                            }
                             // 5초 후 자동으로 알림 사라짐
                             viewModelScope.launch {
                                 delay(5000)

@@ -17,16 +17,19 @@ PERSONAS = [
         "id": "official_polite_brief", "preset_key": "polite_brief",
         "name": "루나", "user_call_sign": "사용자님",
         "primary_hex": "#6495ED", "secondary_hex": "#F0F8FF",
+        "tags": ["일정", "차분"],
     },
     {
         "id": "official_casual_warm", "preset_key": "casual_warm",
         "name": "하루", "user_call_sign": "너",
         "primary_hex": "#FFB7C5", "secondary_hex": "#FFF0F5",
+        "tags": ["아침", "다정"],
     },
     {
         "id": "official_casual_blunt", "preset_key": "casual_blunt",
         "name": "도윤", "user_call_sign": "야",
         "primary_hex": "#5C6B73", "secondary_hex": "#E8EDF0",
+        "tags": ["직설", "유머"],
     },
 ]
 
@@ -38,17 +41,19 @@ def seed():
         for p in PERSONAS:
             assert p["preset_key"] in PRESETS, f"미지의 preset_key: {p['preset_key']}"
             row = {**p, "creator_id": SYSTEM_CREATOR,
-                   "description": PRESETS[p["preset_key"]].description}
+                   "description": PRESETS[p["preset_key"]].description,
+                   # 사진 파일은 persona_images/{id}.jpg (main.py가 /persona-images로 서빙)
+                   "image_url": f"persona-images/{p['id']}.jpg"}
             cur.execute(
                 "INSERT INTO personas (id, name, description, user_call_sign, "
-                "primary_hex, secondary_hex, creator_id, preset_key, is_private) "
+                "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags, image_url) "
                 "VALUES (%(id)s,%(name)s,%(description)s,%(user_call_sign)s,"
-                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE) "
+                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s, %(image_url)s) "
                 "ON CONFLICT (id) DO UPDATE SET "
                 "name=EXCLUDED.name, description=EXCLUDED.description, "
                 "user_call_sign=EXCLUDED.user_call_sign, "
                 "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
-                "preset_key=EXCLUDED.preset_key",
+                "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags, image_url=EXCLUDED.image_url",
                 row,
             )
     print(f"seeded {len(PERSONAS)} personas")

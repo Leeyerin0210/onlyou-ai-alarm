@@ -78,6 +78,8 @@ class PersonaIn(BaseModel):
     secondaryHex: Optional[str] = Field(default=None, max_length=16)
     isPrivate: bool = False
     updatedAt: int = 0
+    # None = 구버전 앱(필드 없음) → 서버가 기존 태그를 보존한다. 리스트면 정규화 후 덮어쓴다.
+    tags: Optional[List[str]] = Field(default=None, max_length=20)
 
 class UserProfileIn(BaseModel):
     displayName: Optional[str] = Field(default=None, max_length=200)

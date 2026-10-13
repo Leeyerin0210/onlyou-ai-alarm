@@ -61,8 +61,7 @@ import com.onlyou.com.ui.alarm.AlarmScreen
 import com.onlyou.com.ui.components.MiyaBottomNavigationBar
 import com.onlyou.com.ui.components.MiyaDrawerSheet
 import com.onlyou.com.ui.home.ChatScreen
-import com.onlyou.com.ui.onboarding.OnboardingPagerScreen
-import com.onlyou.com.ui.onboarding.OnboardingPermissionScreen
+import com.onlyou.com.ui.onboarding.OnboardingIntroScreen
 import com.onlyou.com.ui.onboarding.OnboardingScreen
 import com.onlyou.com.ui.permission.AlarmPermissionDialog
 import com.onlyou.com.ui.schedule.ScheduleScreen
@@ -101,6 +100,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var authRepository: com.onlyou.com.domain.repository.AuthRepository
+
+    @Inject
+    lateinit var onboardingPrefs: com.onlyou.com.util.OnboardingPrefs
 
     @Inject
     lateinit var remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig
@@ -290,31 +292,21 @@ class MainActivity : ComponentActivity() {
                                                         prefs.edit().putBoolean("onboarding_complete", true).apply()
                                                     }
                                                     val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                    currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
+                                                    currentScreen = if (onboardingDone) "chat" else "onboarding"
                                                 } else {
                                                     val introSeen = prefs.getBoolean("intro_seen", false)
-                                                    currentScreen = if (introSeen) "login" else "onboarding_pager"
+                                                    currentScreen = if (introSeen) "login" else "onboarding_intro"
                                                 }
                                                 keepSplash = false
                                             }
                                         }
 
-                                        screenState == "onboarding_pager" -> {
-                                            OnboardingPagerScreen(
-                                                onFinish = {
+                                        screenState == "onboarding_intro" -> {
+                                            OnboardingIntroScreen(
+                                                onStart = {
                                                     prefs.edit().putBoolean("intro_seen", true).apply()
                                                     currentScreen = "login"
                                                 },
-                                                onSkip = {
-                                                    prefs.edit().putBoolean("intro_seen", true).apply()
-                                                    currentScreen = "login"
-                                                },
-                                            )
-                                        }
-
-                                        screenState == "onboarding_permission" -> {
-                                            OnboardingPermissionScreen(
-                                                onFinish = { currentScreen = "onboarding" }
                                             )
                                         }
 
@@ -438,7 +430,7 @@ class MainActivity : ComponentActivity() {
                                                             prefs.edit().putBoolean("onboarding_complete", true).apply()
                                                         }
                                                         val onboardingDone = prefs.getBoolean("onboarding_complete", false)
-                                                        currentScreen = if (onboardingDone) "chat" else "onboarding_permission"
+                                                        currentScreen = if (onboardingDone) "chat" else "onboarding"
                                                     }
                                                 },
                                             )
@@ -464,7 +456,9 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        if (showPermissionDialog) {
+                        // 채팅 온보딩 중에는 첫 일정 등록 때 권한을 따로 안내하므로 여기서는 띄우지 않는다
+                        val chatOnboardingPending by onboardingPrefs.chatOnboardingPending.collectAsState()
+                        if (showPermissionDialog && !chatOnboardingPending && currentScreen in mainTabs) {
                             val lifecycleOwner = LocalLifecycleOwner.current
                             DisposableEffect(lifecycleOwner) {
                                 val observer = LifecycleEventObserver { _, event ->

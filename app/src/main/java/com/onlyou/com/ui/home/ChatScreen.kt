@@ -65,7 +65,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.ChatMessage
 import com.onlyou.com.domain.model.MessageSender
@@ -84,6 +86,18 @@ fun ChatScreen(
     onOpenDrawer: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // 온보딩 첫 일정이 등록되고 비서 답장이 끝나면 권한을 안내한다(이미 다 있으면 바로 종료)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val responseDone = uiState.streamingText == null && !uiState.isAiTyping
+    if (uiState.onboardingScheduleCreated && responseDone) {
+        if (com.onlyou.com.ui.permission.hasAllAlarmPermissions(context)) {
+            LaunchedEffect(Unit) { viewModel.finishOnboarding() }
+        } else {
+            OnboardingPermissionDialog(onFinish = viewModel::finishOnboarding)
+        }
+    }
+
     ChatScreenContent(
         uiState = uiState,
         onNavigateToSettings = onNavigateToSettings,
@@ -94,7 +108,32 @@ fun ChatScreen(
         onCancelSchedule = viewModel::cancelSchedule,
         onInputTextChange = viewModel::onInputTextChange,
         onSendMessage = viewModel::sendMessage,
+        onSendSuggestion = viewModel::sendSuggestion,
+        onSkipOnboarding = viewModel::finishOnboarding,
     )
+}
+
+@Composable
+private fun OnboardingPermissionDialog(onFinish: () -> Unit) {
+    val colors = MiyaTheme.colors
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = {},
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(Modifier.fillMaxSize().background(colors.background).statusBarsPadding()) {
+            Text(
+                text = "첫 일정이 등록됐어요!\n제때 알려드리려면 권한이 필요해요",
+                color = colors.onSurfaceA,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp),
+            )
+            Box(Modifier.weight(1f)) {
+                com.onlyou.com.ui.onboarding.OnboardingPermissionScreen(onFinish = onFinish)
+            }
+        }
+    }
 }
 
 @Composable
@@ -108,6 +147,8 @@ fun ChatScreenContent(
     onCancelSchedule: () -> Unit,
     onInputTextChange: (String) -> Unit,
     onSendMessage: () -> Unit,
+    onSendSuggestion: (String) -> Unit = {},
+    onSkipOnboarding: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
     val persona = uiState.persona
@@ -199,6 +240,9 @@ fun ChatScreenContent(
                             )
                         }
                     }
+                    if (uiState.isOnboarding && persona != null && uiState.streamingText == null && !uiState.isAiTyping) {
+                        OnboardingSuggestionRow(onSuggestion = onSendSuggestion, onSkip = onSkipOnboarding)
+                    }
                     ChatInputSection(
                         text = uiState.inputText,
                         onTextChange = onInputTextChange,
@@ -245,6 +289,7 @@ fun ChatScreenContent(
                     streamingText = uiState.streamingText,
                     isAiTyping = uiState.isAiTyping,
                     modifier = Modifier.fillMaxSize(),
+                    onboardingPersona = persona.takeIf { uiState.isOnboarding },
                 )
             }
         }
@@ -257,6 +302,7 @@ fun ChatSection(
     streamingText: String?,
     isAiTyping: Boolean,
     modifier: Modifier = Modifier,
+    onboardingPersona: Persona? = null,
 ) {
     val listState = rememberLazyListState()
 
@@ -268,7 +314,9 @@ fun ChatSection(
         }
     }
 
-    if (messages.isEmpty() && streamingText == null && !isAiTyping) {
+    if (messages.isEmpty() && streamingText == null && !isAiTyping && onboardingPersona != null) {
+        OnboardingGreeting(onboardingPersona, modifier)
+    } else if (messages.isEmpty() && streamingText == null && !isAiTyping) {
         Column(
             modifier = modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -341,6 +389,64 @@ fun ChatSection(
                     }
                 }
             }
+        }
+    }
+}
+
+/** 채팅 온보딩 첫 화면 — 비서 사진과 먼저 건네는 인사. 서버에 저장되지 않는 화면용 말풍선이다. */
+@Composable
+private fun OnboardingGreeting(persona: Persona, modifier: Modifier = Modifier) {
+    val colors = MiyaTheme.colors
+    Column(
+        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(120.dp).clip(CircleShape).background(colors.primary.copy(alpha = 0.3f)),
+        ) {
+            com.onlyou.com.ui.shop.PersonaImage(persona.imageUrl, iconSize = 56.dp, iconTint = Color.White)
+        }
+        Spacer(Modifier.height(20.dp))
+        ChatBubble(
+            ChatMessage(
+                text = com.onlyou.com.ui.onboarding.greetingIntro(persona.name) +
+                    "\n언제 무엇을 챙겨드릴까요? 아래 예시를 눌러도 되고, 편하게 말해도 돼요.",
+                sender = MessageSender.AI,
+            ),
+        )
+    }
+}
+
+/** 채팅 온보딩 추천 문장 — 누르면 바로 비서에게 보낸다. 마지막은 온보딩 건너뛰기. */
+@Composable
+private fun OnboardingSuggestionRow(onSuggestion: (String) -> Unit, onSkip: () -> Unit) {
+    val colors = MiyaTheme.colors
+    androidx.compose.foundation.lazy.LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            .nestedScroll(com.onlyou.com.ui.components.ConsumeHorizontalOverscroll),
+    ) {
+        items(com.onlyou.com.ui.onboarding.OnboardingSuggestions.size) { i ->
+            val text = com.onlyou.com.ui.onboarding.OnboardingSuggestions[i]
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = colors.primary.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.4f)),
+                modifier = Modifier.clickable { onSuggestion(text) },
+            ) {
+                Text(text, color = colors.primary, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+            }
+        }
+        item {
+            Text(
+                "나중에 할게요",
+                color = colors.neutral,
+                fontSize = 14.sp,
+                modifier = Modifier.clip(RoundedCornerShape(18.dp)).clickable(onClick = onSkip)
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            )
         }
     }
 }
