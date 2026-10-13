@@ -135,6 +135,62 @@ def test_recent_memory_texts_still_returns_documents_only():
     assert collection.recent_memory_texts("u1", None, 10) == ["사실"]
 
 
+def test_near_duplicate_pairs_finds_close_memories(monkeypatch):
+    vectors = {
+        "민초를 좋아함": [1.0, 0.0, 0.0],
+        "민초가 싫어짐": [0.999, 0.03, 0.0],   # 거리 ~0.0005 — 후보
+        "축구를 좋아함": [0.0, 1.0, 0.0],      # 거리 1.0 — 후보 아님
+    }
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+    for i, text in enumerate(vectors):
+        collection.add("u1", [text], [{"timestamp": f"2026-09-0{i + 1}T00:00:00+09:00", "uid": "u1", "type": "fact"}], [f"m{i}"])
+
+    pairs = collection.near_duplicate_pairs("u1", 0.15, 10)
+
+    docs = {frozenset((a_doc, b_doc)) for _a, a_doc, _b, b_doc in pairs}
+    assert frozenset(("민초를 좋아함", "민초가 싫어짐")) in docs
+    assert all("축구를 좋아함" not in pair for pair in docs)
+
+
+def test_near_duplicate_pairs_includes_insights_as_candidates(monkeypatch):
+    """낡은 통찰도 폐기 대상이다 — 새 통찰이 옛 통찰을 밀어낼 수 있어야 한다."""
+    vectors = {"옛 통찰": [1.0, 0.0, 0.0], "새 통찰": [0.999, 0.03, 0.0]}
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+    collection.add("u1", ["옛 통찰"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i1"])
+    collection.add("u1", ["새 통찰"], [{"timestamp": "2026-09-20T00:00:00+09:00", "uid": "u1", "type": "insight"}], ["i2"])
+
+    pairs = collection.near_duplicate_pairs("u1", 0.15, 10)
+
+    assert {p[0] for p in pairs} | {p[2] for p in pairs} == {"i1", "i2"}
+
+
+def test_near_duplicate_pairs_does_not_cross_uid_boundary(monkeypatch):
+    vectors = {"내 기억": [1.0, 0.0, 0.0], "남의 기억": [1.0, 0.0, 0.0]}
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+    collection.add("u1", ["내 기억"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["a"])
+    collection.add("u2", ["남의 기억"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u2", "type": "fact"}], ["b"])
+
+    assert collection.near_duplicate_pairs("u1", 0.15, 10) == []
+
+
+def test_near_duplicate_pairs_excludes_superseded(monkeypatch):
+    vectors = {"살아있음": [1.0, 0.0, 0.0], "이미 폐기됨": [1.0, 0.0, 0.0]}
+    monkeypatch.setattr(database, "_embed", lambda texts: [vectors[t] for t in texts])
+    collection.add("u1", ["살아있음"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["live"])
+    collection.add("u1", ["이미 폐기됨"], [{"timestamp": "2026-09-02T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["dead"])
+    _supersede("dead")
+
+    assert collection.near_duplicate_pairs("u1", 0.15, 10) == []
+
+
+def test_near_duplicate_pairs_respects_pair_limit(monkeypatch):
+    monkeypatch.setattr(database, "_embed", lambda texts: [[1.0, 0.0, 0.0] for _ in texts])
+    for i in range(4):
+        collection.add("u1", [f"기억{i}"], [{"timestamp": f"2026-09-0{i + 1}T00:00:00+09:00", "uid": "u1", "type": "fact"}], [f"m{i}"])
+
+    assert len(collection.near_duplicate_pairs("u1", 0.15, 2)) == 2
+
+
 def test_ensure_schema_adds_new_columns_to_pre_existing_old_schema_table():
     """기존 배포 테이블(신규 컬럼 없음)에 대해 add() 없이 startup에서 호출해도
     type/subject/predicate/object/importance 컬럼이 생겨야 한다 — 그렇지 않으면

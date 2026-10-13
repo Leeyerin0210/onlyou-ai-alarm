@@ -18,6 +18,13 @@ class Settings:
     # 기억 reflection/consolidation 야간 배치 (매일 KST REFLECTION_HOUR시)
     REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
     REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))
+    # 모순 후보 쌍 (B: 기억 통합·모순 해소). 실측 전 시작값이므로 환경변수로 조정한다.
+    # THRESHOLD: 코사인 거리가 이 값 이내인 기억 쌍을 모순 후보로 본다.
+    # PAIR_LIMIT: reflection 프롬프트에 넣을 후보 쌍 개수 상한 (입력 토큰 상한).
+    # SCAN_LIMIT: 자기조인 대상 최근 기억 수 — O(n^2)라 상한 없이 두면 헤비 유저에서 폭발한다.
+    REFLECTION_DUP_THRESHOLD = float(os.getenv("REFLECTION_DUP_THRESHOLD", "0.15"))
+    REFLECTION_DUP_PAIR_LIMIT = int(os.getenv("REFLECTION_DUP_PAIR_LIMIT", "10"))
+    REFLECTION_DUP_SCAN_LIMIT = int(os.getenv("REFLECTION_DUP_SCAN_LIMIT", "200"))
     GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
     # 서버리스 TTS (Modal) — tts-server/modal_app.py 배포 후 URL/키 설정
     TTS_SERVER_URL = os.getenv("TTS_SERVER_URL", "")

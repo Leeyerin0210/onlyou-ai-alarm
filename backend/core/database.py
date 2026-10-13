@@ -257,6 +257,41 @@ class PgMemoryCollection:
         """문장만 필요한 호출부(알람 브리핑)용 래퍼. 폐기된 기억(superseded_at)은 제외한다."""
         return [doc for _id, doc in self.recent_memory_rows(uid, since, limit)]
 
+    def near_duplicate_pairs(
+        self, uid: str, threshold: float, limit: int, scan_limit: int = 200
+    ) -> list[tuple[str, str, str, str]]:
+        """임베딩상 서로 가까운 기억 쌍 — reflection의 모순 판정 후보.
+
+        reflection 입력 창(최근 30개)을 넘어선 오래된 모순을 잡는 장치다.
+        type을 가리지 않는다 — 낡은 insight도 새 insight에 밀려 폐기될 수 있어야 한다.
+        진짜 모순("좋아함"→"싫어함")과 단순 중복(같은 사실 두 번)이 함께 올라오는데,
+        둘 다 하나를 폐기하는 것이 옳은 동작이므로 구분하지 않는다.
+
+        자기조인이라 대상 행 수의 제곱으로 비용이 늘어난다 — scan_limit으로
+        최근 기억만 보게 잘라 야간 배치가 헤비 유저에서 폭발하지 않게 한다.
+        """
+        if not self.dsn or not uid:
+            return []
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "WITH recent AS ("
+                    "  SELECT id, document, embedding FROM user_memories "
+                    "  WHERE uid = %s AND superseded_at IS NULL "
+                    "  ORDER BY metadata->>'timestamp' DESC LIMIT %s"
+                    ") "
+                    "SELECT a.id, a.document, b.id, b.document "
+                    "FROM recent a JOIN recent b ON a.id < b.id "
+                    "WHERE (a.embedding <=> b.embedding) <= %s "
+                    "ORDER BY (a.embedding <=> b.embedding) ASC "
+                    "LIMIT %s",
+                    (uid, scan_limit, threshold, limit),
+                )
+                return [(r[0], r[1], r[2], r[3]) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"near_duplicate_pairs warning: {e}")
+            return []
+
 
 # 벡터 기억 (PostgreSQL + pgvector)
 collection = PgMemoryCollection(settings.DATABASE_URL)
