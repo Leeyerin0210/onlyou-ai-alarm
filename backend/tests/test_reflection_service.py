@@ -13,29 +13,93 @@ def _fake_gemini(text):
     )
 
 
-def test_build_reflection_prompt_includes_all_memories():
+def test_build_reflection_prompt_includes_memory_ids_and_pairs():
     from services.reflection_service import build_reflection_prompt
 
-    prompt = build_reflection_prompt(["유저는 커피를 안 마심", "유저는 밤에 잠을 잘 못잠"])
-    assert "유저는 커피를 안 마심" in prompt
-    assert "유저는 밤에 잠을 잘 못잠" in prompt
-
-
-def test_parse_reflection_response_extracts_insight_texts():
-    from services.reflection_service import parse_reflection_response
-
-    insights = parse_reflection_response(
-        '[{"insight": "카페인에 예민한 편이다"}, {"insight": "야행성이다"}]'
+    prompt = build_reflection_prompt(
+        [("mem_a", "유저는 커피를 안 마심"), ("mem_b", "유저는 밤에 잠을 잘 못잠")],
+        [("mem_c", "민초를 좋아함", "mem_d", "민초가 싫어짐")],
     )
-    assert insights == ["카페인에 예민한 편이다", "야행성이다"]
+
+    # id가 노출돼야 LLM이 폐기 대상을 지목할 수 있다
+    assert "mem_a" in prompt
+    assert "mem_b" in prompt
+    assert "유저는 커피를 안 마심" in prompt
+    # 후보 쌍도 id와 함께
+    assert "mem_c" in prompt and "mem_d" in prompt
+    assert "민초가 싫어짐" in prompt
+    # 새 출력 스키마를 지시해야 한다
+    assert "insights" in prompt
+    assert "superseded_ids" in prompt
 
 
-def test_parse_reflection_response_returns_empty_on_garbage():
+def test_build_reflection_prompt_without_pairs_omits_pair_section():
+    from services.reflection_service import build_reflection_prompt
+
+    prompt = build_reflection_prompt([("mem_a", "유저는 커피를 안 마심")], [])
+
+    assert "mem_a" in prompt
+    assert "superseded_ids" in prompt
+
+
+def test_parse_reflection_response_extracts_both_fields():
     from services.reflection_service import parse_reflection_response
 
-    assert parse_reflection_response("모르겠어요") == []
-    assert parse_reflection_response("[]") == []
-    assert parse_reflection_response("") == []
+    insights, ids = parse_reflection_response(
+        '{"insights": ["카페인에 예민한 편이다", "야행성이다"], "superseded_ids": ["mem_c"]}'
+    )
+
+    assert insights == ["카페인에 예민한 편이다", "야행성이다"]
+    assert ids == ["mem_c"]
+
+
+def test_parse_reflection_response_survives_code_fence_and_noise():
+    from services.reflection_service import parse_reflection_response
+
+    raw = '```json\n{"insights": ["야행성이다"], "superseded_ids": []}\n```'
+
+    assert parse_reflection_response(raw) == (["야행성이다"], [])
+
+
+def test_parse_reflection_response_keeps_insights_when_ids_are_malformed():
+    """부분 성공 — 폐기 목록이 깨졌다고 그날 통찰까지 버리면 손해가 크다."""
+    from services.reflection_service import parse_reflection_response
+
+    insights, ids = parse_reflection_response(
+        '{"insights": ["야행성이다"], "superseded_ids": "mem_c"}'
+    )
+
+    assert insights == ["야행성이다"]
+    assert ids == []
+
+
+def test_parse_reflection_response_keeps_ids_when_insights_are_malformed():
+    from services.reflection_service import parse_reflection_response
+
+    insights, ids = parse_reflection_response(
+        '{"insights": null, "superseded_ids": ["mem_c", "mem_d"]}'
+    )
+
+    assert insights == []
+    assert ids == ["mem_c", "mem_d"]
+
+
+def test_parse_reflection_response_returns_empty_pair_on_garbage():
+    from services.reflection_service import parse_reflection_response
+
+    assert parse_reflection_response("모르겠어요") == ([], [])
+    assert parse_reflection_response("") == ([], [])
+    assert parse_reflection_response("{}") == ([], [])
+
+
+def test_parse_reflection_response_drops_non_string_ids():
+    from services.reflection_service import parse_reflection_response
+
+    _insights, ids = parse_reflection_response(
+        '{"insights": [], "superseded_ids": ["mem_c", 42, null, "  ", "mem_d"]}'
+    )
+
+    assert ids == ["mem_c", "mem_d"]
 
 
 def test_reflect_for_uid_skips_when_already_reflected_today(monkeypatch):
@@ -85,13 +149,15 @@ def test_reflect_for_uid_generates_and_saves_insights_when_threshold_met(monkeyp
             return None
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
-        def recent_memory_texts(self, uid, since, limit):
-            return ["유저는 커피를 안 마심", "유저는 밤에 잠을 잘 못잠"]
+        def recent_memory_rows(self, uid, since, limit):
+            return [("m1", "유저는 커피를 안 마심"), ("m2", "유저는 밤에 잠을 잘 못잠")]
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return []
         def add(self, uid, documents, metadatas, ids):
             saved.append((uid, documents, metadatas))
 
     monkeypatch.setattr(rs, "collection", FakeCollection())
-    monkeypatch.setattr(rs, "client", _fake_gemini('[{"insight": "카페인에 예민한 편이다"}]'))
+    monkeypatch.setattr(rs, "client", _fake_gemini('{"insights": ["카페인에 예민한 편이다"], "superseded_ids": []}'))
 
     asyncio.run(rs.reflect_for_uid("u1", "2026-08-07T09:00:00+09:00"))
 
@@ -207,8 +273,10 @@ def test_reflect_for_uid_checks_global_budget_right_before_llm_call(monkeypatch)
             return None
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
-        def recent_memory_texts(self, uid, since, limit):
-            return ["유저는 커피를 안 마심"]
+        def recent_memory_rows(self, uid, since, limit):
+            return [("m1", "유저는 커피를 안 마심")]
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return []
         def add(self, uid, documents, metadatas, ids):
             pass
 
@@ -217,7 +285,7 @@ def test_reflect_for_uid_checks_global_budget_right_before_llm_call(monkeypatch)
         rs, "check_global_budget",
         lambda bucket, limit: budget_calls.append((bucket, limit)),
     )
-    monkeypatch.setattr(rs, "client", _fake_gemini('[{"insight": "카페인에 예민한 편이다"}]'))
+    monkeypatch.setattr(rs, "client", _fake_gemini('{"insights": ["카페인에 예민한 편이다"], "superseded_ids": []}'))
 
     asyncio.run(rs.reflect_for_uid("u1", "2026-08-07T09:00:00+09:00"))
 
@@ -233,8 +301,10 @@ def test_reflect_for_uid_propagates_budget_exhaustion_as_http_exception(monkeypa
             return None
         def pending_importance(self, uid, since):
             return rs.settings.REFLECTION_IMPORTANCE_THRESHOLD
-        def recent_memory_texts(self, uid, since, limit):
-            return ["유저는 커피를 안 마심"]
+        def recent_memory_rows(self, uid, since, limit):
+            return [("m1", "유저는 커피를 안 마심")]
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return []
 
     def _boom(**kwargs):
         raise AssertionError("budget이 소진됐으면 LLM을 호출하면 안 됨")

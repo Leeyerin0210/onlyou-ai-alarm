@@ -2,7 +2,9 @@
 
 Generative Agents(Park et al., 2023)의 reflection 패턴을 1단계로 단순화했다 —
 원 논문의 질문 생성→재검색 단계는 생략하고 raw 기억에서 통찰을 바로 종합한다
-(LLM 호출 2회→1회, 비용 대비 이득이 크지 않다고 판단). 트리거는 main.py의
+(LLM 호출 2회→1회, 비용 대비 이득이 크지 않다고 판단). LLM 출력 스키마는
+{"insights": [...], "superseded_ids": [...]} 객체이며, 한쪽만 깨져도 나머지는 살린다.
+트리거는 main.py의
 APScheduler가 매일 새벽 REFLECTION_HOUR에 run_nightly_reflection()을 호출한다.
 """
 import asyncio
@@ -25,37 +27,75 @@ from core.rate_limit import check_global_budget
 RECENT_MEMORY_LIMIT = 30
 
 
-def build_reflection_prompt(memories: list[str]) -> str:
-    joined = "\n".join(f"- {m}" for m in memories)
-    return f"""다음은 한 사용자에 대해 최근 관찰된 사실/관계 목록입니다.
+def build_reflection_prompt(
+    memories: list[tuple[str, str]],
+    duplicate_pairs: list[tuple[str, str, str, str]],
+) -> str:
+    joined = "\n".join(f"- [{mid}] {doc}" for mid, doc in memories)
+    pair_section = ""
+    if duplicate_pairs:
+        pair_lines = "\n".join(
+            f"- [{a_id}] {a_doc}  ⟷  [{b_id}] {b_doc}" for a_id, a_doc, b_id, b_doc in duplicate_pairs
+        )
+        pair_section = f"""
 
-{joined}
+아래는 서로 내용이 비슷해 보이는 기억 쌍입니다. 같은 사실의 중복이거나 한쪽이
+낡아서 더 이상 맞지 않는 경우일 수 있습니다.
 
-여기서 도출할 수 있는 상위 통찰(사용자의 성향·상태·패턴에 대한 압축된 이해)을 1~3개
-JSON 배열로만 답하세요. 근거가 부족하면 빈 배열 []을 반환하세요.
+{pair_lines}"""
+
+    return f"""다음은 한 사용자에 대해 최근 관찰된 사실/관계 목록입니다. 각 항목 앞의 [대괄호]는 기억 id입니다.
+
+{joined}{pair_section}
+
+두 가지를 JSON 객체 하나로만 답하세요.
+
+1. "insights": 여기서 도출할 수 있는 상위 통찰(사용자의 성향·상태·패턴에 대한 압축된 이해)을
+   1~3개. 근거가 부족하면 빈 배열 [].
+2. "superseded_ids": 더 이상 유효하지 않아 폐기해야 하는 기억의 id 배열. 같은 사실이 중복
+   저장된 경우 낡은 쪽 하나, 최신 정보와 모순되는 낡은 기억, 새 통찰이 대체하는 낡은 통찰이
+   대상입니다. **서로 양립할 수 있는 기억은 폐기하지 마세요** — 취향이 여러 개인 것은
+   모순이 아닙니다. 폐기할 것이 없으면 빈 배열 [].
 
 출력 형식 (JSON 외 다른 텍스트 금지):
-[{{"insight": "..."}}]"""
+{{"insights": ["..."], "superseded_ids": ["mem_..."]}}"""
 
 
-def parse_reflection_response(raw_text: str) -> list[str]:
+def parse_reflection_response(raw_text: str) -> tuple[list[str], list[str]]:
+    """(insights, superseded_ids)를 최대한 건져낸다.
+
+    단일 호출에 출력을 둘 얹는 구조의 약점은 파싱 실패 시 둘이 함께 소실되는 것이다.
+    한쪽만 형식이 어긋나면 그쪽만 버리고 나머지는 살린다 — 폐기 목록이 깨졌다고
+    그날 통찰까지 버리면 손해가 크다.
+    """
     if not raw_text:
-        return []
+        return [], []
     text = raw_text.strip()
-    start, end = text.find("["), text.rfind("]") + 1
+    start, end = text.find("{"), text.rfind("}") + 1
     if start == -1 or end <= start:
-        return []
+        return [], []
     try:
         data = json.loads(text[start:end])
     except (json.JSONDecodeError, ValueError):
-        return []
-    if not isinstance(data, list):
-        return []
+        return [], []
+    if not isinstance(data, dict):
+        return [], []
+
     insights = []
-    for item in data:
-        if isinstance(item, dict) and isinstance(item.get("insight"), str) and item["insight"].strip():
-            insights.append(item["insight"].strip())
-    return insights
+    raw_insights = data.get("insights")
+    if isinstance(raw_insights, list):
+        for item in raw_insights:
+            if isinstance(item, str) and item.strip():
+                insights.append(item.strip())
+
+    superseded_ids = []
+    raw_ids = data.get("superseded_ids")
+    if isinstance(raw_ids, list):
+        for item in raw_ids:
+            if isinstance(item, str) and item.strip():
+                superseded_ids.append(item.strip())
+
+    return insights, superseded_ids
 
 
 def _today_str() -> str:
@@ -80,10 +120,18 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
         return
 
     memories = await asyncio.to_thread(
-        collection.recent_memory_texts, uid, last, RECENT_MEMORY_LIMIT
+        collection.recent_memory_rows, uid, last, RECENT_MEMORY_LIMIT
     )
     if not memories:
         return
+
+    duplicate_pairs = await asyncio.to_thread(
+        collection.near_duplicate_pairs,
+        uid,
+        settings.REFLECTION_DUP_THRESHOLD,
+        settings.REFLECTION_DUP_PAIR_LIMIT,
+        settings.REFLECTION_DUP_SCAN_LIMIT,
+    )
 
     # 실제 LLM 호출 직전에만 전역 budget을 체크한다 — run_nightly_reflection의
     # 후보 순회 단계에서 미리 체크하면, 여기까지 오지 못하고 스킵될 uid(오늘 이미
@@ -95,21 +143,19 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
     try:
         res = await client.aio.models.generate_content(
             model=extract_model_id,
-            contents=build_reflection_prompt(memories),
+            contents=build_reflection_prompt(memories, duplicate_pairs),
             config=genai.types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        insights = parse_reflection_response(res.text)
+        insights, superseded_ids = parse_reflection_response(res.text)
     except Exception as e:
         print(f"Reflection LLM Error ({uid}): {e}")
         return
 
-    if not insights:
-        return
-
-    ids = [f"insight_{uid}_{os.urandom(4).hex()}" for _ in insights]
-    metas = [{"timestamp": timestamp, "uid": uid, "type": "insight", "importance": 8} for _ in insights]
-    await asyncio.to_thread(collection.add, uid, insights, metas, ids)
-    print(f"[Reflection Saved] {len(insights)} insight(s) for {uid}.")
+    if insights:
+        ids = [f"insight_{uid}_{os.urandom(4).hex()}" for _ in insights]
+        metas = [{"timestamp": timestamp, "uid": uid, "type": "insight", "importance": 8} for _ in insights]
+        await asyncio.to_thread(collection.add, uid, insights, metas, ids)
+        print(f"[Reflection Saved] {len(insights)} insight(s) for {uid}.")
 
 
 async def run_nightly_reflection() -> None:
