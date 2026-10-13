@@ -61,6 +61,11 @@ class PgMemoryCollection:
         cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS object TEXT")
         cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS importance INTEGER NOT NULL DEFAULT 5")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_user_memories_uid_type ON user_memories (uid, type)")
+        # consolidation: 모순으로 판정된 기억의 폐기 시각. NULL이면 유효한 기억이다.
+        # 실제 DELETE 대신 soft 마킹을 쓴다 — reflection이 오판했을 때 복구할 수 있고
+        # "AI가 왜 이걸 잊었나"를 추적할 수 있다.
+        # 스펙: docs/superpowers/specs/2026-09-28-memory-ownership-consolidation-design.md
+        cur.execute("ALTER TABLE user_memories ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ")
 
     def add(self, uid, documents, metadatas=None, ids=None):
         if not self.dsn:

@@ -139,7 +139,7 @@ def test_ensure_schema_adds_new_columns_to_pre_existing_old_schema_table():
         )
         columns = {r[0] for r in cur.fetchall()}
 
-    assert {"type", "subject", "predicate", "object", "importance"} <= columns
+    assert {"type", "subject", "predicate", "object", "importance", "superseded_at"} <= columns
 
 
 def test_ensure_schema_is_noop_safe_when_table_missing_entirely():
@@ -193,3 +193,12 @@ def test_active_insights_is_scoped_to_uid():
 
 def test_active_insights_returns_empty_for_unknown_uid():
     assert collection.active_insights("does-not-exist", 10) == []
+
+
+def test_add_leaves_superseded_at_null_by_default():
+    """새로 저장된 기억은 유효한 기억이다 — 폐기 표시가 없어야 한다."""
+    collection.add("u1", ["사실"], [{"timestamp": "t", "uid": "u1", "type": "fact"}], ["f1"])
+
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT superseded_at FROM user_memories WHERE id = %s", ("f1",))
+        assert cur.fetchone()[0] is None
