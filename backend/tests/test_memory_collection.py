@@ -1,6 +1,7 @@
 """user_memories 스키마 확장 — 구조화 컬럼(type/subject/predicate/object/importance) +
 insight 검색 가산점 검증. 실제 Gemini 임베딩 호출은 피하고 결정적 가짜 벡터를 쓴다."""
 from contextlib import closing
+from datetime import datetime
 
 import pytest
 
@@ -385,3 +386,49 @@ def test_query_exclude_recent_insights_skips_only_the_newest_n():
     collection.add("u2", ["남의통찰"], [{"timestamp": "2026-09-30T00:00:00+09:00", "uid": "u2", "type": "insight"}], ["x1"])
     docs = collection.query("u1", ["사실"], 10, exclude_recent_insights=2)["documents"][0]
     assert sorted(docs) == ["사실", "통찰1"]
+
+
+def test_mark_superseded_sets_timestamp_and_returns_count():
+    collection.add("u1", ["폐기 대상"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+
+    marked = collection.mark_superseded("u1", ["f1"], "2026-09-28T03:00:00+09:00")
+
+    assert marked == 1
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT superseded_at FROM user_memories WHERE id = 'f1'")
+        assert cur.fetchone()[0] is not None
+
+
+def test_mark_superseded_ignores_other_uids_rows():
+    """LLM이 다른 유저의 id를 반환해도 그 행을 건드려선 안 된다."""
+    collection.add("u2", ["남의 기억"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u2", "type": "fact"}], ["other"])
+
+    marked = collection.mark_superseded("u1", ["other"], "2026-09-28T03:00:00+09:00")
+
+    assert marked == 0
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT superseded_at FROM user_memories WHERE id = 'other'")
+        assert cur.fetchone()[0] is None
+
+
+def test_mark_superseded_ignores_unknown_ids():
+    assert collection.mark_superseded("u1", ["does-not-exist"], "2026-09-28T03:00:00+09:00") == 0
+
+
+def test_mark_superseded_does_not_overwrite_existing_timestamp():
+    """폐기 시점이 바뀌면 '언제 왜 잊었나'를 추적할 수 없다."""
+    collection.add("u1", ["이미 폐기"], [{"timestamp": "2026-09-01T00:00:00+09:00", "uid": "u1", "type": "fact"}], ["f1"])
+    collection.mark_superseded("u1", ["f1"], "2026-09-10T03:00:00+09:00")
+
+    marked = collection.mark_superseded("u1", ["f1"], "2026-09-28T03:00:00+09:00")
+
+    assert marked == 0
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT superseded_at FROM user_memories WHERE id = 'f1'")
+        # TIMESTAMPTZ는 DB 세션 타임존으로 돌아온다 — 문자열 비교는 UTC 세션에서
+        # '2026-09-09T18:00'이 되어 깨진다. aware datetime끼리 비교한다.
+        assert cur.fetchone()[0] == datetime.fromisoformat("2026-09-10T03:00:00+09:00")
+
+
+def test_mark_superseded_with_empty_ids_is_noop():
+    assert collection.mark_superseded("u1", [], "2026-09-28T03:00:00+09:00") == 0

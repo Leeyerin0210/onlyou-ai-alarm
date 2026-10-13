@@ -292,6 +292,28 @@ class PgMemoryCollection:
             print(f"near_duplicate_pairs warning: {e}")
             return []
 
+    def mark_superseded(self, uid: str, ids: list[str], ts: str) -> int:
+        """모순으로 판정된 기억을 폐기 마킹하고 실제 마킹된 행 수를 반환한다.
+
+        반드시 uid로 스코프한다 — LLM이 반환한 id를 그대로 쓰기 때문에, uid 조건이
+        없으면 다른 유저의 기억을 폐기할 수 있는 경로가 열린다.
+        이미 superseded_at이 있는 행은 덮어쓰지 않는다 — 폐기 시점이 바뀌면
+        "언제 왜 잊었나"를 추적할 수 없다.
+        """
+        if not self.dsn or not uid or not ids:
+            return 0
+        try:
+            with closing(self._conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE user_memories SET superseded_at = %s "
+                    "WHERE uid = %s AND id = ANY(%s) AND superseded_at IS NULL",
+                    (ts, uid, list(ids)),
+                )
+                return cur.rowcount
+        except Exception as e:
+            print(f"mark_superseded warning: {e}")
+            return 0
+
 
 # 벡터 기억 (PostgreSQL + pgvector)
 collection = PgMemoryCollection(settings.DATABASE_URL)

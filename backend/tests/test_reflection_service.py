@@ -352,3 +352,158 @@ def test_run_nightly_reflection_stops_batch_when_budget_exhausted(monkeypatch):
     asyncio.run(rs.run_nightly_reflection())
 
     assert processed == ["u1"]  # u2에서 소진 → u3는 시도조차 안 함
+
+
+def test_reflect_for_uid_saves_insights_and_supersedes(monkeypatch):
+    import services.reflection_service as rs
+
+    calls = {"added": [], "superseded": []}
+
+    class FakeCollection:
+        def last_insight_timestamp(self, uid):
+            return None
+
+        def pending_importance(self, uid, since):
+            return 999
+
+        def recent_memory_rows(self, uid, since, limit):
+            return [("mem_a", "민초를 좋아함"), ("mem_b", "민초가 싫어짐")]
+
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return [("mem_a", "민초를 좋아함", "mem_b", "민초가 싫어짐")]
+
+        def add(self, uid, docs, metas, ids):
+            calls["added"].append((uid, docs))
+
+        def mark_superseded(self, uid, ids, ts):
+            calls["superseded"].append((uid, ids, ts))
+            return len(ids)
+
+    monkeypatch.setattr(rs, "collection", FakeCollection())
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client",
+        _fake_gemini('{"insights": ["취향이 바뀌는 편이다"], "superseded_ids": ["mem_a"]}'),
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls["added"] == [("u1", ["취향이 바뀌는 편이다"])]
+    assert calls["superseded"] == [("u1", ["mem_a"], "2026-09-28T03:00:00+09:00")]
+
+
+def test_reflect_for_uid_supersedes_even_when_no_insight(monkeypatch):
+    """통찰이 없어도 폐기는 반영한다 — 모순 정리를 하루 미룰 이유가 없다."""
+    import services.reflection_service as rs
+
+    calls = {"added": 0, "superseded": []}
+
+    class FakeCollection:
+        def last_insight_timestamp(self, uid):
+            return None
+
+        def pending_importance(self, uid, since):
+            return 999
+
+        def recent_memory_rows(self, uid, since, limit):
+            return [("mem_a", "민초를 좋아함")]
+
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return []
+
+        def add(self, uid, docs, metas, ids):
+            calls["added"] += 1
+
+        def mark_superseded(self, uid, ids, ts):
+            calls["superseded"].append(ids)
+            return len(ids)
+
+    monkeypatch.setattr(rs, "collection", FakeCollection())
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client", _fake_gemini('{"insights": [], "superseded_ids": ["mem_a"]}')
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls["added"] == 0
+    assert calls["superseded"] == [["mem_a"]]
+
+
+def _supersede_fake_collection(calls, rows, pairs):
+    class FakeCollection:
+        def last_insight_timestamp(self, uid):
+            return None
+
+        def pending_importance(self, uid, since):
+            return 999
+
+        def recent_memory_rows(self, uid, since, limit):
+            return rows
+
+        def near_duplicate_pairs(self, uid, threshold, limit, scan_limit=200):
+            return pairs
+
+        def add(self, uid, docs, metas, ids):
+            pass
+
+        def mark_superseded(self, uid, ids, ts):
+            calls.append(ids)
+            return len(ids)
+
+    return FakeCollection()
+
+
+def test_reflect_for_uid_drops_ids_not_shown_in_prompt(monkeypatch):
+    """LLM이 프롬프트에 없던 id를 지어내면(남의 기억이든 내 기억이든) 폐기하지 않는다."""
+    import services.reflection_service as rs
+
+    calls = []
+    monkeypatch.setattr(
+        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함")], [])
+    )
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client", _fake_gemini('{"insights": [], "superseded_ids": ["mem_a", "mem_zzz"]}')
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls == [["mem_a"]]
+
+
+def test_reflect_for_uid_accepts_ids_that_appear_only_in_duplicate_pairs(monkeypatch):
+    import services.reflection_service as rs
+
+    calls = []
+    monkeypatch.setattr(
+        rs, "collection",
+        _supersede_fake_collection(
+            calls, [("mem_a", "최근 기억")], [("mem_old", "오래된 기억", "mem_older", "더 오래된 기억")]
+        ),
+    )
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client", _fake_gemini('{"insights": [], "superseded_ids": ["mem_older"]}')
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls == [["mem_older"]]
+
+
+def test_reflect_for_uid_skips_mark_superseded_when_all_ids_filtered_out(monkeypatch):
+    import services.reflection_service as rs
+
+    calls = []
+    monkeypatch.setattr(
+        rs, "collection", _supersede_fake_collection(calls, [("mem_a", "민초를 좋아함")], [])
+    )
+    monkeypatch.setattr(rs, "check_global_budget", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        rs, "client", _fake_gemini('{"insights": [], "superseded_ids": ["mem_zzz"]}')
+    )
+
+    asyncio.run(rs.reflect_for_uid("u1", "2026-09-28T03:00:00+09:00"))
+
+    assert calls == []

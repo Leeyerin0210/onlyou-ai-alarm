@@ -4,8 +4,10 @@ Generative Agents(Park et al., 2023)의 reflection 패턴을 1단계로 단순�
 원 논문의 질문 생성→재검색 단계는 생략하고 raw 기억에서 통찰을 바로 종합한다
 (LLM 호출 2회→1회, 비용 대비 이득이 크지 않다고 판단). LLM 출력 스키마는
 {"insights": [...], "superseded_ids": [...]} 객체이며, 한쪽만 깨져도 나머지는 살린다.
-트리거는 main.py의
-APScheduler가 매일 새벽 REFLECTION_HOUR에 run_nightly_reflection()을 호출한다.
+트리거는 main.py의 APScheduler가 매일 새벽 REFLECTION_HOUR에 run_nightly_reflection()을 호출한다.
+
+이 배치는 통찰 생성과 모순 해소를 한 호출에서 함께 한다 — 모순 판정을 위해 LLM
+호출을 따로 늘리지 않는다는 결정이다(스펙: 2026-09-28-memory-ownership-consolidation-design.md).
 """
 import asyncio
 import json
@@ -156,6 +158,16 @@ async def reflect_for_uid(uid: str, timestamp: str) -> None:
         metas = [{"timestamp": timestamp, "uid": uid, "type": "insight", "importance": 8} for _ in insights]
         await asyncio.to_thread(collection.add, uid, insights, metas, ids)
         print(f"[Reflection Saved] {len(insights)} insight(s) for {uid}.")
+
+    # 통찰이 없어도 폐기는 반영한다 — 모순 정리를 하루 미룰 이유가 없다.
+    # 프롬프트에 실제로 보여준 id만 허용 — LLM이 지어낸 id가 우연히 이 유저의 다른 기억과 일치해도 폐기하지 않는다.
+    shown_ids = {mid for mid, _ in memories} | {i for a, _, b, _ in duplicate_pairs for i in (a, b)}
+    superseded_ids = [i for i in superseded_ids if i in shown_ids]
+    if superseded_ids:
+        marked = await asyncio.to_thread(
+            collection.mark_superseded, uid, superseded_ids, timestamp
+        )
+        print(f"[Reflection Superseded] {marked}/{len(superseded_ids)} memory(ies) for {uid}.")
 
 
 async def run_nightly_reflection() -> None:
