@@ -182,6 +182,16 @@ com.onlyou.com
 
 ## 🚀 Local Development
 
+### 0. 한 줄로 서버 켜기 (권장)
+
+```bash
+./scripts/dev-server.sh        # api: localhost:8080 (에뮬레이터는 10.0.2.2:8080), db: localhost:5433
+```
+
+Docker Desktop 실행 → 기존 DB 컨테이너(`onlyou-ai-alarm-db-1`) 시작 → `backend/.venv`(없으면 생성) → FastAPI 자동 리로드 순으로 진행합니다.
+`Ctrl+C`로 서버를 끄고, DB까지 끄려면 `docker stop onlyou-ai-alarm-db-1`.
+API 키는 `backend/.env`에서 읽습니다. 새 워크트리라면 원래 체크아웃의 `backend/.env`·`backend/serviceAccountKey.json`을 복사해 오세요.
+
 ### 1. 백엔드 + DB (Docker)
 
 ```bash
