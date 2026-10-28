@@ -33,6 +33,9 @@ HISTORY_WINDOW = 30
 # 페르소나 응답 출력 상한 — 출력 토큰은 입력보다 단가가 몇 배 높다.
 # 메신저식 답변에는 넉넉하고, 장문 폭주만 차단하는 수준.
 MAX_OUTPUT_TOKENS = 512
+# gemini-3 계열은 답하기 전에 '생각' 토큰을 쓰고, 그것도 위 상한에 포함된다. 기본 수준이면
+# 대화 맥락이 길 때 생각이 상한을 거의 다 써서 답이 몇 글자에서 잘린다(MAX_TOKENS) — 낮춰 둔다.
+CHAT_THINKING_LEVEL = genai.types.ThinkingLevel.LOW
 
 # 일정 추출 프리필터용 단서 키워드 — 날짜 표현(dateparser)도 이 키워드도 없으면
 # 일정 추출 LLM 호출을 건너뛴다. 놓침이 손해이므로 넓게 잡는다 (의심되면 호출).
@@ -162,6 +165,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
                 config=genai.types.GenerateContentConfig(
                     system_instruction=system_prompt + "\n" + STATIC_CHAT_GUIDE,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
+                    thinking_config=genai.types.ThinkingConfig(thinking_level=CHAT_THINKING_LEVEL),
                 )
             )
 

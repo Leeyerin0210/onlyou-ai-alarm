@@ -25,6 +25,7 @@ def captured_system_instruction(monkeypatch):
 
     async def fake_stream(*, model, contents, config):
         captured["system_instruction"] = config.system_instruction
+        captured["config"] = config
         return _FakeStream()
 
     import core.ai
@@ -129,3 +130,12 @@ def test_no_insight_yet_renders_placeholder(client, captured_system_instruction)
     assert res.status_code == 200
     res.read()
     assert "아직 없음" in captured_system_instruction["system_instruction"]
+
+
+def test_chat_limits_thinking_so_reply_fits_output_cap(client, captured_system_instruction):
+    """생각 토큰이 출력 상한(512)을 다 써서 답이 잘리지 않도록 생각 수준을 낮춘다."""
+    from google import genai
+    _select_persona()
+    client.post("/chat/stream", json={"history": [], "message": "안녕", "skip_side_effects": True})
+    config = captured_system_instruction["config"]
+    assert config.thinking_config.thinking_level == genai.types.ThinkingLevel.LOW
