@@ -32,8 +32,13 @@ import kotlinx.coroutines.launch
 
 // 1. 프로필 관리
 @Composable
-fun ProfileEditScreen(onBack: () -> Unit) {
+fun ProfileEditScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewModel()) {
     val colors = MiyaTheme.colors
+    val context = LocalContext.current
+    val savedName by viewModel.name.collectAsState()
+    var name by remember(savedName) { mutableStateOf(savedName.orEmpty()) }
+    // ViewModel이 화면보다 오래 살아서 init만으로는 재진입 때 갱신되지 않는다
+    LaunchedEffect(Unit) { viewModel.refresh() }
     Column(Modifier.fillMaxSize().background(colors.background)) {
         com.onlyou.com.ui.components.MiyaTopAppBar("프로필 관리", onBack)
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -45,14 +50,26 @@ fun ProfileEditScreen(onBack: () -> Unit) {
             }
             Spacer(Modifier.height(32.dp))
             OutlinedTextField(
-                value = "루나", onValueChange = {}, label = { Text("이름") },
+                value = name, onValueChange = { if (it.length <= 20) name = it }, label = { Text("이름") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = colors.surfaceB, focusedBorderColor = colors.primary, unfocusedTextColor = colors.onSurfaceA)
             )
-            Spacer(Modifier.height(16.dp))
-            OutlinedTextField(
-                value = "당신의 일정을 함께 관리하는\nAI 비서 루나예요 \uD83C\uDF19", onValueChange = {}, label = { Text("소개") },
-                modifier = Modifier.fillMaxWidth().height(100.dp), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = colors.surfaceB, focusedBorderColor = colors.primary, unfocusedTextColor = colors.onSurfaceA)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "비서가 나를 부를 때 이 이름을 써요. (예: '{{user}} 오빠' → '${name.trim().ifEmpty { "예린" }} 오빠')",
+                fontSize = 12.sp, color = colors.neutral, modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
             )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = {
+                    viewModel.save(name) { ok ->
+                        Toast.makeText(context, if (ok) "저장했어요" else "저장하지 못했어요", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                enabled = name.isNotBlank() && name.trim() != savedName,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+            ) { Text("저장") }
         }
     }
 }

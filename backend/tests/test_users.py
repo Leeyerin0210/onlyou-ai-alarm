@@ -69,3 +69,20 @@ def test_delete_me_purges_all_user_data(client, monkeypatch):
         assert cur.fetchone()[0] == 0
     # 타인 페르소나는 남고 내 페르소나만 삭제된다
     assert remaining == {"p2"}
+
+
+def test_put_name_sets_profile_name(client):
+    res = client.put("/users/me/name", json={"name": "  예린 "})
+    assert res.status_code == 200
+    assert client.get("/users/me").json()["displayName"] == "예린"
+
+
+def test_login_profile_does_not_overwrite_edited_name(client):
+    client.put("/users/me/name", json={"name": "예린"})
+    client.put("/users/me", json={"displayName": "Yerin Lee", "email": "a@b.c", "photoUrl": ""})
+    body = client.get("/users/me").json()
+    assert (body["displayName"], body["email"]) == ("예린", "a@b.c")
+
+
+def test_put_name_rejects_blank(client):
+    assert client.put("/users/me/name", json={"name": "   "}).status_code == 422

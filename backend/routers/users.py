@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from core.rdb import get_conn
 from core.security import get_uid
-from models.schemas import UserProfileIn
+from models.schemas import UserNameIn, UserProfileIn
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -31,9 +31,22 @@ def put_me(body: UserProfileIn, uid: str = Depends(get_uid)):
         cur.execute(
             "INSERT INTO users (uid, display_name, email, photo_url) "
             "VALUES (%s,%s,%s,%s) "
-            "ON CONFLICT (uid) DO UPDATE SET display_name=EXCLUDED.display_name, "
+            # display_name은 프로필 이름이라 유저가 고친 값을 로그인 때마다 덮어쓰지 않는다
+            "ON CONFLICT (uid) DO UPDATE SET "
+            "display_name=COALESCE(users.display_name, EXCLUDED.display_name), "
             "email=EXCLUDED.email, photo_url=EXCLUDED.photo_url",
             (uid, body.displayName, body.email, body.photoUrl),
+        )
+    return {"ok": True}
+
+
+@router.put("/me/name")
+def put_my_name(body: UserNameIn, uid: str = Depends(get_uid)):
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO users (uid, display_name) VALUES (%s,%s) "
+            "ON CONFLICT (uid) DO UPDATE SET display_name=EXCLUDED.display_name",
+            (uid, body.name),
         )
     return {"ok": True}
 

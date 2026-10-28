@@ -136,6 +136,8 @@ private class FakeApiService(
 
     override suspend fun putMe(body: UserProfilePutDto): Response<Unit> = unused()
 
+    override suspend fun putMyName(body: com.onlyou.com.data.remote.UserNamePutDto): Response<Unit> = unused()
+
     override suspend fun deleteMe(): Response<Unit> = unused()
 
     override suspend fun getSchedules(): List<ScheduleDto> = unused()

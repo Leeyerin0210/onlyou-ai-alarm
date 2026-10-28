@@ -59,6 +59,9 @@ class AlarmActivity : ComponentActivity() {
     @Inject
     lateinit var weatherRepository: WeatherRepository
 
+    @Inject
+    lateinit var userProfileRepository: com.onlyou.com.domain.repository.UserProfileRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -120,9 +123,14 @@ class AlarmActivity : ComponentActivity() {
                 schedules.filter { com.onlyou.com.util.occursOn(it, now) }.sortedBy { it.startTime }
             }
 
+            // 프로필 이름이 바뀌었을 수 있으니 서버 값으로 갱신 (실패하면 저장된 이름 사용)
+            LaunchedEffect(Unit) { userProfileRepository.refresh() }
+
             LaunchedEffect(todaySchedules, personaId) {
                 if (persona == null) {
+                    // 알람의 personaId가 없는 비서(기본값 등)면 대본 생성과 같이 선택된 비서로 폴백
                     persona = personaRepository.getAllPersonas().first().find { it.id == personaId }
+                        ?: personaRepository.getSelectedPersona().first()
                 }
 
                 scope.launch {
@@ -164,6 +172,7 @@ class AlarmActivity : ComponentActivity() {
             MiyaTheme {
                 MorningBriefingContent(
                     persona = persona,
+                    userName = userProfileRepository.name.collectAsState().value,
                     title = alarmTitle,
                     weatherInfos = weatherInfos,
                     schedules = todaySchedules,
@@ -228,12 +237,15 @@ fun buildBriefingSummary(
 @Composable
 fun MorningBriefingContent(
     persona: Persona?,
+    userName: String?,
     title: String,
     weatherInfos: List<WeatherInfo>,
     schedules: List<com.onlyou.com.domain.model.AiSchedule>,
     onDismiss: () -> Unit,
 ) {
-    val callSign = persona?.userCallSign ?: "주인님"
+    val callSign = com.onlyou.com.util.renderCallSign(persona?.userCallSign ?: "", userName)
+        .ifEmpty { com.onlyou.com.util.NO_NAME_CALL_SIGN }
+    val greeting = com.onlyou.com.util.morningGreeting(callSign, persona?.presetKey)
 
     val bgGradient = Brush.verticalGradient(
         listOf(
@@ -251,8 +263,8 @@ fun MorningBriefingContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                // 상태바를 숨기므로 statusBarsPadding은 0이 된다 — 카메라 컷아웃까지 포함한 safeDrawing으로 비킨다
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
@@ -276,14 +288,14 @@ fun MorningBriefingContent(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = "좋은 아침이에요, $callSign! ☀️",
+                            text = greeting.title,
                             color = Color.White,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "오늘도 멋진 하루가 될 거예요.",
+                            text = greeting.subtitle,
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 14.sp,
                         )

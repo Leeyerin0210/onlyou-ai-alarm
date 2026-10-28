@@ -50,3 +50,10 @@ def test_falls_back_when_selected_row_is_gone(client):
 def test_null_call_sign_uses_default(client):
     _insert_persona("p1", "casual_warm", "미야", None)
     assert load_active_persona(TEST_UID).user_call_sign == DEFAULT_CALL_SIGN
+
+
+def test_call_sign_renders_user_name(client):
+    _insert_persona("p1", "casual_warm", "아라", "{{user}}야")
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("UPDATE users SET display_name = '예린' WHERE uid = %s", (TEST_UID,))
+    assert load_active_persona(TEST_UID).user_call_sign == "예린아"

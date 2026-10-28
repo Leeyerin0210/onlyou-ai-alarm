@@ -182,10 +182,10 @@ fun PersonaEditContent(
                             value = persona.userCallSign,
                             onValueChange = { onUpdatePersona(persona.copy(userCallSign = it)) },
                             maxLength = 20,
-                            placeholder = "비서가 나를 부를 호칭을 입력해주세요 (예: 지현님, 마스터, 대표님)"
+                            placeholder = "예: {{user}}님, {{user}} 오빠, 대표님"
                         )
                         Spacer(Modifier.height(6.dp))
-                        Text("비서가 대화 중 나를 부를 때 사용할 호칭이에요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                        Text("{{user}}라고 쓰면 프로필 이름으로 바뀌어요. ({{user}} 오빠 → 예린 오빠)", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
                     }
 
                     // 성격 프리셋 섹션

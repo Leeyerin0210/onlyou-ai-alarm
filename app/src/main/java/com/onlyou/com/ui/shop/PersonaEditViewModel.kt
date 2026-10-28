@@ -55,7 +55,7 @@ class PersonaEditViewModel
                             name = "",
                             description = "",
                             presetKey = "",
-                            userCallSign = "주인님",
+                            userCallSign = "{{user}}님",
                             isSelected = false,
                         ),
                     )

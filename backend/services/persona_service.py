@@ -6,11 +6,14 @@
 from contextlib import closing
 from dataclasses import dataclass
 
+from core.call_sign import render_call_sign
 from core.rdb import get_conn
 
 # 선택된 페르소나가 없을 때 쓰는 값. 조회 실패로 대화가 끊기는 것보다 낫다.
 DEFAULT_PERSONA_NAME = "온리유"
 DEFAULT_CALL_SIGN = "주인님"
+# 호칭이 '{{user}}아'처럼 이름에 기대는데 프로필 이름이 없을 때
+NO_NAME_CALL_SIGN = "사용자님"
 
 
 @dataclass(frozen=True)
@@ -23,7 +26,7 @@ class ActivePersona:
 def load_active_persona(uid: str) -> ActivePersona:
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT p.preset_key, p.name, p.user_call_sign "
+            "SELECT p.preset_key, p.name, p.user_call_sign, u.display_name "
             "FROM users u JOIN personas p ON p.id = u.selected_persona_id "
             "WHERE u.uid = %s",
             (uid,),
@@ -31,9 +34,9 @@ def load_active_persona(uid: str) -> ActivePersona:
         row = cur.fetchone()
     if row is None:
         return ActivePersona(None, DEFAULT_PERSONA_NAME, DEFAULT_CALL_SIGN)
-    preset_key, name, call_sign = row
+    preset_key, name, call_sign, user_name = row
     return ActivePersona(
         preset_key=preset_key,
         name=name or DEFAULT_PERSONA_NAME,
-        user_call_sign=call_sign or DEFAULT_CALL_SIGN,
+        user_call_sign=render_call_sign(call_sign or DEFAULT_CALL_SIGN, user_name, NO_NAME_CALL_SIGN),
     )

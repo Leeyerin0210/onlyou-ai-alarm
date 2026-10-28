@@ -37,6 +37,7 @@ class VoiceRepositoryImpl
         private val apiService: MiyaApiService,
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
         private val weatherRepository: WeatherRepository,
+        private val userProfileRepository: com.onlyou.com.domain.repository.UserProfileRepository,
     ) : VoiceRepository {
         override suspend fun synthesizeVoiceCloned(
             text: String,
@@ -126,11 +127,11 @@ class VoiceRepositoryImpl
                             }
                         }
                     } else {
-                        emit("${persona.userCallSign}, 좋은 아침이에요! 오늘도 화이팅하세요.")
+                        emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey).fallbackScript)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    emit("${persona.userCallSign}, 좋은 아침이에요! 오늘도 화이팅하세요.")
+                    emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey).fallbackScript)
                 }
             }.flowOn(Dispatchers.IO)
 

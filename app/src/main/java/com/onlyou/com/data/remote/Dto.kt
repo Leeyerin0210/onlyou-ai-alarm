@@ -110,6 +110,10 @@ data class UserProfilePutDto(
     val photoUrl: String?,
 )
 
+data class UserNamePutDto(
+    val name: String,
+)
+
 data class ScheduleDto(
     val id: String,
     val date: String? = null,

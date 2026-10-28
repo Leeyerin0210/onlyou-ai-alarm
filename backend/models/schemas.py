@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
@@ -85,6 +85,20 @@ class UserProfileIn(BaseModel):
     displayName: Optional[str] = Field(default=None, max_length=200)
     email: Optional[str] = Field(default=None, max_length=320)
     photoUrl: Optional[str] = Field(default=None, max_length=2_000)
+
+
+class UserNameIn(BaseModel):
+    """프로필 이름 — 비서 호칭의 {{user}} 자리에 들어간다."""
+    name: str = Field(min_length=1, max_length=20)
+
+    @field_validator("name")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("name is blank")
+        return v
+
 
 class ScheduleIn(BaseModel):
     date: Optional[str] = Field(default=None, max_length=32)

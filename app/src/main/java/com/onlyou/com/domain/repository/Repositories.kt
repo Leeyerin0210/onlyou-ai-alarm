@@ -170,3 +170,13 @@ interface DndSettingsRepository {
 
     suspend fun setDays(days: Set<Int>)
 }
+
+/** 프로필 이름 — 비서 호칭의 {{user}} 자리에 들어간다. 알람 화면이 오프라인에서도 쓰도록 로컬에 둔다. */
+interface UserProfileRepository {
+    val name: StateFlow<String?>
+
+    /** 서버 값으로 로컬을 갱신한다. 실패하면 로컬 값을 유지한다. */
+    suspend fun refresh()
+
+    suspend fun setName(name: String): Result<Unit>
+}
