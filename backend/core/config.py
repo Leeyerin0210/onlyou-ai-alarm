@@ -29,6 +29,12 @@ class Settings:
     # 서버리스 TTS (Modal) — tts-server/modal_app.py 배포 후 URL/키 설정
     TTS_SERVER_URL = os.getenv("TTS_SERVER_URL", "")
     TTS_API_KEY = os.getenv("TTS_API_KEY", "")
+    # [로컬 개발 전용] 설정하면 Gemini 대신 Ollama(core/local_llm.py)를 부른다 (예: http://localhost:11434)
+    LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "")
+    LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma3:12b")
+    LOCAL_EMBED_MODEL = os.getenv("LOCAL_EMBED_MODEL", "bge-m3")
+    # [로컬·시연 전용] 알람 대본을 LLM 대신 이 파일에서 읽는다 (backend/ 기준 상대 경로 가능)
+    ALARM_DEMO_SCRIPT_FILE = os.getenv("ALARM_DEMO_SCRIPT_FILE", "")
     # 참조 음성 영구 저장용 Firebase Storage 버킷 (예: my-project.firebasestorage.app)
     FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET", "")
     # 벡터 기억용 PostgreSQL + pgvector (예: postgresql://user:pass@host:5432/dbname)

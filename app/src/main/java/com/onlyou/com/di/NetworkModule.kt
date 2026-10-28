@@ -36,7 +36,9 @@ object NetworkModule {
             .Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            .readTimeout(60, TimeUnit.SECONDS) // 스트리밍이므로 타임아웃을 넉넉히 잡음
+            // 스트리밍이므로 타임아웃을 넉넉히 잡음. 디버그는 Mac 로컬 TTS(tts-server/local_app.py)가
+            // 알람 대본 전체를 합성하는 데 1분 넘게 걸려 더 길게 둔다
+            .readTimeout(if (BuildConfig.DEBUG) 300L else 60L, TimeUnit.SECONDS)
             .connectTimeout(60, TimeUnit.SECONDS)
             .build()
     }

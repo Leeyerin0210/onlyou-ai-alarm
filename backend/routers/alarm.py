@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -30,6 +31,22 @@ BRIEFING_FACT_LIMIT = 5
 # 앱이 보낼 수 있는 컨텍스트 종류 — 기기에만 있는 정보뿐이다.
 # 기억 계열(PREFERENCE/STATE/USER_NOTE 등)이 섞여 와도 프롬프트에 넣지 않는다.
 ALLOWED_CONTEXT_TYPES = {"SCHEDULE", "WEATHER"}
+
+
+def load_demo_script() -> str | None:
+    """[로컬·시연 전용] ALARM_DEMO_SCRIPT_FILE이 가리키는 파일이 있으면 LLM 대신 그 대본을 쓴다.
+    상대 경로는 backend/ 기준. 한 줄이 한 문장(=TTS 한 조각)이 된다."""
+    path = settings.ALARM_DEMO_SCRIPT_FILE
+    if not path:
+        return None
+    if not os.path.isabs(path):
+        path = os.path.join(os.path.dirname(os.path.dirname(__file__)), path)
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read().strip()
+    except FileNotFoundError:
+        return None
+    return text or None
 
 
 def build_memory_context(uid: str) -> str:
@@ -94,8 +111,10 @@ async def generate_alarm_script(request: AlarmScriptRequest, uid: str = Depends(
     persona = await asyncio.to_thread(load_active_persona, uid)
     prompt = build_prompt(persona, request, mem_str)
 
-    res = await client.aio.models.generate_content(model=model_id, contents=prompt)
-    full_text = (res.text or "").strip()
+    full_text = load_demo_script()
+    if full_text is None:
+        res = await client.aio.models.generate_content(model=model_id, contents=prompt)
+        full_text = (res.text or "").strip()
     
     # 문장 기호(. ! ? \n)를 기준으로 분할 후, GPU 비용 상한을 위해 청크 수 제한
     raw_chunks = re.split(r'(?<=[.!?\n])', full_text)
@@ -111,6 +130,10 @@ async def generate_alarm_script_stream(request: AlarmScriptRequest, uid: str = D
     persona = await asyncio.to_thread(load_active_persona, uid)
 
     async def event_generator():
+        demo = load_demo_script()
+        if demo is not None:
+            yield sse_data(demo)
+            return
         prompt = build_prompt(persona, request, mem_str)
         stream = await client.aio.models.generate_content_stream(model=model_id, contents=prompt)
         async for chunk in stream:

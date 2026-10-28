@@ -11,6 +11,10 @@ import os
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql://onlyou:onlyou@localhost:5432/onlyou_test"
 )
+# 로컬 개발용 스위치가 backend/.env에 켜져 있어도 테스트는 기본 경로(Gemini·LLM 대본)를 본다.
+# load_dotenv는 이미 있는 환경변수를 덮지 않으므로 빈 값으로 먼저 고정한다.
+os.environ["LOCAL_LLM_URL"] = ""
+os.environ["ALARM_DEMO_SCRIPT_FILE"] = ""
 
 from contextlib import closing
 

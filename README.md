@@ -192,6 +192,21 @@ Docker Desktop 실행 → 기존 DB 컨테이너(`onlyou-ai-alarm-db-1`) 시작 
 `Ctrl+C`로 서버를 끄고, DB까지 끄려면 `docker stop onlyou-ai-alarm-db-1`.
 API 키는 `backend/.env`에서 읽습니다. 새 워크트리라면 원래 체크아웃의 `backend/.env`·`backend/serviceAccountKey.json`을 복사해 오세요.
 
+#### Gemini·Modal 없이 로컬 AI로 돌리기
+
+`backend/.env`에 아래를 넣으면 LLM은 Ollama, 목소리는 Mac에서 도는 Qwen3-TTS를 씁니다. (운영에서는 쓰지 말 것)
+
+```bash
+LOCAL_LLM_URL=http://localhost:11434      # LOCAL_LLM_MODEL(기본 gemma3:12b)·LOCAL_EMBED_MODEL(기본 bge-m3)
+TTS_SERVER_URL=http://localhost:8001
+TTS_API_KEY=<아무 긴 문자열>
+```
+
+```bash
+ollama pull gemma3:12b && ollama pull bge-m3   # 최초 1회
+./scripts/dev-tts.sh                            # 로컬 TTS 서버 (별도 터미널, 첫 요청 때 모델 로드)
+```
+
 ### 1. 백엔드 + DB (Docker)
 
 ```bash

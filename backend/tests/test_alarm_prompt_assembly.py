@@ -156,3 +156,31 @@ def test_route_assembles_prompt_from_server_memories_and_app_context(client, mon
     assert "어제 야근했다" in prompt
     assert "[오늘 일정] 09:00 - 치과" in prompt
     assert "민초를 좋아함" not in prompt
+
+
+def test_demo_script_file_replaces_llm(client, monkeypatch, tmp_path):
+    """ALARM_DEMO_SCRIPT_FILE이 있으면 LLM을 부르지 않고 그 대본을 줄 단위 조각으로 돌려준다."""
+    import routers.alarm as alarm_router
+    from core.config import settings
+
+    script = tmp_path / "demo.txt"
+    script.write_text("예린아, 좋은 아침!\n오늘 발표 있는 거 알지?\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "ALARM_DEMO_SCRIPT_FILE", str(script))
+    fake_client, captured = _fake_gemini("LLM이 쓴 대본")
+    monkeypatch.setattr(alarm_router, "client", fake_client)
+
+    res = client.post("/alarm/script", json={"context_items": []})
+
+    assert res.json()["chunks"] == ["예린아, 좋은 아침!", "오늘 발표 있는 거 알지?"]
+    assert "contents" not in captured
+
+
+def test_missing_demo_script_file_falls_back_to_llm(client, monkeypatch, tmp_path):
+    import routers.alarm as alarm_router
+    from core.config import settings
+
+    monkeypatch.setattr(settings, "ALARM_DEMO_SCRIPT_FILE", str(tmp_path / "없음.txt"))
+    fake_client, _ = _fake_gemini("좋은 아침이에요.")
+    monkeypatch.setattr(alarm_router, "client", fake_client)
+
+    assert client.post("/alarm/script", json={"context_items": []}).json()["chunks"] == ["좋은 아침이에요."]
