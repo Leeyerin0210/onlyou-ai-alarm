@@ -15,19 +15,19 @@ SYSTEM_CREATOR = "QK876dED1mZPwXqApiePEchoObv2"
 PERSONAS = [
     {
         "id": "official_polite_brief", "preset_key": "polite_brief",
-        "name": "루나", "user_call_sign": "사용자님",
+        "name": "루나", "user_call_sign": "{{user}}님",
         "primary_hex": "#6495ED", "secondary_hex": "#F0F8FF",
         "tags": ["일정", "차분"],
     },
     {
         "id": "official_casual_warm", "preset_key": "casual_warm",
-        "name": "하루", "user_call_sign": "너",
+        "name": "하루", "user_call_sign": "{{user}}야",
         "primary_hex": "#FFB7C5", "secondary_hex": "#FFF0F5",
         "tags": ["아침", "다정"],
     },
     {
         "id": "official_casual_blunt", "preset_key": "casual_blunt",
-        "name": "도윤", "user_call_sign": "야",
+        "name": "도윤", "user_call_sign": "{{user}}",
         "primary_hex": "#5C6B73", "secondary_hex": "#E8EDF0",
         "tags": ["직설", "유머"],
     },
