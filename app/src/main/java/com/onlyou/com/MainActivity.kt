@@ -27,6 +27,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Storefront
@@ -206,7 +209,11 @@ class MainActivity : ComponentActivity() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(bottom = bottomPadding),
+                                    .padding(bottom = bottomPadding)
+                                    // 키보드가 뜨면 화면을 키보드 위까지만 쓴다. 하단 탭 자리(bottomPadding)는
+                                    // 이미 비워 뒀으므로 그만큼은 빼고 나머지만 올린다.
+                                    .consumeWindowInsets(PaddingValues(bottom = bottomPadding))
+                                    .imePadding(),
                             ) {
                                 if (isMainTab) {
                                     HorizontalPager(

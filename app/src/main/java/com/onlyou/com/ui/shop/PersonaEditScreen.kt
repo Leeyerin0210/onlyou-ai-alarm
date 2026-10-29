@@ -305,7 +305,9 @@ fun CustomCounterTextField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 24.dp), // Space for counter
-                minLines = minLines
+                // 칸 높이는 고정 — 줄이 넘치면 늘어나지 않고 윗줄이 위로 밀려 안에서 스크롤된다
+                minLines = minLines,
+                maxLines = minLines,
             )
 
             if (value.isEmpty()) {

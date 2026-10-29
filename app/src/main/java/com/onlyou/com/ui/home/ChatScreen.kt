@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -514,8 +513,8 @@ fun ChatInputSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
-            .navigationBarsPadding()
-            .imePadding(),
+            // 키보드 높이는 MainActivity가 화면 전체에 한 번만 반영한다 — 여기서 또 더하면 두 배로 뜬다
+            .navigationBarsPadding(),
         shape = RoundedCornerShape(28.dp),
         tonalElevation = 4.dp,
         shadowElevation = 1.dp,
@@ -538,7 +537,9 @@ fun ChatInputSection(
                     focusedTextColor = colors.onSurfaceA,
                     unfocusedTextColor = colors.onSurfaceA,
                 ),
-                maxLines = 3,
+                // 입력창 높이는 한 줄로 고정 — 줄바꿈하면 윗줄이 위로 밀려 안에서 스크롤된다
+                singleLine = false,
+                maxLines = 1,
             )
 
             IconButton(
