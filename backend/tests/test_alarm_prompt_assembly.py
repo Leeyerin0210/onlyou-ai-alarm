@@ -1,4 +1,4 @@
-from core.presets import PRESETS
+from core.presets import legacy_fields
 from core.prompt_builder import build_alarm_persona_block
 from routers.alarm import build_prompt
 from services.persona_service import ActivePersona
@@ -6,20 +6,20 @@ from models.schemas import AlarmScriptRequest
 
 
 def test_build_prompt_uses_server_side_persona():
-    persona = ActivePersona(preset_key="casual_warm", name="미야", user_call_sign="주인님")
+    persona = ActivePersona(fields=legacy_fields("casual_warm"), name="미야", user_call_sign="주인님")
     request = AlarmScriptRequest()
     out = build_prompt(persona, request, "오늘 병원 예약")
-    assert PRESETS["casual_warm"].prompt in out
+    assert legacy_fields("casual_warm").speech_style in out
     assert "미야" in out
     assert "주인님" in out
     assert "오늘 병원 예약" in out
 
 
 def test_build_prompt_keeps_jailbreak_guard():
-    persona = ActivePersona(preset_key=None, name="온리유", user_call_sign="주인님")
+    persona = ActivePersona(fields=legacy_fields(None), name="온리유", user_call_sign="주인님")
     out = build_prompt(persona, AlarmScriptRequest(), "")
     assert "탈옥" in out
-    assert build_alarm_persona_block(None) in out
+    assert build_alarm_persona_block(legacy_fields(None)) in out
 
 
 def test_legacy_persona_fields_are_ignored():

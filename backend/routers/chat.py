@@ -123,7 +123,7 @@ async def chat_stream(request: ChatRequest, background_tasks: BackgroundTasks, u
     persona = await asyncio.to_thread(load_active_persona, uid)
     insights = await asyncio.to_thread(collection.active_insights, uid, ACTIVE_INSIGHT_LIMIT)
     system_prompt = build_chat_system_prompt(
-        persona.preset_key, persona.name, persona.user_call_sign, insights
+        persona.fields, persona.name, persona.user_call_sign, insights
     )
 
     # 초성 웃음·짧은 감탄사 등은 추출할 게 없으므로 기억 추출 LLM 호출을 건너뛴다

@@ -231,9 +231,10 @@ def test_alarm_prompt_limits_sentences_and_chunks_are_capped(client, monkeypatch
     import routers.alarm as alarm_router
     from routers.alarm import MAX_SCRIPT_CHUNKS, build_prompt
     from models.schemas import AlarmScriptRequest
+    from core.presets import legacy_fields
     from services.persona_service import ActivePersona
 
-    persona = ActivePersona(preset_key=None, name="p", user_call_sign="u")
+    persona = ActivePersona(fields=legacy_fields(None), name="p", user_call_sign="u")
     prompt = build_prompt(persona, AlarmScriptRequest(recent_memories=[]), "")
     assert "6문장 이내" in prompt
 

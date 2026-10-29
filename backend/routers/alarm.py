@@ -76,7 +76,7 @@ def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: s
     다음 지침을 엄격히 따라 아침 기상 알람 스크립트를 작성하세요.
 
     [페르소나 성격/지침]
-    {build_alarm_persona_block(persona.preset_key)}
+    {build_alarm_persona_block(persona.fields)}
 
     [사용자 호칭]
     {persona.user_call_sign}
