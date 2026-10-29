@@ -26,6 +26,13 @@ class Settings:
     REFLECTION_DUP_PAIR_LIMIT = int(os.getenv("REFLECTION_DUP_PAIR_LIMIT", "10"))
     REFLECTION_DUP_SCAN_LIMIT = int(os.getenv("REFLECTION_DUP_SCAN_LIMIT", "200"))
     GLOBAL_REFLECT_DAILY_LIMIT = int(os.getenv("GLOBAL_REFLECT_DAILY_LIMIT", "20000"))
+    # 비서 공개 심사·신고 (스펙: 2026-10-13-presets-removal-design.md)
+    # 공개 저장 1회 = 심사 LLM 1회. 유저 상한을 넘기면 저장은 비공개로 진행한다.
+    MODERATION_USER_DAILY_LIMIT = int(os.getenv("MODERATION_USER_DAILY_LIMIT", "20"))
+    GLOBAL_MODERATION_DAILY_LIMIT = int(os.getenv("GLOBAL_MODERATION_DAILY_LIMIT", "5000"))
+    # 이 수만큼 서로 다른 유저가 신고하면 비공개 + 잠금
+    REPORT_LOCK_THRESHOLD = int(os.getenv("REPORT_LOCK_THRESHOLD", "3"))
+    REPORT_USER_DAILY_LIMIT = int(os.getenv("REPORT_USER_DAILY_LIMIT", "10"))
     # 서버리스 TTS (Modal) — tts-server/modal_app.py 배포 후 URL/키 설정
     TTS_SERVER_URL = os.getenv("TTS_SERVER_URL", "")
     TTS_API_KEY = os.getenv("TTS_API_KEY", "")
