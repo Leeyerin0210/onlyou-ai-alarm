@@ -86,3 +86,16 @@ def test_login_profile_does_not_overwrite_edited_name(client):
 
 def test_put_name_rejects_blank(client):
     assert client.put("/users/me/name", json={"name": "   "}).status_code == 422
+
+
+def test_delete_me_removes_reports_filed_and_received(client):
+    from core.rdb import get_conn
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO personas (id, name, creator_id) VALUES ('mine','x','test-uid'), ('other','x','someone')")
+        cur.execute(
+            "INSERT INTO persona_reports (persona_id, reporter_uid, reason) VALUES "
+            "('other','test-uid','r'), ('mine','a','r'), ('other','b','r')")
+    assert client.delete("/users/me").status_code == 200
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT persona_id, reporter_uid FROM persona_reports ORDER BY 1, 2")
+        assert cur.fetchall() == [("other", "b")]

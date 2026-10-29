@@ -148,11 +148,16 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
             "name=EXCLUDED.name, description=EXCLUDED.description, "
             "user_call_sign=EXCLUDED.user_call_sign, "
             "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
-            "is_private=EXCLUDED.is_private, updated_at=EXCLUDED.updated_at, "
+            # 심사 중 신고로 잠겼다면 공개로 되돌리지 않는다
+            "is_private=(EXCLUDED.is_private OR personas.report_locked_at IS NOT NULL), "
+            "updated_at=EXCLUDED.updated_at, "
             "preset_key=COALESCE(EXCLUDED.preset_key, personas.preset_key), "
             "tags=COALESCE(%s::text[], personas.tags), "
             "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, "
-            "role=EXCLUDED.role",
+            "role=EXCLUDED.role "
+            # 동시에 같은 새 id를 올린 다른 유저의 행을 덮어쓰지 않는다
+            "WHERE personas.creator_id = EXCLUDED.creator_id "
+            "RETURNING is_private, report_locked_at IS NOT NULL",
             # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
             # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
             (persona_id, body.name, body.description, body.userCallSign,
@@ -160,6 +165,12 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
              is_private, body.updatedAt, body.presetKey, tags,
              fields.speech_style, fields.personality, fields.role, tags),
         )
+        saved = cur.fetchone()
+    if saved is None:
+        raise HTTPException(status_code=403, detail="not owner")
+    is_private, locked = saved
+    if locked:
+        moderation = ModerationResult("locked")
     return {"ok": True, "isPrivate": is_private, "moderation": _moderation_payload(moderation)}
 
 
@@ -173,6 +184,8 @@ def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
         if row[0] != uid:
             raise HTTPException(status_code=403, detail="not owner")
         cur.execute("DELETE FROM personas WHERE id = %s", (persona_id,))
+        # 같은 id로 다시 만든 비서가 옛 신고를 물려받지 않도록 함께 지운다
+        cur.execute("DELETE FROM persona_reports WHERE persona_id = %s", (persona_id,))
     return {"ok": True}
 
 

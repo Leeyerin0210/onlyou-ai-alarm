@@ -229,3 +229,4 @@ def cleanup_removed_personas():
                 (pid,),
             )
             cur.execute("DELETE FROM personas WHERE id = %s", (pid,))
+            cur.execute("DELETE FROM persona_reports WHERE persona_id = %s", (pid,))

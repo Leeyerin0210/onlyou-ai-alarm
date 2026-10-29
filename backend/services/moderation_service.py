@@ -79,6 +79,7 @@ def parse_moderation_response(raw_text: str | None) -> ModerationResult:
     if allowed is False:
         reason = data.get("reason")
         reason = reason.strip() if isinstance(reason, str) and reason.strip() else DEFAULT_REJECT_REASON
+        reason = reason[:200]
         return ModerationResult("rejected", reason)
     return ModerationResult("unavailable")
 

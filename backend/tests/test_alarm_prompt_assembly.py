@@ -184,3 +184,10 @@ def test_missing_demo_script_file_falls_back_to_llm(client, monkeypatch, tmp_pat
     monkeypatch.setattr(alarm_router, "client", fake_client)
 
     assert client.post("/alarm/script", json={"context_items": []}).json()["chunks"] == ["좋은 아침이에요."]
+
+
+def test_build_prompt_reemphasis_covers_persona_definition():
+    persona = ActivePersona(fields=legacy_fields(None), name="온리유", user_call_sign="주인님")
+    out = build_prompt(persona, AlarmScriptRequest(), "")
+    tail = out.split("[보안 지시사항 재강조]")[1]
+    assert "<persona_definition>" in tail

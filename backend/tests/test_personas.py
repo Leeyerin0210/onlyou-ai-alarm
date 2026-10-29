@@ -348,3 +348,55 @@ def test_list_returns_fields_lock_flag_and_legacy_prompt(client, mod_calls):
     assert item["reportLocked"] is False
     assert item["isOfficial"] is False
     assert item["prompt"] == compose_legacy_prompt(PersonaFields("반말", "툴툴댐", "룸메이트"))
+
+
+def test_upsert_does_not_unlock_persona_locked_during_moderation(client, monkeypatch):
+    """심사 중 3번째 신고로 잠기면, 저장이 공개로 되돌려선 안 된다."""
+    from contextlib import closing
+    from core.rdb import get_conn
+    import routers.personas as pr
+
+    client.put("/personas/p1", json=_persona_body(private=True))
+
+    def fake(uid, name, description, tags, fields):
+        with closing(get_conn()) as conn, conn.cursor() as cur:
+            cur.execute("UPDATE personas SET is_private=TRUE, report_locked_at=now() WHERE id='p1'")
+        return ModerationResult("approved")
+
+    monkeypatch.setattr(pr, "moderate_persona", fake)
+    res = client.put("/personas/p1", json=_persona_body(name="바뀐이름"))
+    assert res.json() == {"ok": True, "isPrivate": True,
+                          "moderation": {"status": "locked", "reason": ""}}
+    assert _row("p1")[0] is True
+
+
+def test_delete_persona_removes_its_reports(client):
+    from contextlib import closing
+    from core.rdb import get_conn
+    client.put("/personas/p1", json=_persona_body())
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO persona_reports (persona_id, reporter_uid, reason) VALUES ('p1','a','x')")
+    assert client.delete("/personas/p1").status_code == 200
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM persona_reports WHERE persona_id='p1'")
+        assert cur.fetchone()[0] == 0
+
+
+def test_upsert_race_with_other_owner_returns_403_and_keeps_row(client, monkeypatch):
+    """사전 확인은 통과했지만(행 없음) 심사 중 다른 유저가 같은 id를 먼저 저장한 경합."""
+    from contextlib import closing
+    from core.rdb import get_conn
+    import routers.personas as pr
+
+    def fake(uid, name, description, tags, fields):
+        with closing(get_conn()) as conn, conn.cursor() as cur:
+            cur.execute("INSERT INTO personas (id, name, creator_id) VALUES ('p1', '남의것', 'other-uid')")
+        return ModerationResult("approved")
+
+    monkeypatch.setattr(pr, "moderate_persona", fake)
+    res = client.put("/personas/p1", json=_persona_body())
+    assert res.status_code == 403
+    from contextlib import closing as c2
+    with c2(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT name, creator_id FROM personas WHERE id = 'p1'")
+        assert cur.fetchone() == ("남의것", "other-uid")

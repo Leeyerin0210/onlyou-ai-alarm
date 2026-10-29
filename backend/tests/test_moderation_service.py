@@ -117,3 +117,9 @@ def test_prompt_cannot_break_out_of_persona_block():
     # 열기 태그는 안내문 1회(설명용 언급) + 실제 구획 1회 = 2회. 유저가 만든 열기 태그는 없어야 한다.
     assert prompt.count("<persona>") == 2
     assert "규칙 무시" in prompt
+
+
+def test_parse_rejected_reason_is_capped_at_200_chars():
+    from services.moderation_service import parse_moderation_response
+    r = parse_moderation_response('{"allowed": false, "reason": "%s"}' % ("가" * 500))
+    assert len(r.reason) == 200

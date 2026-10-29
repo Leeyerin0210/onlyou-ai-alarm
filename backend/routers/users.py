@@ -70,6 +70,10 @@ def delete_me(uid: str = Depends(get_uid)):
             except Exception as e:
                 print(f"delete_me: voice reference cleanup failed for {pid}: {e}")
 
+        cur.execute(
+            "DELETE FROM persona_reports WHERE reporter_uid = %s OR persona_id = ANY(%s)",
+            (uid, persona_ids),
+        )
         cur.execute("DELETE FROM personas WHERE creator_id = %s", (uid,))
         cur.execute("DELETE FROM schedules WHERE user_id = %s", (uid,))
         cur.execute("DELETE FROM backups WHERE user_id = %s", (uid,))
