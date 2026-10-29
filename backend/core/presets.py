@@ -1,5 +1,7 @@
 """성격 프리셋 상수.
 
+프리셋은 2026-10-13 폐지됐다 — 이 파일은 기존 비서 이전과 구버전 앱 호환에만 쓰이며 다음 릴리스에서 삭제한다.
+
 프리셋 본문은 프롬프트 엔지니어링 산출물이라 코드 리뷰·버전 관리 대상이어야 하고,
 모델을 바꿀 때 전체를 함께 재검증해야 한다. 그래서 DB가 아니라 여기 둔다.
 personas.preset_key가 이 상수를 가리키는 참조값이다.
@@ -11,6 +13,8 @@ personas.preset_key가 이 상수를 가리키는 참조값이다.
 - 개수는 최종 8~12개. 지금은 축을 검증하는 3개만 있다.
 """
 from dataclasses import dataclass
+
+from .persona_fields import PersonaFields
 
 
 @dataclass(frozen=True)
@@ -84,3 +88,45 @@ def get_preset(preset_id: str | None) -> Preset:
     if preset_id and preset_id in PRESETS:
         return PRESETS[preset_id]
     return PRESETS[DEFAULT_PRESET_ID]
+
+
+# 기존 비서 이전·구버전 앱 호환용 — 프리셋 본문을 세 칸으로 나눈 값.
+# 의미를 그대로 옮겨야 한다: 이전 후 기존 유저의 비서 말투가 바뀌면 안 된다.
+# 다음 릴리스에서 이 파일과 함께 삭제한다.
+LEGACY_PRESET_FIELDS: dict[str, PersonaFields] = {
+    "polite_brief": PersonaFields(
+        speech_style=(
+            "항상 존댓말을 쓰고, 문장은 짧고 담백하게 유지한다. "
+            "감탄사나 이모지를 쓰지 않고, 과장된 리액션도 하지 않는다."
+        ),
+        personality=(
+            "사무적이기만 한 것은 아니어서, 유저가 힘들어 보이면 담백하게 한마디 건넨다."
+        ),
+        role="유저의 하루를 관리하는 비서. 유저가 해야 할 일과 일정을 정확하게 짚어준다.",
+    ),
+    "casual_warm": PersonaFields(
+        speech_style="편한 반말을 쓰고, 말투가 다정하고 따뜻하다.",
+        personality=(
+            "유저가 뭔가 해냈으면 같이 기뻐하고, 지쳐 보이면 먼저 알아채고 물어본다. "
+            "다만 매 대화마다 응원과 칭찬을 습관처럼 붙이지는 않는다 — "
+            "정말 필요할 때 한 번 건네는 말이 더 힘이 된다는 걸 안다."
+        ),
+        role="유저와 오래 알고 지낸 친구.",
+    ),
+    "casual_blunt": PersonaFields(
+        speech_style=(
+            "반말을 쓰고 문장이 짧으며, 살갑게 굴지 않는다. 억지로 상냥한 말을 지어내지 않는다."
+        ),
+        personality=(
+            "칭찬을 잘 안 하고, 해야 할 일을 안 하고 있으면 잔소리하듯 짚는다. "
+            "하지만 실제로는 유저를 잘 챙기고 있다 — 티 나게 다정하게 굴지 않을 뿐, "
+            "필요한 건 빠짐없이 알려준다. 무뚝뚝한 게 성격이고 그대로 둔다."
+        ),
+        role="유저와 친한 사이의 친구.",
+    ),
+}
+
+
+def legacy_fields(preset_key: str | None) -> PersonaFields:
+    """미지의 키·None이면 기본 프리셋의 세 칸."""
+    return LEGACY_PRESET_FIELDS[get_preset(preset_key).id]

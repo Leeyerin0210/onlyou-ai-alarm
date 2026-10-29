@@ -104,3 +104,29 @@ def test_unknown_preset_falls_back_without_raising():
 def test_alarm_persona_block_is_preset_body():
     assert build_alarm_persona_block("casual_blunt") == PRESETS["casual_blunt"].prompt
     assert build_alarm_persona_block(None) == PRESETS[DEFAULT_PRESET_ID].prompt
+
+
+from core.persona_fields import MAX_FIELD_LEN
+from core.presets import LEGACY_PRESET_FIELDS, legacy_fields
+
+
+def test_every_preset_has_legacy_fields_within_limit():
+    """기존 비서 이전용 매핑 — 프리셋마다 있어야 하고 칸 길이 상한을 지켜야 한다."""
+    assert set(LEGACY_PRESET_FIELDS) == set(PRESETS)
+    for pid, f in LEGACY_PRESET_FIELDS.items():
+        assert f.speech_style.strip() and f.personality.strip(), pid
+        for value in (f.speech_style, f.personality, f.role):
+            assert len(value) <= MAX_FIELD_LEN, pid
+
+
+def test_legacy_fields_falls_back_to_default_preset():
+    assert legacy_fields(None) == LEGACY_PRESET_FIELDS[DEFAULT_PRESET_ID]
+    assert legacy_fields("nope") == LEGACY_PRESET_FIELDS[DEFAULT_PRESET_ID]
+    assert legacy_fields("casual_blunt") == LEGACY_PRESET_FIELDS["casual_blunt"]
+
+
+def test_legacy_fields_keep_speech_level():
+    """이전 후에도 존댓말/반말이 바뀌면 안 된다."""
+    assert "존댓말" in LEGACY_PRESET_FIELDS["polite_brief"].speech_style
+    assert "반말" in LEGACY_PRESET_FIELDS["casual_warm"].speech_style
+    assert "반말" in LEGACY_PRESET_FIELDS["casual_blunt"].speech_style
