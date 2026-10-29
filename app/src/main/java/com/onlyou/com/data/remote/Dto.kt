@@ -85,6 +85,18 @@ data class PersonaDto(
     val isOfficial: Boolean? = null,
 )
 
+// PUT /personas/{id} 응답 — 서버 공개 심사 결과를 담는다
+data class ModerationDto(
+    val status: String? = null,
+    val reason: String? = null,
+)
+
+data class PersonaUpsertResponseDto(
+    val ok: Boolean? = null,
+    val isPrivate: Boolean? = null,
+    val moderation: ModerationDto? = null,
+)
+
 data class FeaturedThemeDto(
     val tag: String? = null,
     val title: String? = null,

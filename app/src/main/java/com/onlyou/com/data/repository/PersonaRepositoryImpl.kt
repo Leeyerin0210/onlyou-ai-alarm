@@ -160,7 +160,7 @@ class PersonaRepositoryImpl
             personaDao.updatePersona(persona.toEntity())
         }
 
-        override suspend fun upsertPersona(persona: Persona) {
+        override suspend fun upsertPersona(persona: Persona): com.onlyou.com.domain.model.PersonaSaveResult {
             val uid = auth.currentUser?.uid
             val updatedPersona = if (persona.creatorId == null && uid != null) {
                 persona.copy(creatorId = uid)
@@ -172,15 +172,14 @@ class PersonaRepositoryImpl
             // 1. 로컬 DB 저장
             personaDao.upsertPersona(entity)
 
-            // 2. 원격 저장
-            try {
+            // 2. 원격 저장 — 서버가 공개 요청을 비공개로 바꿨을 수 있으므로 응답으로 로컬을 맞춘다
+            val result = try {
                 api.upsertPersona(
                     updatedPersona.id,
                     com.onlyou.com.data.remote.PersonaDto(
                         id = updatedPersona.id,
                         name = updatedPersona.name,
                         description = updatedPersona.description,
-                        presetKey = updatedPersona.presetKey,
                         userCallSign = updatedPersona.userCallSign,
                         primaryHex = updatedPersona.themeColors?.primaryHex,
                         secondaryHex = updatedPersona.themeColors?.secondaryHex,
@@ -189,11 +188,20 @@ class PersonaRepositoryImpl
                         isPrivate = updatedPersona.isPrivate,
                         updatedAt = System.currentTimeMillis(),
                         tags = updatedPersona.tags,
+                        speechStyle = updatedPersona.speechStyle,
+                        personality = updatedPersona.personality,
+                        role = updatedPersona.role,
                     ),
-                )
+                ).body().toSaveResult()
             } catch (e: Exception) {
                 e.printStackTrace()
+                com.onlyou.com.domain.model.PersonaSaveResult(com.onlyou.com.domain.model.ModerationStatus.OFFLINE)
             }
+            val serverPrivate = result.isPrivate
+            if (serverPrivate != null && serverPrivate != entity.isPrivate) {
+                personaDao.upsertPersona(entity.copy(isPrivate = serverPrivate))
+            }
+            return result
         }
 
     }

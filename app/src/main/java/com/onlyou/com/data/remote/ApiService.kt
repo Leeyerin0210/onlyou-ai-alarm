@@ -69,7 +69,7 @@ interface MiyaApiService {
     suspend fun upsertPersona(
         @retrofit2.http.Path("id") id: String,
         @Body body: PersonaDto,
-    ): Response<Unit>
+    ): Response<com.onlyou.com.data.remote.PersonaUpsertResponseDto>
 
     @DELETE("personas/{id}")
     suspend fun deletePersona(@retrofit2.http.Path("id") id: String): Response<Unit>

@@ -62,7 +62,7 @@ interface PersonaRepository {
 
     suspend fun updatePersona(persona: Persona)
 
-    suspend fun upsertPersona(persona: Persona)
+    suspend fun upsertPersona(persona: Persona): com.onlyou.com.domain.model.PersonaSaveResult
 }
 
 /**
