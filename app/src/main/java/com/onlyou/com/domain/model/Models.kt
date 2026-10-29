@@ -67,7 +67,7 @@ data class Persona(
     val id: String,
     val name: String,
     val description: String,
-    // 성격 프롬프트는 서버 상수(core/presets.py)에 있고 앱은 참조 키만 안다.
+    // 구버전 서버 호환용으로만 남은 값. 성격은 아래 세 칸이 정한다(다음 릴리스에서 제거).
     val presetKey: String = "",
     val userCallSign: String = "주인님",
     val isSelected: Boolean = false,
@@ -79,6 +79,12 @@ data class Persona(
     val tags: List<String> = emptyList(),
     // 서버 기준 상대 경로 또는 절대 URL — PersonaAvatar가 BASE_URL로 해석한다
     val imageUrl: String? = null,
+    // 성격 세 칸 — 서버가 시스템 프롬프트에 그대로 넣는다
+    val speechStyle: String = "",
+    val personality: String = "",
+    val role: String = "",
+    val reportLocked: Boolean = false,
+    val isOfficial: Boolean = false,
 )
 
 /** 상점 '이번 주 테마' — 테마 결정은 서버(core/themes.py)가 한다. */

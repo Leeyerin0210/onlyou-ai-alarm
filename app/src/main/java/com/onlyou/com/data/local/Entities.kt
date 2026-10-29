@@ -72,6 +72,13 @@ data class PersonaEntity(
     val presetKey: String = "",
     // JSON 배열 문자열 (예: ["아침","다정"]) — v22에서 추가
     val tags: String = "[]",
+    // 성격 세 칸 — v23에서 추가 (스펙: 2026-10-13-presets-removal-design.md)
+    val speechStyle: String = "",
+    val personality: String = "",
+    val role: String = "",
+    // 신고 누적으로 잠김(공개 불가) / 공식 비서 여부 — 서버가 내려주는 값
+    val reportLocked: Boolean = false,
+    val isOfficial: Boolean = false,
 )
 
 @Entity(tableName = "chat_messages")

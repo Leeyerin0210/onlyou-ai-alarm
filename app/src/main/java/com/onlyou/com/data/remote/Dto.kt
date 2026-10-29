@@ -76,6 +76,13 @@ data class PersonaDto(
     val tags: List<String>? = null,
     // 서버가 지정하는 사진 경로(예: persona-images/x.jpg). 앱이 보내도 서버가 무시한다.
     val imageUrl: String? = null,
+    // 성격 세 칸. 송신 시 신 앱은 항상 채워 보낸다. 수신 시 Gson이 null을 넣을 수 있다.
+    val speechStyle: String? = null,
+    val personality: String? = null,
+    val role: String? = null,
+    // 서버 관리 값 — 앱이 보내도 서버가 무시한다
+    val reportLocked: Boolean? = null,
+    val isOfficial: Boolean? = null,
 )
 
 data class FeaturedThemeDto(

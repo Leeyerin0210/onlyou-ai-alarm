@@ -211,6 +211,11 @@ internal fun PersonaEntity.toDomain() =
         isPrivate = isPrivate,
         tags = parseTags(tags),
         imageUrl = imageUrl,
+        speechStyle = speechStyle,
+        personality = personality,
+        role = role,
+        reportLocked = reportLocked,
+        isOfficial = isOfficial,
         themeColors = if (primaryHex != null && secondaryHex != null) {
             StreamerTheme(
                 primaryHex = primaryHex,
@@ -255,6 +260,11 @@ internal fun Persona.toEntity() =
         isPrivate = isPrivate,
         presetKey = presetKey,
         tags = gson.toJson(tags),
+        speechStyle = speechStyle,
+        personality = personality,
+        role = role,
+        reportLocked = reportLocked,
+        isOfficial = isOfficial,
     )
 
 private val gson = Gson()
@@ -292,4 +302,10 @@ internal fun PersonaDto.toEntity(isSelected: Boolean) =
         isPrivate = isPrivate,
         presetKey = presetKey ?: "",
         tags = gson.toJson(tags.orEmpty()),
+        // Gson이 null을 넣을 수 있으므로 방어적으로 처리한다
+        speechStyle = speechStyle ?: "",
+        personality = personality ?: "",
+        role = role ?: "",
+        reportLocked = reportLocked ?: false,
+        isOfficial = isOfficial ?: false,
     )

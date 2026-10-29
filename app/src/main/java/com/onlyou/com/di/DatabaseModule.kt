@@ -64,6 +64,17 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
     }
 }
 
+// 성격 프리셋 폐지 — 스펙: docs/superpowers/specs/2026-10-13-presets-removal-design.md
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE personas ADD COLUMN speechStyle TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE personas ADD COLUMN personality TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE personas ADD COLUMN role TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE personas ADD COLUMN reportLocked INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE personas ADD COLUMN isOfficial INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -81,6 +92,7 @@ object DatabaseModule {
             .addMigrations(
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18,
                 MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
+                MIGRATION_22_23,
             )
             .fallbackToDestructiveMigration()
             .build()

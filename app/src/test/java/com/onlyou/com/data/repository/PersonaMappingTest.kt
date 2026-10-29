@@ -76,4 +76,38 @@ class PersonaMappingTest {
         assertEquals("persona-images/p1.jpg", domain.imageUrl)
         assertEquals("persona-images/p1.jpg", domain.toEntity().toDomain().imageUrl)
     }
+
+    @Test
+    fun `세 칸과 잠금·공식 여부가 도메인으로 전달되고 왕복 후에도 보존된다`() {
+        val e = entity("casual_warm").copy(
+            speechStyle = "반말", personality = "툴툴댐", role = "룸메이트",
+            reportLocked = true, isOfficial = false,
+        )
+        val d = e.toDomain()
+        assertEquals("반말", d.speechStyle)
+        assertEquals("툴툴댐", d.personality)
+        assertEquals("룸메이트", d.role)
+        assertEquals(true, d.reportLocked)
+        assertEquals(e.speechStyle, d.toEntity().speechStyle)
+        assertEquals(true, d.toEntity().reportLocked)
+    }
+
+    @Test
+    fun `동기화 매핑은 서버의 세 칸과 플래그를 쓰고 null은 기본값으로 바꾼다`() {
+        val full = com.onlyou.com.data.remote.PersonaDto(
+            id = "p1", name = "미야", speechStyle = "반말", personality = "다정", role = "",
+            reportLocked = true, isOfficial = true,
+        ).toEntity(isSelected = false)
+        assertEquals("반말", full.speechStyle)
+        assertEquals("다정", full.personality)
+        assertEquals(true, full.reportLocked)
+        assertEquals(true, full.isOfficial)
+
+        val empty = com.onlyou.com.data.remote.PersonaDto(id = "p2", name = "x").toEntity(isSelected = false)
+        assertEquals("", empty.speechStyle)
+        assertEquals("", empty.personality)
+        assertEquals("", empty.role)
+        assertEquals(false, empty.reportLocked)
+        assertEquals(false, empty.isOfficial)
+    }
 }
