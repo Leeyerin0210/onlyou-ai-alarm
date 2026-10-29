@@ -48,6 +48,25 @@ modal deploy tts-server/modal_app.py
 | `REFLECTION_DUP_THRESHOLD` | 모순 후보로 볼 기억 쌍의 코사인 거리 상한. 기본 0.15 |
 | `REFLECTION_DUP_PAIR_LIMIT` | reflection 프롬프트에 넣을 후보 쌍 개수. 기본 10 |
 | `REFLECTION_DUP_SCAN_LIMIT` | 후보 탐색 대상 최근 기억 수(자기조인 비용 상한). 기본 200 |
+| `MODERATION_USER_DAILY_LIMIT` | 유저별 하루 비서 공개 심사 횟수. 초과 시 비공개로 저장. 기본 20 |
+| `GLOBAL_MODERATION_DAILY_LIMIT` | 전체 사용자 합산 하루 공개 심사 LLM 호출 상한. 기본 5000 |
+| `REPORT_LOCK_THRESHOLD` | 비서를 자동 비공개·잠금할 신고 수(서로 다른 유저). 기본 3 |
+| `REPORT_USER_DAILY_LIMIT` | 유저별 하루 신고 횟수 상한. 기본 10 |
+
+### 신고로 잠긴 비서 해제 (운영자)
+
+신고가 `REPORT_LOCK_THRESHOLD`건 쌓인 비서는 비공개로 바뀌고 잠긴다. 관리 화면은 아직 없으므로 DB에서 직접 푼다.
+
+```sql
+-- 잠긴 비서와 신고 사유 보기
+SELECT p.id, p.name, p.creator_id, p.report_locked_at, r.reporter_uid, r.reason, r.created_at
+FROM personas p JOIN persona_reports r ON r.persona_id = p.id
+WHERE p.report_locked_at IS NOT NULL ORDER BY p.report_locked_at DESC;
+
+-- 해제 (공개 여부는 만든 사람이 다시 켠다 — 그때 자동 심사를 한 번 더 거친다)
+UPDATE personas SET report_locked_at = NULL WHERE id = '<persona_id>';
+DELETE FROM persona_reports WHERE persona_id = '<persona_id>';
+```
 
 ### PostgreSQL + pgvector (벡터 기억)
 

@@ -78,7 +78,7 @@ PERSONAS = [
 ]
 
 # 비서별 (상점 한 줄 소개, 성격 프롬프트). 성격은 personas.prompt에 저장한다 —
-# 지금 채팅은 preset_key 프롬프트만 쓰고, 프리셋 폐지 후 이 값을 쓰게 된다.
+# 이 성격 문구는 personas.personality(와 구버전 호환용 prompt)에 쓰인다 — 프리셋 폐지 후 채팅이 세 칸을 읽는다.
 # 작성 규칙은 core/presets.py와 같다: 연령 특정 금지, 자기 성별 언급 없음.
 PROFILES = {
     "dev_seoa": (
@@ -236,28 +236,32 @@ IMAGE_STYLE = (
 
 
 def seed_db():
-    from core.presets import PRESETS
+    from core.persona_fields import SYSTEM_CREATOR  # 공식 비서와 같은 작성자로 상점에 노출
+    from core.presets import PRESETS, legacy_fields
     from core.rdb import get_conn, init_schema
     from core.tags import normalize_tags
-    from seed_personas import SYSTEM_CREATOR  # 공식 비서와 같은 작성자로 상점에 노출
 
     init_schema()
     with closing(get_conn()) as conn, conn.cursor() as cur:
         for pid, name, preset, call, c1, c2, tags, usage, _, _ in PERSONAS:
             assert preset in PRESETS, f"미지의 preset_key: {preset}"
+            f = legacy_fields(preset)
             cur.execute(
                 "INSERT INTO personas (id, name, description, prompt, user_call_sign, primary_hex, secondary_hex, "
-                "creator_id, preset_key, is_private, tags, usage_count, image_url) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, FALSE, %s, %s, %s) "
+                "creator_id, preset_key, is_private, tags, usage_count, image_url, "
+                "speech_style, personality, role) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, FALSE, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description, "
                 "prompt=EXCLUDED.prompt, "
                 "user_call_sign=EXCLUDED.user_call_sign, primary_hex=EXCLUDED.primary_hex, "
                 "secondary_hex=EXCLUDED.secondary_hex, preset_key=EXCLUDED.preset_key, "
-                "tags=EXCLUDED.tags, usage_count=EXCLUDED.usage_count, image_url=EXCLUDED.image_url",
+                "tags=EXCLUDED.tags, usage_count=EXCLUDED.usage_count, image_url=EXCLUDED.image_url, "
+                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role",
                 (pid, name, *PROFILES[pid], call, c1, c2,
                  SYSTEM_CREATOR, preset, normalize_tags(tags), usage,
                  # 사진(--images)은 persona_images/{id}.jpg — main.py가 /persona-images로 서빙
-                 f"persona-images/{pid}.jpg"),
+                 f"persona-images/{pid}.jpg",
+                 f.speech_style, PROFILES[pid][1], f.role),
             )
     print(f"seeded {len(PERSONAS)} dev personas")
 

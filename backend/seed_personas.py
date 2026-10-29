@@ -1,18 +1,24 @@
-"""공용 기본 페르소나 시드. 실행: DATABASE_URL 설정 후 python seed_personas.py
+"""공식 비서 시드. 실행: DATABASE_URL 설정 후 python seed_personas.py
 
-프리셋 하나당 공식 페르소나 하나를 만든다. 프롬프트 본문은 core/presets.py에 있고
-여기서는 preset_key로 참조만 한다 — 시드가 프롬프트를 복사해 들고 있으면
-프리셋을 고칠 때마다 시드도 같이 고쳐야 하는 이중 관리가 된다.
+공식 비서의 성격 세 칸은 여기 코드로 관리한다 — 코드 리뷰를 거치므로 자동 심사·신고
+대상이 아니다(스펙: docs/superpowers/specs/2026-10-13-presets-removal-design.md).
+preset_key는 구버전 앱 호환용으로 한 릴리스 동안 유지한다.
 """
 from contextlib import closing
 
-from core.presets import PRESETS
+from core.persona_fields import SYSTEM_CREATOR
+from core.presets import PRESETS, legacy_fields
 from core.rdb import cleanup_removed_personas, get_conn, init_schema
 
-SYSTEM_CREATOR = "QK876dED1mZPwXqApiePEchoObv2"
+
+def _with_fields(p: dict) -> dict:
+    """지금은 프리셋 매핑 값을 그대로 쓴다(공식 비서 20명 작업에서 개별 문구로 교체)."""
+    f = legacy_fields(p["preset_key"])
+    return {**p, "speech_style": f.speech_style, "personality": f.personality, "role": f.role}
+
 
 # preset_key → (persona_id, 표시 이름, 유저 호칭, 색상)
-PERSONAS = [
+PERSONAS = [_with_fields(p) for p in [
     {
         "id": "official_polite_brief", "preset_key": "polite_brief",
         "name": "루나", "user_call_sign": "{{user}}님",
@@ -31,7 +37,7 @@ PERSONAS = [
         "primary_hex": "#5C6B73", "secondary_hex": "#E8EDF0",
         "tags": ["직설", "유머"],
     },
-]
+]]
 
 
 def seed():
@@ -46,14 +52,17 @@ def seed():
                    "image_url": f"persona-images/{p['id']}.jpg"}
             cur.execute(
                 "INSERT INTO personas (id, name, description, user_call_sign, "
-                "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags, image_url) "
+                "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags, image_url, "
+                "speech_style, personality, role) "
                 "VALUES (%(id)s,%(name)s,%(description)s,%(user_call_sign)s,"
-                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s, %(image_url)s) "
+                "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s, %(image_url)s, "
+                "%(speech_style)s,%(personality)s,%(role)s) "
                 "ON CONFLICT (id) DO UPDATE SET "
                 "name=EXCLUDED.name, description=EXCLUDED.description, "
                 "user_call_sign=EXCLUDED.user_call_sign, "
                 "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
-                "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags, image_url=EXCLUDED.image_url",
+                "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags, image_url=EXCLUDED.image_url, "
+                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role",
                 row,
             )
     print(f"seeded {len(PERSONAS)} personas")
