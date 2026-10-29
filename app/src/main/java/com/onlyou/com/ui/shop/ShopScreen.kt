@@ -553,7 +553,6 @@ fun PersonaDetailSheetContent(
                 persona.tags.forEach { TagChip(it) }
             }
         }
-        PersonaFieldsSummary(persona)
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Surface(
@@ -586,23 +585,6 @@ fun PersonaDetailSheetContent(
                     onSubmit = { reason -> showReport = false; onReport(reason) },
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun PersonaFieldsSummary(persona: Persona) {
-    val colors = MiyaTheme.colors
-    val rows = listOf("말투" to persona.speechStyle, "성격" to persona.personality, "역할" to persona.role)
-        .filter { it.second.isNotBlank() }
-    if (rows.isEmpty()) return
-    Spacer(Modifier.height(16.dp))
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceB).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        rows.forEach { (label, value) ->
-            Text("$label · $value", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceA)
         }
     }
 }

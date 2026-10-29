@@ -29,8 +29,10 @@ def _row_fields(r) -> PersonaFields:
     return legacy_fields(r[10])
 
 
-def _row_to_dict(r):
-    fields = _row_fields(r)
+def _row_to_dict(r, viewer_uid: str):
+    # 성격 세 칸은 만든 사람에게만 내려준다 — 남의 비서 프롬프트는 상점에서도 보이지 않는다
+    is_owner = r[6] == viewer_uid
+    fields = _row_fields(r) if is_owner else PersonaFields("", "", "")
     return {
         "id": r[0], "name": r[1], "description": r[2],
         "userCallSign": r[3], "primaryHex": r[4], "secondaryHex": r[5],
@@ -38,7 +40,7 @@ def _row_to_dict(r):
         "updatedAt": r[9],
         # 구버전 앱 호환(한 릴리스) — presetKey·prompt는 다음 릴리스에서 제거
         "presetKey": get_preset(r[10]).id,
-        "prompt": compose_legacy_prompt(fields),
+        "prompt": compose_legacy_prompt(fields) if is_owner else "",
         "tags": list(r[11] or []),
         # 서버가 지정하는 상대 경로(예: persona-images/x.jpg) — 앱 upsert로는 바꿀 수 없다
         "imageUrl": r[12],
@@ -59,7 +61,7 @@ def list_personas(uid: str = Depends(get_uid)):
             "WHERE is_private = FALSE OR creator_id = %s",
             (uid,),
         )
-        return [_row_to_dict(r) for r in cur.fetchall()]
+        return [_row_to_dict(r, uid) for r in cur.fetchall()]
 
 
 FEATURED_LIMIT = 10
@@ -80,7 +82,7 @@ def featured_personas(uid: str = Depends(get_uid)):
         )
         return {
             "theme": {"tag": theme.tag, "title": theme.title},
-            "personas": [_row_to_dict(r) for r in cur.fetchall()],
+            "personas": [_row_to_dict(r, uid) for r in cur.fetchall()],
         }
 
 

@@ -23,7 +23,7 @@
 | 신고 | 1인 1비서 1회. 누적 3건이면 자동 비공개 + **신고 잠금** |
 | 잠금 해제 | 운영자만(DB 직접). 만든 사람은 비공개로 계속 사용 가능 |
 | 공식 비서 | 세 칸을 `seed_personas.py` 코드로 관리. 심사·신고 대상 아님 |
-| 공개 비서의 세 칸 | 다른 유저에게 노출(상점 상세) |
+| 공개 비서의 세 칸 | 만든 사람에게만 내려준다 — 상점 상세에도 노출하지 않는다 (2026-10-29 변경) |
 | 공식 비서 20명 | **범위 밖**(콘텐츠 작업, 후속) |
 | 유저 비서의 목소리 | **범위 밖** |
 
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS persona_reports (
 - 만든 사람은 비공개로 계속 쓴다. 선택해 둔 다른 유저는 위 폴백 규칙으로 기본 비서가 된다.
 - 해제는 운영자가 DB에서: `UPDATE personas SET report_locked_at = NULL WHERE id = ...;
   DELETE FROM persona_reports WHERE persona_id = ...;` — `docs/deployment.md`에 기록한다.
-- `GET /personas` 각 항목에 `reportLocked: bool`, `isOfficial: bool`(공식 비서 여부 — 앱이 신고 버튼을 숨긴다)과 세 칸(`speechStyle`·`personality`·`role`).
+- `GET /personas` 각 항목에 `reportLocked: bool`, `isOfficial: bool`(공식 비서 여부 — 앱이 신고 버튼을 숨긴다)과 세 칸(`speechStyle`·`personality`·`role`). 세 칸은 내가 만든 비서에만 채우고, 남의 비서는 빈 문자열(2026-10-29 변경).
   지금 내려주는 `prompt`(프리셋 본문)는 구버전 앱 호환을 위해 한 릴리스 동안 세 칸을 이어붙인
   문자열로 채워 둔다.
 
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS persona_reports (
 
 ### 상점 상세 바텀시트
 
-- 말투·성격·역할 표시.
+- 말투·성격·역할은 표시하지 않는다. 서버도 남의 비서의 세 칸·`prompt`를 빈 값으로 내려준다 (2026-10-29 변경).
 - 남이 만든 공개 비서에 "신고하기" — 사유 선택지(부적절한 내용 / 실존 인물 사칭 / 기타 + 입력).
   공식 비서·내 비서에는 없음.
 - 신고 후 "신고가 접수됐어요", 같은 비서의 신고 버튼 비활성화(로컬 기록).

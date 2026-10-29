@@ -350,6 +350,20 @@ def test_list_returns_fields_lock_flag_and_legacy_prompt(client, mod_calls):
     assert item["prompt"] == compose_legacy_prompt(PersonaFields("반말", "툴툴댐", "룸메이트"))
 
 
+def test_list_hides_fields_of_others_personas(client, mod_calls):
+    """남이 만든 공개 비서의 세 칸·프롬프트는 내려주지 않는다 (목록·테마 모두)."""
+    from contextlib import closing
+    from core.rdb import get_conn
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id, is_private, tags, speech_style, personality, role) "
+            "VALUES ('theirs', '남의비서', 'other-uid', FALSE, '{아침}', '반말', '비밀 성격', '룸메이트')"
+        )
+    item = next(x for x in client.get("/personas").json() if x["id"] == "theirs")
+    assert (item["speechStyle"], item["personality"], item["role"], item["prompt"]) == ("", "", "", "")
+    assert item["name"] == "남의비서"
+
+
 def test_upsert_does_not_unlock_persona_locked_during_moderation(client, monkeypatch):
     """심사 중 3번째 신고로 잠기면, 저장이 공개로 되돌려선 안 된다."""
     from contextlib import closing
