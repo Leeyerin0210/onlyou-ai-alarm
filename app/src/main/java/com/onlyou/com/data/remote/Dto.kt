@@ -107,14 +107,6 @@ data class FeaturedDto(
     val personas: List<PersonaDto>? = null,
 )
 
-// Presets (성격 프리셋 카탈로그 — 프롬프트 본문은 서버가 내보내지 않는다)
-data class PresetDto(
-    val id: String,
-    val label: String,
-    val description: String,
-    val tags: List<String> = emptyList(),
-)
-
 data class UserProfileDto(
     val uid: String,
     val displayName: String?,

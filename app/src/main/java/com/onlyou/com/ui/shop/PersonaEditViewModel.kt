@@ -2,8 +2,6 @@ package com.onlyou.com.ui.shop
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.onlyou.com.data.remote.MiyaApiService
-import com.onlyou.com.data.remote.PresetDto
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.VoiceRepository
@@ -23,27 +21,12 @@ class PersonaEditViewModel
     constructor(
         private val personaRepository: PersonaRepository,
         private val voiceRepository: VoiceRepository,
-        private val api: MiyaApiService,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow<PersonaEditUiState>(PersonaEditUiState.Loading)
         val uiState: StateFlow<PersonaEditUiState> = _uiState
 
         private val _uiEvent = kotlinx.coroutines.flow.MutableSharedFlow<String>()
         val uiEvent = _uiEvent.asSharedFlow()
-
-        private val _presets = MutableStateFlow<List<PresetDto>>(emptyList())
-        val presets: StateFlow<List<PresetDto>> = _presets
-
-        fun loadPresets() {
-            viewModelScope.launch {
-                try {
-                    _presets.value = api.getPresets()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    _uiEvent.emit("성격 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.")
-                }
-            }
-        }
 
         fun loadPersona(personaId: String?) {
             viewModelScope.launch {
@@ -54,7 +37,6 @@ class PersonaEditViewModel
                             id = UUID.randomUUID().toString(),
                             name = "",
                             description = "",
-                            presetKey = "",
                             userCallSign = "{{user}}님",
                             isSelected = false,
                         ),
@@ -88,8 +70,8 @@ class PersonaEditViewModel
             val currentState = _uiState.value
             if (currentState is PersonaEditUiState.Success) {
                 viewModelScope.launch {
-                    personaRepository.upsertPersona(currentState.persona)
-                    _uiState.value = PersonaEditUiState.Saved
+                    val result = personaRepository.upsertPersona(currentState.persona)
+                    _uiState.value = PersonaEditUiState.Saved(saveNotice(result))
                 }
             }
         }
@@ -104,7 +86,7 @@ class PersonaEditViewModel
                     // 2. 서버의 참조 음성 데이터도 삭제
                     voiceRepository.deleteReferenceVoice(personaId)
 
-                    _uiState.value = PersonaEditUiState.Saved
+                    _uiState.value = PersonaEditUiState.Saved(null)
                 }
             }
         }
@@ -117,5 +99,6 @@ sealed class PersonaEditUiState {
         val persona: Persona,
     ) : PersonaEditUiState()
 
-    object Saved : PersonaEditUiState()
+    /** notice가 있으면 안내 다이얼로그를 띄운 뒤 화면을 닫는다. */
+    data class Saved(val notice: String?) : PersonaEditUiState()
 }

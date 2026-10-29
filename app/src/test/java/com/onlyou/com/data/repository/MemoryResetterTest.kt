@@ -8,7 +8,6 @@ import com.onlyou.com.data.remote.BackupDto
 import com.onlyou.com.data.remote.ChatRequestDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.data.remote.PersonaDto
-import com.onlyou.com.data.remote.PresetDto
 import com.onlyou.com.data.remote.ScheduleDto
 import com.onlyou.com.data.remote.UserProfileDto
 import com.onlyou.com.data.remote.UserProfilePutDto
@@ -120,7 +119,6 @@ private class FakeApiService(
 
     override suspend fun deleteVoiceReference(personaId: String): Response<Unit> = unused()
 
-    override suspend fun getPresets(): List<PresetDto> = unused()
 
     override suspend fun getPersonas(): List<PersonaDto> = unused()
 

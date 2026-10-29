@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.onlyou.com.data.remote.PresetDto
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.components.MiyaSwitch
@@ -41,11 +40,9 @@ fun PersonaEditScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val uiState by viewModel.uiState.collectAsState()
-    val presets by viewModel.presets.collectAsState()
 
     LaunchedEffect(personaId) {
         viewModel.loadPersona(personaId)
-        viewModel.loadPresets()
     }
 
     LaunchedEffect(viewModel.uiEvent) {
@@ -54,14 +51,22 @@ fun PersonaEditScreen(
         }
     }
 
-    if (uiState is PersonaEditUiState.Saved) {
-        LaunchedEffect(Unit) { onBack() }
+    val saved = uiState as? PersonaEditUiState.Saved
+    if (saved != null) {
+        if (saved.notice == null) {
+            LaunchedEffect(Unit) { onBack() }
+        } else {
+            AlertDialog(
+                onDismissRequest = onBack,
+                confirmButton = { TextButton(onClick = onBack) { Text("확인") } },
+                text = { Text(saved.notice) },
+            )
+        }
     }
 
     PersonaEditContent(
         uiState = uiState,
         personaId = personaId,
-        presets = presets,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
         onUpdatePersona = { viewModel.updatePersona(it) },
@@ -74,7 +79,6 @@ fun PersonaEditScreen(
 fun PersonaEditContent(
     uiState: PersonaEditUiState,
     personaId: String?,
-    presets: List<PresetDto>,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onUpdatePersona: (Persona) -> Unit,
@@ -103,8 +107,7 @@ fun PersonaEditContent(
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val isSavable = uiState.persona.name.isNotBlank() &&
-                        uiState.persona.presetKey.isNotBlank()
+                    val isSavable = isPersonaSavable(uiState.persona)
                     MiyaPrimaryButton(
                         text = "저장하기",
                         onClick = onSavePersona,
@@ -180,22 +183,36 @@ fun PersonaEditContent(
                         Text("{{user}}라고 쓰면 프로필 이름으로 바뀌어요. ({{user}} 오빠 → 예린 오빠)", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
                     }
 
-                    // 성격 프리셋 섹션
+                    // 성격 세 칸 — 서버가 시스템 프롬프트에 그대로 넣는다
+                    Column {
+                        SectionLabel("말투")
+                        CustomCounterTextField(
+                            value = persona.speechStyle,
+                            onValueChange = { onUpdatePersona(persona.copy(speechStyle = it)) },
+                            maxLength = PERSONA_FIELD_MAX_LEN,
+                            placeholder = "예) 반말, 짧고 툭툭",
+                            minLines = 2,
+                        )
+                    }
                     Column {
                         SectionLabel("성격")
-                        if (presets.isEmpty()) {
-                            Text(
-                                "성격 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
-                                fontSize = 13.sp,
-                                color = MiyaTheme.colors.neutral,
-                            )
-                        } else {
-                            PresetPicker(
-                                presets = presets,
-                                selectedId = persona.presetKey,
-                                onSelect = { onUpdatePersona(persona.copy(presetKey = it)) },
-                            )
-                        }
+                        CustomCounterTextField(
+                            value = persona.personality,
+                            onValueChange = { onUpdatePersona(persona.copy(personality = it)) },
+                            maxLength = PERSONA_FIELD_MAX_LEN,
+                            placeholder = "예) 겉으로는 무뚝뚝한데 은근히 챙겨줌",
+                            minLines = 3,
+                        )
+                    }
+                    Column {
+                        SectionLabel("역할 (선택)")
+                        CustomCounterTextField(
+                            value = persona.role,
+                            onValueChange = { onUpdatePersona(persona.copy(role = it)) },
+                            maxLength = PERSONA_FIELD_MAX_LEN,
+                            placeholder = "예) 아침에 깨워주고 일정 챙겨주는 룸메이트",
+                            minLines = 2,
+                        )
                     }
 
                     // 해시태그 섹션 — 상점 주간 테마·태그 칩이 이 값으로 매칭한다
@@ -227,10 +244,15 @@ fun PersonaEditContent(
                                 Text("나만 보기 (비공개)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text("상점에 이 비서가 표시되지 않으며 나만 사용할 수 있습니다.", fontSize = 11.sp, color = Color.Gray)
+                                if (persona.reportLocked) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("신고가 누적되어 공개할 수 없는 비서예요", fontSize = 11.sp, color = Color.Red)
+                                }
                             }
                             MiyaSwitch(
-                                checked = persona.isPrivate,
+                                checked = persona.isPrivate || persona.reportLocked,
                                 onCheckedChange = { onUpdatePersona(persona.copy(isPrivate = it)) },
+                                enabled = !persona.reportLocked,
                             )
                         }
                     }
