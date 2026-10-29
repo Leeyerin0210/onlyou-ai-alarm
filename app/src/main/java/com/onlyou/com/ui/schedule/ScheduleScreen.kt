@@ -24,6 +24,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -950,9 +954,14 @@ private fun AddScheduleBottomSheet(
         containerColor = colors.background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
+        val focusManager = LocalFocusManager.current
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // 키보드가 올라와 공간이 줄어도 칸을 눌러 줄이지 않고 시트 안에서 스크롤한다
+                .verticalScroll(rememberScrollState())
+                // 시트는 별도 창이라 MainActivity의 처리가 닿지 않는다 — 입력칸 밖을 누르면 키보드를 닫는다
+                .pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) }
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
