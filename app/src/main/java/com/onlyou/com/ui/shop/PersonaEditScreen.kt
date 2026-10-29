@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.data.remote.PresetDto
 import com.onlyou.com.domain.model.Persona
+import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.components.MiyaSwitch
 import com.onlyou.com.ui.theme.MiyaTheme
 
 @Composable
@@ -103,22 +105,12 @@ fun PersonaEditContent(
                 ) {
                     val isSavable = uiState.persona.name.isNotBlank() &&
                         uiState.persona.presetKey.isNotBlank()
-                    Button(
+                    MiyaPrimaryButton(
+                        text = "저장하기",
                         onClick = onSavePersona,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
                         enabled = isSavable,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = brandPurple,
-                            disabledContainerColor = Color.LightGray
-                        )
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("저장하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
+                        leadingIcon = Icons.Default.Save,
+                    )
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(12.dp))
@@ -236,10 +228,9 @@ fun PersonaEditContent(
                                 Spacer(Modifier.height(4.dp))
                                 Text("상점에 이 비서가 표시되지 않으며 나만 사용할 수 있습니다.", fontSize = 11.sp, color = Color.Gray)
                             }
-                            Switch(
+                            MiyaSwitch(
                                 checked = persona.isPrivate,
                                 onCheckedChange = { onUpdatePersona(persona.copy(isPrivate = it)) },
-                                colors = SwitchDefaults.colors(checkedThumbColor = brandPurple, checkedTrackColor = Color(0xFFEBE0FF))
                             )
                         }
                     }

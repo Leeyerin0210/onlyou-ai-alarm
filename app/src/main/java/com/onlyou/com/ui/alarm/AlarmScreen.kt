@@ -27,16 +27,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,6 +53,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.MiyaAlarm
+import com.onlyou.com.ui.components.MiyaAlertDialog
+import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.components.MiyaSwitch
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -151,40 +148,22 @@ fun AlarmScreenContent(
     }
 
     if (showOverlayDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        MiyaAlertDialog(
+            title = "알람 화면 표시 권한",
+            message = "다른 앱을 쓰는 중에도 알람 화면이 바로 뜨려면 '다른 앱 위에 표시' 권한이 필요해요.\n\n" +
+                "다음 화면에서 온리유를 허용해주세요.",
+            confirmText = "설정으로 이동",
+            onConfirm = {
+                showOverlayDialog = false
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    "package:${context.packageName}".toUri(),
+                )
+                overlayLauncher.launch(intent)
+            },
+            onDismiss = {
                 showOverlayDialog = false
                 pendingEnableAction = null
-            },
-            containerColor = colors.surfaceA,
-            title = { Text("알람 화면 표시 권한", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "다른 앱을 쓰는 중에도 알람 화면이 바로 뜨려면 '다른 앱 위에 표시' 권한이 필요해요.\n\n" +
-                        "다음 화면에서 온리유를 허용해주세요.",
-                    color = colors.neutral,
-                    fontSize = 14.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showOverlayDialog = false
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        "package:${context.packageName}".toUri(),
-                    )
-                    overlayLauncher.launch(intent)
-                }) {
-                    Text("설정으로 이동", color = colors.primary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showOverlayDialog = false
-                    pendingEnableAction = null
-                }) {
-                    Text("취소", color = colors.neutral)
-                }
             },
         )
     }
@@ -232,7 +211,7 @@ fun AlarmScreenContent(
                     )
                 }
 
-                Switch(
+                MiyaSwitch(
                     checked = singleAlarm?.isEnabled == true,
                     onCheckedChange = { enabled ->
                         if (enabled) {
@@ -241,11 +220,6 @@ fun AlarmScreenContent(
                             onToggleAlarm(false)
                         }
                     },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primary,
-                        uncheckedTrackColor = colors.neutral.copy(0.3f),
-                    ),
                     modifier = Modifier.padding(end = 8.dp),
                 )
             }
@@ -284,7 +258,8 @@ fun AlarmScreenContent(
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
 
-                    Button(
+                    MiyaPrimaryButton(
+                        text = "알람 저장하기",
                         onClick = {
                             // 저장은 알람을 켜는 행위(isEnabled=true)이므로 오버레이 권한이 선행돼야 한다
                             requireOverlayPermission saveGate@{
@@ -336,15 +311,8 @@ fun AlarmScreenContent(
                             }
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .padding(horizontal = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Text("알람 저장하기", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
 
                     Spacer(Modifier.height(8.dp))
                 }
@@ -443,15 +411,7 @@ private fun BriefingCategorySectionCard(
                     fontWeight = FontWeight.Medium,
                 )
             }
-            Switch(
-                checked = isWeatherEnabled,
-                onCheckedChange = { onWeatherToggle(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = colors.background,
-                    checkedTrackColor = colors.primary,
-                    uncheckedTrackColor = colors.neutral.copy(0.3f),
-                ),
-            )
+            MiyaSwitch(checked = isWeatherEnabled, onCheckedChange = onWeatherToggle)
         }
     }
 }

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 
 /**
@@ -132,22 +131,11 @@ fun ConsentDialog(
 
             Spacer(Modifier.height(20.dp))
 
-            Button(
+            MiyaPrimaryButton(
+                text = "동의하고 계속하기",
                 onClick = onAgree,
                 enabled = allChecked,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = colors.primary.copy(alpha = 0.4f),
-                    disabledContentColor = Color.White.copy(alpha = 0.7f),
-                ),
-            ) {
-                Text("동의하고 계속하기", fontWeight = FontWeight.Bold)
-            }
+            )
             TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                 Text("취소", color = colors.neutral)
             }

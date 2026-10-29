@@ -354,30 +354,6 @@ fun AlarmEditSectionCard(
 }
 
 @Composable
-private fun AlarmTitleSection(
-    title: String,
-    onTitleChange: (String) -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    AlarmEditSectionCard {
-        Text(text = "브리핑 제목", fontWeight = FontWeight.Bold, color = colors.primary)
-        TextField(
-            value = title,
-            onValueChange = onTitleChange,
-            maxLines = 1,
-            singleLine = true,
-            placeholder = { Text("브리핑 제목을 입력하세요", color = colors.onSurfaceA.copy(0.4f)) },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-        )
-    }
-}
-
-@Composable
 private fun RepeatDayChip(
     label: String,
     selected: Boolean,
@@ -397,36 +373,3 @@ private fun RepeatDayChip(
         Text(text = label, color = if (selected) colors.background else colors.onSurfaceA)
     }
 }
-
-@Composable
-fun SaveAlarmButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = MiyaTheme.colors
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(56.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-        shape = RoundedCornerShape(16.dp),
-    ) {
-        Text("저장하기", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-    }
-}
-
-@Composable
-private fun DeleteAlarmButton(onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MiyaTheme.colors.neutral.copy(0.5f)),
-    ) {
-        Icon(Icons.Default.Delete, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("알람 삭제")
-    }
-}
-
-

@@ -21,8 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 
 /** 알람 동작에 필요한 권한이 모두 허용됐는지 확인 */
@@ -116,7 +115,8 @@ fun AlarmPermissionDialog(onDismiss: () -> Unit) {
             HorizontalDivider(color = colors.neutral.copy(alpha = 0.2f))
 
             // 메인 버튼 → 앱 시스템 설정 페이지로 직접 이동
-            Button(
+            MiyaPrimaryButton(
+                text = "권한 설정하러 가기",
                 onClick = {
                     context.startActivity(
                         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -125,17 +125,7 @@ fun AlarmPermissionDialog(onDismiss: () -> Unit) {
                         },
                     )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = colors.background,
-                ),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("권한 설정하러 가기", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
+            )
 
             // 보조 링크 → 닫기
             Text(

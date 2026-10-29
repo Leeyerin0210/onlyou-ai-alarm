@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.components.ConsumeHorizontalOverscroll
+import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -552,14 +553,10 @@ fun PersonaDetailSheetContent(
             }
         }
         Spacer(Modifier.height(16.dp))
-        Button(
+        MiyaPrimaryButton(
+            text = if (persona.isSelected) "현재 비서" else "비서로 설정",
             onClick = { onSetCurrent(persona) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
-            shape = RoundedCornerShape(50),
             enabled = !persona.isSelected,
-        ) {
-            Text(if (persona.isSelected) "현재 비서" else "비서로 설정", fontWeight = FontWeight.Bold)
-        }
+        )
     }
 }
