@@ -1,14 +1,33 @@
 import os
 
 
-def _persona_body(pid="p1", private=False, preset_key="casual_warm"):
-    return {
+import pytest
+
+from core.persona_fields import compose_legacy_prompt, PersonaFields
+from core.presets import legacy_fields
+from services.moderation_service import ModerationResult
+
+
+def _persona_body(pid="p1", private=False, preset_key=None,
+                  speech="반말", personality="툴툴댐", role="룸메이트", **extra):
+    body = {
         "name": "미야", "description": "설명",
-        "presetKey": preset_key,
         "userCallSign": "주인님",
         "primaryHex": "#FFB7C5", "secondaryHex": "#FFF0F5",
         "isPrivate": private, "updatedAt": 1000,
     }
+    if speech is not None:
+        body.update({"speechStyle": speech, "personality": personality, "role": role})
+    if preset_key is not None:
+        body["presetKey"] = preset_key
+    body.update(extra)
+    return body
+
+
+@pytest.fixture(autouse=True)
+def _no_real_moderation(monkeypatch):
+    import routers.personas as pr
+    monkeypatch.setattr(pr, "moderate_persona", lambda *a, **kw: ModerationResult("approved"))
 
 
 def test_upsert_and_list(client):
@@ -85,12 +104,11 @@ def test_select_others_private_persona_404(client):
 
 
 def test_upsert_stores_preset_key_and_returns_preset_body(client):
-    from core.presets import PRESETS
-    client.put("/personas/p1", json=_persona_body(preset_key="casual_blunt"))
+    client.put("/personas/p1", json=_persona_body(speech=None, preset_key="casual_blunt", private=True))
     item = client.get("/personas").json()[0]
     assert item["presetKey"] == "casual_blunt"
-    # 구버전 앱 브리지 — prompt 필드에는 프리셋 본문이 실린다
-    assert item["prompt"] == PRESETS["casual_blunt"].prompt
+    # 구버전 앱 브리지 — prompt 필드에는 세 칸으로 조립한 값이 실린다
+    assert item["prompt"] == compose_legacy_prompt(legacy_fields("casual_blunt"))
 
 
 def test_legacy_persona_without_preset_key_serializes_non_null(client):
@@ -128,7 +146,7 @@ def test_init_schema_backfills_null_preset_key(client):
 
 
 def test_upsert_rejects_unknown_preset_key(client):
-    res = client.put("/personas/p1", json=_persona_body(preset_key="nope"))
+    res = client.put("/personas/p1", json=_persona_body(speech=None, preset_key="nope"))
     assert res.status_code == 400
 
 
@@ -190,3 +208,143 @@ def test_persona_images_are_served_statically(client):
         assert res.content == b"\xff\xd8test"
     finally:
         os.remove(path)
+
+
+@pytest.fixture()
+def mod_calls(monkeypatch):
+    """심사 결과를 고정하고 호출 횟수를 센다. 기본은 통과."""
+    class _Calls(list):
+        """호출 기록 리스트 + 다음 심사 결과(state)."""
+
+    calls = _Calls()
+    calls.state = {"result": ModerationResult("approved")}
+
+    def fake(uid, name, description, tags, fields):
+        calls.append({"uid": uid, "name": name, "fields": fields})
+        return calls.state["result"]
+
+    import routers.personas as pr
+    monkeypatch.setattr(pr, "moderate_persona", fake)
+    return calls
+
+
+def _row(pid):
+    from contextlib import closing
+    from core.rdb import get_conn
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT is_private, speech_style, personality, role, preset_key "
+            "FROM personas WHERE id = %s", (pid,))
+        return cur.fetchone()
+
+
+def test_public_save_approved_is_public(client, mod_calls):
+    res = client.put("/personas/p1", json=_persona_body())
+    assert res.json() == {"ok": True, "isPrivate": False,
+                          "moderation": {"status": "approved", "reason": ""}}
+    assert _row("p1")[:4] == (False, "반말", "툴툴댐", "룸메이트")
+
+
+def test_public_save_rejected_is_saved_private_with_reason(client, mod_calls):
+    mod_calls.state["result"] = ModerationResult("rejected", "실존 인물 사칭")
+    res = client.put("/personas/p1", json=_persona_body())
+    assert res.json()["isPrivate"] is True
+    assert res.json()["moderation"] == {"status": "rejected", "reason": "실존 인물 사칭"}
+    assert _row("p1")[0] is True
+
+
+def test_public_save_unavailable_is_saved_private(client, mod_calls):
+    mod_calls.state["result"] = ModerationResult("unavailable")
+    res = client.put("/personas/p1", json=_persona_body())
+    assert res.json()["isPrivate"] is True
+    assert res.json()["moderation"]["status"] == "unavailable"
+
+
+def test_private_save_skips_moderation(client, mod_calls):
+    res = client.put("/personas/p1", json=_persona_body(private=True))
+    assert res.json()["moderation"]["status"] == "skipped"
+    assert res.json()["isPrivate"] is True
+    assert mod_calls == []
+
+
+def test_unchanged_public_resave_skips_moderation(client, mod_calls):
+    """색상만 바꾼 저장은 심사하지 않는다 — 비용과 장애 시 강등을 막는다."""
+    client.put("/personas/p1", json=_persona_body())
+    mod_calls.state["result"] = ModerationResult("unavailable")  # 불렸다면 비공개로 떨어진다
+    res = client.put("/personas/p1", json=_persona_body(primaryHex="#000000"))
+    assert res.json()["isPrivate"] is False
+    assert res.json()["moderation"]["status"] == "skipped"
+    assert len(mod_calls) == 1
+
+
+def test_changed_public_resave_is_moderated(client, mod_calls):
+    client.put("/personas/p1", json=_persona_body())
+    client.put("/personas/p1", json=_persona_body(personality="다른 성격"))
+    assert len(mod_calls) == 2
+
+
+def test_private_to_public_with_same_text_is_moderated(client, mod_calls):
+    client.put("/personas/p1", json=_persona_body(private=True))
+    client.put("/personas/p1", json=_persona_body())
+    assert len(mod_calls) == 1
+
+
+def test_locked_persona_cannot_go_public(client, mod_calls):
+    from contextlib import closing
+    from core.rdb import get_conn
+    client.put("/personas/p1", json=_persona_body(private=True))
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("UPDATE personas SET report_locked_at = now() WHERE id = 'p1'")
+    res = client.put("/personas/p1", json=_persona_body())
+    assert res.json()["isPrivate"] is True
+    assert res.json()["moderation"]["status"] == "locked"
+    assert mod_calls == []
+
+
+def test_new_app_requires_speech_and_personality(client, mod_calls):
+    assert client.put("/personas/p1", json=_persona_body(personality="  ")).status_code == 400
+    assert client.put("/personas/p1", json=_persona_body(speech="")).status_code == 400
+
+
+def test_angle_bracket_only_field_counts_as_blank(client, mod_calls):
+    """프롬프트 조립이 꺾쇠를 지우므로 "<>"만 있는 칸은 빈 칸으로 본다."""
+    assert client.put("/personas/p1", json=_persona_body(personality="<>")).status_code == 400
+    assert client.put("/personas/p1", json=_persona_body(speech=" < > ")).status_code == 400
+
+
+def test_field_over_300_chars_is_422(client, mod_calls):
+    assert client.put("/personas/p1", json=_persona_body(personality="가" * 301)).status_code == 422
+
+
+def test_old_app_preset_key_only_fills_fields(client, mod_calls):
+    res = client.put("/personas/p1", json=_persona_body(speech=None, preset_key="casual_blunt", private=True))
+    assert res.status_code == 200
+    f = legacy_fields("casual_blunt")
+    assert _row("p1")[1:5] == (f.speech_style, f.personality, f.role, "casual_blunt")
+
+
+def test_old_app_unknown_preset_key_is_400(client, mod_calls):
+    res = client.put("/personas/p1", json=_persona_body(speech=None, preset_key="nope"))
+    assert res.status_code == 400
+
+
+def test_old_app_save_without_fields_or_preset_keeps_user_fields(client, mod_calls):
+    """구버전 앱이 세 칸·presetKey 없이 수정해도 유저가 쓴 세 칸이 덮이면 안 된다."""
+    client.put("/personas/p1", json=_persona_body(private=True, personality="내가 쓴 성격"))
+    client.put("/personas/p1", json=_persona_body(speech=None, private=True, name="새이름"))
+    assert _row("p1")[2] == "내가 쓴 성격"
+
+
+def test_new_row_without_anything_gets_default_fields(client, mod_calls):
+    client.put("/personas/p1", json=_persona_body(speech=None, private=True))
+    f = legacy_fields(None)
+    assert _row("p1")[1:4] == (f.speech_style, f.personality, f.role)
+
+
+def test_list_returns_fields_lock_flag_and_legacy_prompt(client, mod_calls):
+    client.put("/personas/p1", json=_persona_body())
+    item = client.get("/personas").json()[0]
+    assert (item["speechStyle"], item["personality"], item["role"]) == ("반말", "툴툴댐", "룸메이트")
+    assert item["reportLocked"] is False
+    assert item["isOfficial"] is False
+    assert item["prompt"] == compose_legacy_prompt(PersonaFields("반말", "툴툴댐", "룸메이트"))

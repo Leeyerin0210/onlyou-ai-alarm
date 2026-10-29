@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
+from core.persona_fields import MAX_FIELD_LEN
+
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
 # 정상 사용에는 전부 넉넉한 값이다.
 MAX_MESSAGE_LEN = 4_000          # 채팅 메시지 1건
@@ -72,7 +74,13 @@ class PersonaIn(BaseModel):
     # 구버전 앱이 계속 보내지만 Pydantic이 조용히 버린다 (extra="forbid" 금지).
     name: str = Field(max_length=100)
     description: str = Field(default="", max_length=2_000)
-    presetKey: str = Field(max_length=64)
+    # 성격 세 칸 (스펙: 2026-10-13-presets-removal-design.md). 셋 다 None이면
+    # 구버전 앱 — presetKey로 채우거나 기존 값을 보존한다.
+    speechStyle: Optional[str] = Field(default=None, max_length=MAX_FIELD_LEN)
+    personality: Optional[str] = Field(default=None, max_length=MAX_FIELD_LEN)
+    role: Optional[str] = Field(default=None, max_length=MAX_FIELD_LEN)
+    # 구버전 앱 호환(한 릴리스). 신 앱은 보내지 않는다.
+    presetKey: Optional[str] = Field(default=None, max_length=64)
     userCallSign: Optional[str] = Field(default=None, max_length=100)
     primaryHex: Optional[str] = Field(default=None, max_length=16)
     secondaryHex: Optional[str] = Field(default=None, max_length=16)

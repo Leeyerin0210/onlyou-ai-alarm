@@ -11,6 +11,13 @@ def _clean_counters():
     reset_counters()
 
 
+@pytest.fixture(autouse=True)
+def _no_real_moderation(monkeypatch):
+    import routers.personas as pr
+    from services.moderation_service import ModerationResult
+    monkeypatch.setattr(pr, "moderate_persona", lambda *a, **kw: ModerationResult("approved"))
+
+
 def _persona_body(**overrides):
     body = {"name": "테스트", "description": "d", "presetKey": "casual_warm"}
     body.update(overrides)
