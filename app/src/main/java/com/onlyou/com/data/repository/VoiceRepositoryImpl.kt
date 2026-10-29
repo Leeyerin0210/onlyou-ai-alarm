@@ -127,11 +127,11 @@ class VoiceRepositoryImpl
                             }
                         }
                     } else {
-                        emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey).fallbackScript)
+                        emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey, persona.speechStyle).fallbackScript)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey).fallbackScript)
+                    emit(com.onlyou.com.util.morningGreeting(com.onlyou.com.util.renderCallSign(persona.userCallSign, userProfileRepository.name.value), persona.presetKey, persona.speechStyle).fallbackScript)
                 }
             }.flowOn(Dispatchers.IO)
 

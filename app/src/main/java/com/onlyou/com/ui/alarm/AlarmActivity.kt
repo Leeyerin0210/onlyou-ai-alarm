@@ -245,7 +245,7 @@ fun MorningBriefingContent(
 ) {
     val callSign = com.onlyou.com.util.renderCallSign(persona?.userCallSign ?: "", userName)
         .ifEmpty { com.onlyou.com.util.NO_NAME_CALL_SIGN }
-    val greeting = com.onlyou.com.util.morningGreeting(callSign, persona?.presetKey)
+    val greeting = com.onlyou.com.util.morningGreeting(callSign, persona?.presetKey, persona?.speechStyle)
 
     val bgGradient = Brush.verticalGradient(
         listOf(

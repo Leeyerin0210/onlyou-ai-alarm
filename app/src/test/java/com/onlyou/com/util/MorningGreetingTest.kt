@@ -22,4 +22,27 @@ class MorningGreetingTest {
     fun unknownPresetDefaultsToPolite() {
         assertEquals("좋은 아침이에요, 사용자님! ☀️", morningGreeting("사용자님", null).title)
     }
+
+    @Test
+    fun banmalSpeechStyleBeatsPolitePresetKey() {
+        val g = morningGreeting("예린아", "polite_brief", "반말, 짧고 툭툭")
+        assertEquals("좋은 아침, 예린아! ☀️", g.title)
+    }
+
+    @Test
+    fun jondaetmalSpeechStyleBeatsCasualPresetKey() {
+        val g = morningGreeting("예린님", "casual_warm", "존댓말")
+        assertEquals("좋은 아침이에요, 예린님! ☀️", g.title)
+    }
+
+    @Test
+    fun blankSpeechStyleFallsBackToPresetKey() {
+        assertEquals("좋은 아침, 예린아! ☀️", morningGreeting("예린아", "casual_warm", "").title)
+        assertEquals("좋은 아침이에요, 예린님! ☀️", morningGreeting("예린님", "polite_brief", "  ").title)
+    }
+
+    @Test
+    fun unrelatedSpeechStyleFallsBackToPresetKey() {
+        assertEquals("좋은 아침, 예린아! ☀️", morningGreeting("예린아", "casual_warm", "차분하게").title)
+    }
 }
