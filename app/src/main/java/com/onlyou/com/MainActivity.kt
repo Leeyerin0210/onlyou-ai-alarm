@@ -55,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -132,6 +135,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 val colors = MiyaTheme.colors
                 val scope = rememberCoroutineScope()
+                val focusManager = LocalFocusManager.current
                 val prefs = remember { getSharedPreferences("miya_prefs", Context.MODE_PRIVATE) }
                 var currentScreen by remember { mutableStateOf("splash_check") }
                 var isEditingAlarm by remember { mutableStateOf(false) }
@@ -213,7 +217,10 @@ class MainActivity : ComponentActivity() {
                                     // 키보드가 뜨면 화면을 키보드 위까지만 쓴다. 하단 탭 자리(bottomPadding)는
                                     // 이미 비워 뒀으므로 그만큼은 빼고 나머지만 올린다.
                                     .consumeWindowInsets(PaddingValues(bottom = bottomPadding))
-                                    .imePadding(),
+                                    .imePadding()
+                                    // 입력칸 밖 빈 곳을 누르면 포커스를 풀어 키보드를 닫는다.
+                                    // 버튼·입력칸·스크롤이 먼저 소비한 터치는 여기까지 오지 않는다.
+                                    .pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) },
                             ) {
                                 if (isMainTab) {
                                     HorizontalPager(
