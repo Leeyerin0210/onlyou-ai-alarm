@@ -1043,11 +1043,26 @@ private fun AddScheduleBottomSheet(
 
             // Time Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // '시간 미정' 스위치는 입력칸 밖에 둔다 — 입력칸을 덮는 클릭 영역(시간 선택 열기)이
+                // 스위치까지 가려서, 시간이 정해진 일정은 미정으로 되돌릴 수 없었다
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("시간", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.onSurfaceA)
                     Box(modifier = Modifier.background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
                         Text("선택", fontSize = 11.sp, color = colors.primary, fontWeight = FontWeight.Medium)
                     }
+                    Spacer(Modifier.weight(1f))
+                    Text("시간 미정", fontSize = 14.sp, color = colors.neutral)
+                    Switch(
+                        checked = isUntimed,
+                        onCheckedChange = { isUntimed = it },
+                        modifier = Modifier.scale(0.8f),
+                        colors = SwitchDefaults.colors(
+                            // 꺼짐 상태 동그라미는 기본색을 쓴다 (surfaceB는 배경과 같아 안 보였다) — 알람 화면 스위치와 동일
+                            checkedThumbColor = colors.background,
+                            checkedTrackColor = colors.primary,
+                            uncheckedTrackColor = colors.neutral.copy(0.3f),
+                        )
+                    )
                 }
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
@@ -1058,23 +1073,6 @@ private fun AddScheduleBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = colors.primary) },
-                        trailingIcon = {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
-                                Switch(
-                                    checked = isUntimed,
-                                    onCheckedChange = { isUntimed = it },
-                                    modifier = Modifier.scale(0.8f),
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = colors.background,
-                                        checkedTrackColor = colors.primary,
-                                        uncheckedThumbColor = colors.surfaceB,
-                                        uncheckedTrackColor = colors.neutral.copy(alpha = 0.2f),
-                                    )
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text("시간 미정", fontSize = 14.sp, color = colors.neutral)
-                            }
-                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = colors.neutral.copy(alpha = 0.3f),
                             unfocusedBorderColor = colors.neutral.copy(alpha = 0.3f),

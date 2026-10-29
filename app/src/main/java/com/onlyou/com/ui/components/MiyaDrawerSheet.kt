@@ -75,7 +75,7 @@ fun MiyaDrawerSheet(
                         .background(colors.surfaceA),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(32.dp))
+                    com.onlyou.com.ui.shop.PersonaImage(selectedPersona?.imageUrl, iconSize = 32.dp, iconTint = colors.primary)
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
