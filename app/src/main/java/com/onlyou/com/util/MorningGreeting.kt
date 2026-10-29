@@ -3,10 +3,13 @@ package com.onlyou.com.util
 /**
  * 알람 인사 문구 — 비서 말투(반말/존댓말)에 맞춘다.
  * 말투 칸에 "반말"이 있으면 반말, "존댓말"이 있으면 존댓말이다.
- * 말투 칸이 비었거나 둘 다 없으면 예전 프리셋 키(casual_* = 반말)로 판단한다.
+
+ * 말투 칸이 비었거나 둘 다 없거나 둘 다 적혀 있으면 예전 프리셋 키(casual_* = 반말)로 판단한다.
  */
 fun isCasualSpeech(presetKey: String?, speechStyle: String? = null): Boolean =
     when {
+        // 둘 다 적혀 있으면 어느 쪽인지 알 수 없으니 프리셋 키로 판단한다
+        speechStyle?.contains("반말") == true && speechStyle.contains("존댓말") -> presetKey?.startsWith("casual") == true
         speechStyle?.contains("반말") == true -> true
         speechStyle?.contains("존댓말") == true -> false
         else -> presetKey?.startsWith("casual") == true

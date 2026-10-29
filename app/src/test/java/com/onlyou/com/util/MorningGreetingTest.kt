@@ -42,6 +42,12 @@ class MorningGreetingTest {
     }
 
     @Test
+    fun speechStyleWithBothBanmalAndJondaetmalFallsBackToPresetKey() {
+        assertEquals("좋은 아침, 예린아! ☀️", morningGreeting("예린아", "casual_warm", "반말과 존댓말을 섞어서").title)
+        assertEquals("좋은 아침이에요, 예린님! ☀️", morningGreeting("예린님", "polite_brief", "반말 섞인 존댓말").title)
+    }
+
+    @Test
     fun unrelatedSpeechStyleFallsBackToPresetKey() {
         assertEquals("좋은 아침, 예린아! ☀️", morningGreeting("예린아", "casual_warm", "차분하게").title)
     }

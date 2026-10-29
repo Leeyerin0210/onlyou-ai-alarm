@@ -68,10 +68,18 @@ class PersonaEditViewModel
 
         fun savePersona() {
             val currentState = _uiState.value
-            if (currentState is PersonaEditUiState.Success) {
+            if (currentState is PersonaEditUiState.Success && !currentState.isSaving) {
+                // 공개 저장은 서버 심사를 기다리므로(~10초) 중복 탭을 막는다
+                _uiState.value = currentState.copy(isSaving = true)
                 viewModelScope.launch {
-                    val result = personaRepository.upsertPersona(currentState.persona)
-                    _uiState.value = PersonaEditUiState.Saved(saveNotice(result))
+                    try {
+                        val result = personaRepository.upsertPersona(currentState.persona)
+                        _uiState.value = PersonaEditUiState.Saved(saveNotice(result))
+                    } catch (e: Exception) {
+                        // 로컬 저장 실패 등 — 다시 시도할 수 있게 저장 중 상태를 푼다
+                        e.printStackTrace()
+                        _uiState.update { if (it is PersonaEditUiState.Success) it.copy(isSaving = false) else it }
+                    }
                 }
             }
         }
@@ -97,6 +105,7 @@ sealed class PersonaEditUiState {
 
     data class Success(
         val persona: Persona,
+        val isSaving: Boolean = false,
     ) : PersonaEditUiState()
 
     /** notice가 있으면 안내 다이얼로그를 띄운 뒤 화면을 닫는다. */

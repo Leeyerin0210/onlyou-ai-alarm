@@ -21,8 +21,18 @@ fun isPersonaSavable(p: Persona): Boolean =
 fun saveNotice(result: PersonaSaveResult): String? =
     when (result.status) {
         ModerationStatus.APPROVED -> "상점에 공개됐어요"
-        ModerationStatus.REJECTED -> "상점에 공개할 수 없는 내용이 있어요: ${result.reason}. 나만 보기로 저장했어요."
+        ModerationStatus.REJECTED -> {
+            // 서버 사유가 이미 마침표로 끝나는 경우가 있어 정리한 뒤 붙인다
+            val reason = result.reason.trimEnd('.', ' ')
+            "상점에 공개할 수 없는 내용이 있어요: $reason. 나만 보기로 저장했어요."
+        }
         ModerationStatus.UNAVAILABLE -> "지금은 공개할 수 없어요. 잠시 후 다시 시도해 주세요. (나만 보기로 저장했어요)"
         ModerationStatus.LOCKED -> "신고가 누적되어 공개할 수 없는 비서예요"
-        ModerationStatus.SKIPPED, ModerationStatus.OFFLINE -> null
+        ModerationStatus.OFFLINE ->
+            if (result.isPrivate == true) {
+                "서버에 연결하지 못해 나만 보기로 저장했어요. 연결된 뒤 다시 공개해 주세요."
+            } else {
+                null
+            }
+        ModerationStatus.SKIPPED -> null
     }

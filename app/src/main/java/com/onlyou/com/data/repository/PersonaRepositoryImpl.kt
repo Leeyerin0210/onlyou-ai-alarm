@@ -204,7 +204,7 @@ class PersonaRepositoryImpl
             } catch (e: Exception) {
                 e.printStackTrace()
                 com.onlyou.com.domain.model.PersonaSaveResult(com.onlyou.com.domain.model.ModerationStatus.OFFLINE)
-            }
+            }.downgradedIfOffline(requestedPrivate = updatedPersona.isPrivate)
             val serverPrivate = result.isPrivate
             if (serverPrivate != null && serverPrivate != entity.isPrivate) {
                 personaDao.upsertPersona(entity.copy(isPrivate = serverPrivate))

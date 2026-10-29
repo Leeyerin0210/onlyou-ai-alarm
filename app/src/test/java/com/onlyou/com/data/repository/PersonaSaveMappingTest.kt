@@ -3,6 +3,7 @@ package com.onlyou.com.data.repository
 import com.onlyou.com.data.remote.ModerationDto
 import com.onlyou.com.data.remote.PersonaUpsertResponseDto
 import com.onlyou.com.domain.model.ModerationStatus
+import com.onlyou.com.domain.model.PersonaSaveResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -34,6 +35,21 @@ class PersonaSaveMappingTest {
             ModerationStatus.SKIPPED,
             PersonaUpsertResponseDto(ok = true, isPrivate = false, moderation = null).toSaveResult().status,
         )
+    }
+
+    @Test
+    fun `공개 요청이 오프라인이면 나만 보기로 내려 결과에 알린다`() {
+        val r = PersonaSaveResult(ModerationStatus.OFFLINE).downgradedIfOffline(requestedPrivate = false)
+        assertEquals(true, r.isPrivate)
+        assertEquals(ModerationStatus.OFFLINE, r.status)
+    }
+
+    @Test
+    fun `비공개 요청이거나 서버에 닿았으면 결과를 바꾸지 않는다`() {
+        val offline = PersonaSaveResult(ModerationStatus.OFFLINE)
+        assertEquals(offline, offline.downgradedIfOffline(requestedPrivate = true))
+        val approved = PersonaSaveResult(ModerationStatus.APPROVED, isPrivate = false)
+        assertEquals(approved, approved.downgradedIfOffline(requestedPrivate = false))
     }
 
     @Test

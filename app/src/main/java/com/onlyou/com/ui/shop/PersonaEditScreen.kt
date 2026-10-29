@@ -111,7 +111,8 @@ fun PersonaEditContent(
                     MiyaPrimaryButton(
                         text = "저장하기",
                         onClick = onSavePersona,
-                        enabled = isSavable,
+                        enabled = isSavable && !uiState.isSaving,
+                        isLoading = uiState.isSaving,
                         leadingIcon = Icons.Default.Save,
                     )
                     Spacer(Modifier.height(12.dp))

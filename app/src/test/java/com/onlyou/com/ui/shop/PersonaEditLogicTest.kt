@@ -54,8 +54,25 @@ class PersonaEditLogicTest {
     }
 
     @Test
-    fun `비공개 저장과 오프라인 저장은 안내 없음`() {
+    fun `비공개 저장과 오프라인 비공개 저장은 안내 없음`() {
         assertNull(saveNotice(PersonaSaveResult(ModerationStatus.SKIPPED)))
         assertNull(saveNotice(PersonaSaveResult(ModerationStatus.OFFLINE)))
+        assertNull(saveNotice(PersonaSaveResult(ModerationStatus.OFFLINE, isPrivate = false)))
+    }
+
+    @Test
+    fun `공개 저장이 서버에 닿지 못하면 나만 보기로 저장했다고 안내`() {
+        assertEquals(
+            "서버에 연결하지 못해 나만 보기로 저장했어요. 연결된 뒤 다시 공개해 주세요.",
+            saveNotice(PersonaSaveResult(ModerationStatus.OFFLINE, isPrivate = true)),
+        )
+    }
+
+    @Test
+    fun `거절 사유 끝의 마침표와 공백은 정리해 마침표가 겹치지 않는다`() {
+        assertEquals(
+            "상점에 공개할 수 없는 내용이 있어요: 실존 인물 사칭. 나만 보기로 저장했어요.",
+            saveNotice(PersonaSaveResult(ModerationStatus.REJECTED, "실존 인물 사칭. ")),
+        )
     }
 }
