@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.components.ConsumeHorizontalOverscroll
+import com.onlyou.com.ui.components.MiyaAlertDialog
 import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -51,6 +52,14 @@ fun ShopScreen(
     val uiState by viewModel.uiState.collectAsState()
     val colors = MiyaTheme.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(uiState.reportMessage) {
+        uiState.reportMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.consumeReportMessage()
+        }
+    }
 
     var isFabExpanded by remember { mutableStateOf(false) }
 
@@ -265,6 +274,9 @@ fun ShopScreen(
                 isBuffering = uiState.isBuffering,
                 onSetCurrent = { viewModel.setCurrentPersona(it); viewModel.selectPersona(null) },
                 onPlayPreview = viewModel::playPreview,
+                canReport = canReport(uiState.selectedPersona!!, uiState.currentUserId),
+                alreadyReported = uiState.selectedPersona!!.id in uiState.reportedIds,
+                onReport = { reason -> viewModel.reportPersona(uiState.selectedPersona!!, reason) },
             )
         }
     }
@@ -519,6 +531,9 @@ fun PersonaDetailSheetContent(
     isBuffering: Boolean,
     onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String) -> Unit,
+    canReport: Boolean,
+    alreadyReported: Boolean,
+    onReport: (String) -> Unit,
 ) {
     val colors = MiyaTheme.colors
     Column(
@@ -538,6 +553,7 @@ fun PersonaDetailSheetContent(
                 persona.tags.forEach { TagChip(it) }
             }
         }
+        PersonaFieldsSummary(persona)
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Surface(
@@ -558,5 +574,70 @@ fun PersonaDetailSheetContent(
             onClick = { onSetCurrent(persona) },
             enabled = !persona.isSelected,
         )
+        if (canReport) {
+            var showReport by remember { mutableStateOf(false) }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showReport = true }, enabled = !alreadyReported) {
+                Text(if (alreadyReported) "신고했어요" else "신고하기", color = colors.neutral, fontSize = 13.sp)
+            }
+            if (showReport) {
+                ReportDialog(
+                    onDismiss = { showReport = false },
+                    onSubmit = { reason -> showReport = false; onReport(reason) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonaFieldsSummary(persona: Persona) {
+    val colors = MiyaTheme.colors
+    val rows = listOf("말투" to persona.speechStyle, "성격" to persona.personality, "역할" to persona.role)
+        .filter { it.second.isNotBlank() }
+    if (rows.isEmpty()) return
+    Spacer(Modifier.height(16.dp))
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceB).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        rows.forEach { (label, value) ->
+            Text("$label · $value", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceA)
+        }
+    }
+}
+
+private val REPORT_REASONS = listOf("부적절한 내용", "실존 인물 사칭", "기타")
+
+@Composable
+private fun ReportDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+    val colors = MiyaTheme.colors
+    var selected by remember { mutableStateOf(REPORT_REASONS.first()) }
+    var etc by remember { mutableStateOf("") }
+    MiyaAlertDialog(
+        title = "이 비서를 신고할까요?",
+        confirmText = "신고",
+        onConfirm = { onSubmit(if (selected == "기타") "기타: ${etc.trim()}" else selected) },
+        onDismiss = onDismiss,
+    ) {
+        Column {
+            REPORT_REASONS.forEach { reason ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { selected = reason },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = selected == reason, onClick = { selected = reason })
+                    Text(reason, color = colors.onSurfaceA)
+                }
+            }
+            if (selected == "기타") {
+                OutlinedTextField(
+                    value = etc,
+                    onValueChange = { etc = it.take(200) },
+                    placeholder = { Text("사유를 적어주세요") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }

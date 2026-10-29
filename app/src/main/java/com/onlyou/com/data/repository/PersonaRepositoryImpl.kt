@@ -127,6 +127,14 @@ class PersonaRepositoryImpl
             }
         }
 
+        override suspend fun reportPersona(personaId: String, reason: String): Boolean =
+            try {
+                api.reportPersona(personaId, com.onlyou.com.data.remote.PersonaReportDto(reason.take(200))).isSuccessful
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+
         override suspend fun setSelectedPersona(personaId: String) {
             val allPersonas = personaDao.getAllPersonasOnce()
 

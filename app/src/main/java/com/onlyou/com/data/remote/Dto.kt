@@ -146,3 +146,7 @@ data class BackupDto(
     val memories: String,
     val timestamp: Long,
 )
+
+data class PersonaReportDto(
+    val reason: String,
+)

@@ -51,6 +51,9 @@ interface PersonaRepository {
      * 서버와 로컬 DB 동기화.
      * @return 서버 도달 및 동기화 성공 여부. 서버에 닿지 못하면 false(=오프라인).
      */
+    /** 공개 비서 신고. 서버가 접수(200)하면 true. */
+    suspend fun reportPersona(personaId: String, reason: String): Boolean
+
     suspend fun syncPersonas(): Boolean
 
     /** 상점 '이번 주 테마'. 테마가 없거나 조회에 실패하면 null(섹션 숨김). */

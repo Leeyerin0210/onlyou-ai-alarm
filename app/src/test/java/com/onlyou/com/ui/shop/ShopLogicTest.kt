@@ -13,10 +13,25 @@ class ShopLogicTest {
         creator: String? = "other",
         name: String = id,
         description: String = "",
+        official: Boolean = false,
     ) = Persona(
         id = id, name = name, description = description, usageCount = usage,
-        tags = tags, isPrivate = private, creatorId = creator,
+        tags = tags, isPrivate = private, creatorId = creator, isOfficial = official,
     )
+
+    @Test
+    fun `신고는 남이 만든 공개 비서에만`() {
+        assertEquals(true, canReport(p("a", creator = "other"), "me"))
+        assertEquals(false, canReport(p("a", creator = "me"), "me"))
+        assertEquals(false, canReport(p("a", creator = "other", private = true), "me"))
+        assertEquals(false, canReport(p("a", creator = "other", official = true), "me"))
+        assertEquals(false, canReport(p("a", creator = null), "me"))
+    }
+
+    @Test
+    fun `로그인 정보가 없으면 신고 버튼을 숨긴다`() {
+        assertEquals(false, canReport(p("a", creator = "other"), null))
+    }
 
     @Test
     fun `topTags는 공개 비서 수 기준 내림차순, 동률은 사전순`() {

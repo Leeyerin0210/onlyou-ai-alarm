@@ -47,3 +47,11 @@ fun filterPersonas(
     }
     return matched.sortedByDescending { it.usageCount }
 }
+
+/** 신고 버튼 노출 조건 — 서버도 같은 조건(내 것·비공개·공식 비서 불가)으로 400을 낸다. */
+fun canReport(p: Persona, currentUserId: String?): Boolean =
+    currentUserId != null &&
+        p.creatorId != null &&
+        p.creatorId != currentUserId &&
+        !p.isPrivate &&
+        !p.isOfficial

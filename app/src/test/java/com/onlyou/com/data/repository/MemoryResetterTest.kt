@@ -130,6 +130,8 @@ private class FakeApiService(
 
     override suspend fun selectPersona(id: String): Response<Unit> = unused()
 
+    override suspend fun reportPersona(id: String, body: com.onlyou.com.data.remote.PersonaReportDto): Response<Unit> = unused()
+
     override suspend fun getMe(): UserProfileDto = unused()
 
     override suspend fun putMe(body: UserProfilePutDto): Response<Unit> = unused()

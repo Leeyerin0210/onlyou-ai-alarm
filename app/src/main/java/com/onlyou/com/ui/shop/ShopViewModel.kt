@@ -27,6 +27,9 @@ data class ShopUiState(
     val currentUserId: String? = null,
     val isOnline: Boolean = true,
     val isLoading: Boolean = true,
+    // 이번 세션에 신고한 비서 — 버튼 비활성화용. 서버가 중복 신고를 무시하므로 영구 저장은 불필요하다.
+    val reportedIds: Set<String> = emptySet(),
+    val reportMessage: String? = null,
 )
 
 @HiltViewModel
@@ -47,6 +50,23 @@ class ShopViewModel
                 ),
             )
         val uiState: StateFlow<ShopUiState> = _uiState
+
+        fun reportPersona(persona: Persona, reason: String) {
+            viewModelScope.launch {
+                val ok = personaRepository.reportPersona(persona.id, reason)
+                _uiState.update {
+                    if (ok) {
+                        it.copy(reportedIds = it.reportedIds + persona.id, reportMessage = "신고가 접수됐어요")
+                    } else {
+                        it.copy(reportMessage = "신고를 보내지 못했어요. 잠시 후 다시 시도해 주세요.")
+                    }
+                }
+            }
+        }
+
+        fun consumeReportMessage() {
+            _uiState.update { it.copy(reportMessage = null) }
+        }
 
         private val voicePreview = VoicePreviewPlayer(context, voiceRepository, viewModelScope)
 

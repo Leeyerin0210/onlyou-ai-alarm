@@ -73,6 +73,12 @@ interface MiyaApiService {
     @POST("personas/{id}/select")
     suspend fun selectPersona(@retrofit2.http.Path("id") id: String): Response<Unit>
 
+    @POST("personas/{id}/report")
+    suspend fun reportPersona(
+        @retrofit2.http.Path("id") id: String,
+        @Body body: com.onlyou.com.data.remote.PersonaReportDto,
+    ): Response<Unit>
+
     // Users
     @retrofit2.http.GET("users/me")
     suspend fun getMe(): UserProfileDto

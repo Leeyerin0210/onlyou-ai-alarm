@@ -1,6 +1,8 @@
 package com.onlyou.com.ui.shop
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -83,12 +85,25 @@ fun MyPersonasScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = persona.name,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MiyaTheme.colors.onSurfaceA
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = persona.name,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MiyaTheme.colors.onSurfaceA
+                                    )
+                                    if (persona.reportLocked) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "공개 불가",
+                                            fontSize = 11.sp,
+                                            color = Color.Red,
+                                            modifier = Modifier
+                                                .border(1.dp, Color.Red, RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = persona.description,
                                     fontSize = 14.sp,
