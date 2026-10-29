@@ -21,6 +21,9 @@ val SpacePrimary = Color(0xFF7D52FF)      // Cosmic Purple
 val SpaceSecondary = Color(0xFF00D4FF)    // Galaxy Cyan
 val SpaceNeutral = Color(0xFF8B949E)      // Muted Grey
 
+// 탈퇴·초기화 같은 되돌릴 수 없는 동작과 입력 오류에 쓰는 경고색 (라이트·다크 공통)
+val DangerRed = Color(0xFFFF5252)
+
 /**
  * Converts a hex color string (e.g., "#FFD700" or "#AAFFD700") to a Compose [Color].
  * Defaults to [Color.Gray] if the string is invalid.

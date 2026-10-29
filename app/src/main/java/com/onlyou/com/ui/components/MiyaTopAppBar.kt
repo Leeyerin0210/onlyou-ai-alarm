@@ -1,5 +1,6 @@
 package com.onlyou.com.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,5 +47,19 @@ fun MiyaTopAppBar(
                 .padding(start = if (onNavigationClick != null) 4.dp else 16.dp),
         )
         actions()
+    }
+}
+
+/** 뒤로가기 상단바가 달린 하위 화면 틀. 설정 하위 화면 등에서 공통으로 쓴다. */
+@Composable
+fun MiyaSubScreen(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier.fillMaxSize().background(MiyaTheme.colors.background)) {
+        MiyaTopAppBar(title, onBack)
+        content()
     }
 }

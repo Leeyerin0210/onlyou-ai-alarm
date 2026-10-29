@@ -22,9 +22,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.repository.ThemeMode
+import com.onlyou.com.ui.components.MiyaAlertDialog
+import com.onlyou.com.ui.components.MiyaOutlinedTextField
+import com.onlyou.com.ui.components.MiyaSubScreen
+import com.onlyou.com.ui.components.MiyaSwitch
+import com.onlyou.com.ui.components.MiyaTimePickerDialog
+import com.onlyou.com.ui.theme.DangerRed
 import com.onlyou.com.ui.theme.MiyaTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,16 +70,7 @@ fun SettingsScreen(
         )
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(colors.background),
-    ) {
-        com.onlyou.com.ui.components.MiyaTopAppBar(
-            title = "설정",
-            onNavigationClick = onBack
-        )
-
+    MiyaSubScreen(title = "설정", onBack = onBack) {
         LazyColumn(
             contentPadding = PaddingValues(bottom = 32.dp),
             modifier = Modifier.fillMaxSize(),
@@ -101,7 +99,8 @@ fun SettingsScreen(
                 )
 
                 if (showTimePicker) {
-                    EveningFeedbackTimePickerDialog(
+                    MiyaTimePickerDialog(
+                        title = "발송 시각",
                         initialHour = feedback.hour,
                         initialMinute = feedback.minute,
                         onConfirm = { h, m ->
@@ -139,59 +138,31 @@ private fun DeleteAccountDialog(
     onConfirm: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val colors = MiyaTheme.colors
     var password by remember { mutableStateOf("") }
-    val canConfirm = !isLoading && (!requirePassword || password.isNotBlank())
-    AlertDialog(
-        onDismissRequest = { if (!isLoading) onDismiss() },
-        containerColor = colors.surfaceA,
-        title = { Text("회원 탈퇴", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text(
-                    "탈퇴하면 계정과 함께 서버에 저장된 대화, 기억, 일정, " +
-                        "직접 만든 페르소나와 음성 데이터가 모두 삭제되며 복구할 수 없어요.\n\n" +
-                        "정말 탈퇴하시겠어요?",
-                    color = colors.neutral,
-                    fontSize = 14.sp,
+    MiyaAlertDialog(
+        title = "회원 탈퇴",
+        message = "탈퇴하면 계정과 함께 서버에 저장된 대화, 기억, 일정, " +
+            "직접 만든 페르소나와 음성 데이터가 모두 삭제되며 복구할 수 없어요.\n\n" +
+            "정말 탈퇴하시겠어요?",
+        confirmText = "탈퇴하기",
+        onConfirm = { onConfirm(if (requirePassword) password else null) },
+        onDismiss = onDismiss,
+        destructive = true,
+        confirmEnabled = !requirePassword || password.isNotBlank(),
+        isLoading = isLoading,
+        content = if (requirePassword) {
+            {
+                MiyaOutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = "비밀번호 확인",
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    enabled = !isLoading,
                 )
-                if (requirePassword) {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        enabled = !isLoading,
-                        singleLine = true,
-                        placeholder = { Text("비밀번호 확인", fontSize = 14.sp) },
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(if (requirePassword) password else null) },
-                enabled = canConfirm,
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = colors.primary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("탈퇴하기", color = androidx.compose.ui.graphics.Color(0xFFFF5252))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoading) {
-                Text("취소", color = colors.neutral)
-            }
+        } else {
+            null
         },
     )
 }
@@ -281,7 +252,7 @@ fun BatteryOptimizationRow() {
         if (isIgnoring) {
             Text("제한 없음", fontSize = 14.sp, color = colors.primary)
         } else {
-            Text("최적화 중", fontSize = 14.sp, color = androidx.compose.ui.graphics.Color(0xFFFF5252))
+            Text("최적화 중", fontSize = 14.sp, color = DangerRed)
             Spacer(modifier = Modifier.width(4.dp))
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(20.dp))
         }
@@ -359,41 +330,6 @@ fun EveningFeedbackRow(
                 modifier = Modifier.clickable(enabled = enabled) { onTimeClick() },
             )
         }
-        Switch(
-            checked = enabled,
-            onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = colors.primary,
-                checkedTrackColor = colors.surfaceB,
-            ),
-        )
+        MiyaSwitch(checked = enabled, onCheckedChange = onToggle)
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EveningFeedbackTimePickerDialog(
-    initialHour: Int,
-    initialMinute: Int,
-    onConfirm: (Int, Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val colors = MiyaTheme.colors
-    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surfaceA,
-        title = { Text("발송 시각", color = colors.onSurfaceA) },
-        text = { TimePicker(state = state) },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(state.hour, state.minute) }) {
-                Text("확인", color = colors.primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소", color = colors.neutral)
-            }
-        },
-    )
 }

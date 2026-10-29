@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.onlyou.com.R
+import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 
@@ -334,23 +335,10 @@ private fun PermissionCard(
             Spacer(modifier = Modifier.height(32.dp))
 
             // 기본 버튼
-            Button(
+            MiyaPrimaryButton(
+                text = stringResource(page.buttonTextRes),
                 onClick = onPrimaryClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(
-                    text = stringResource(page.buttonTextRes),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 

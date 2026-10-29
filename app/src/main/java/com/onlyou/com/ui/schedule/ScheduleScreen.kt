@@ -32,6 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.AiSchedule
+import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.components.MiyaSecondaryButton
+import com.onlyou.com.ui.components.MiyaSwitch
+import com.onlyou.com.ui.components.MiyaTimePickerDialog
 import com.onlyou.com.ui.theme.MiyaTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -927,30 +931,16 @@ private fun AddScheduleBottomSheet(
     }
 
     if (showTimePicker) {
-        val timePickerState = rememberTimePickerState(
+        MiyaTimePickerDialog(
+            title = "시간 선택",
             initialHour = selectedTime.hour,
             initialMinute = selectedTime.minute,
-            is24Hour = false
-        )
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("시간 선택") },
-            text = {
-                TimePicker(state = timePickerState)
+            is24Hour = false,
+            onConfirm = { h, m ->
+                selectedTime = LocalTime.of(h, m)
+                showTimePicker = false
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
-                    showTimePicker = false
-                }) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text("취소")
-                }
-            }
+            onDismiss = { showTimePicker = false },
         )
     }
 
@@ -1060,16 +1050,10 @@ private fun AddScheduleBottomSheet(
                         leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = colors.primary) },
                         trailingIcon = {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
-                                Switch(
+                                MiyaSwitch(
                                     checked = isUntimed,
                                     onCheckedChange = { isUntimed = it },
                                     modifier = Modifier.scale(0.8f),
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = colors.background,
-                                        checkedTrackColor = colors.primary,
-                                        uncheckedThumbColor = colors.surfaceB,
-                                        uncheckedTrackColor = colors.neutral.copy(alpha = 0.2f),
-                                    )
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text("시간 미정", fontSize = 14.sp, color = colors.neutral)
@@ -1129,30 +1113,20 @@ private fun AddScheduleBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedButton(
+                MiyaSecondaryButton(
+                    text = "취소",
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.neutral.copy(alpha = 0.3f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.onSurfaceA)
-                ) {
-                    Text("취소", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-                
-                Button(
+                    modifier = Modifier.weight(1f),
+                )
+                MiyaPrimaryButton(
+                    text = if (isEditing) "저장하기" else "추가하기",
                     onClick = {
-                        if (title.isNotBlank()) {
-                            val time = if (isUntimed) null else selectedTime
-                            onConfirm(title, time, selectedDate, location)
-                        }
+                        val time = if (isUntimed) null else selectedTime
+                        onConfirm(title, time, selectedDate, location)
                     },
-                    modifier = Modifier.weight(2f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = Color.White),
-                    enabled = title.isNotBlank()
-                ) {
-                    Text(if (isEditing) "저장하기" else "추가하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
+                    modifier = Modifier.weight(2f),
+                    enabled = title.isNotBlank(),
+                )
             }
         }
     }

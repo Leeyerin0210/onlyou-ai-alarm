@@ -1,6 +1,5 @@
 package com.onlyou.com.ui.login
 
-import android.R.attr.enabled
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -58,6 +57,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import com.onlyou.com.ui.components.MiyaAlertDialog
+import com.onlyou.com.ui.components.MiyaOutlinedTextField
+import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.theme.DangerRed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -353,34 +356,12 @@ fun LoginContent(
             Spacer(modifier = Modifier.height(20.dp))
 
             // ─── 로그인 버튼 ───
-            Button(
+            MiyaPrimaryButton(
+                text = stringResource(R.string.login_button),
                 onClick = { onLoginClick(email, password) },
                 enabled = !isAnyLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = colors.primary.copy(alpha = 0.6f),
-                    disabledContentColor = Color.White.copy(alpha = 0.7f),
-                ),
-            ) {
-                if (loadingSource == "login") {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.5.dp,
-                        modifier = Modifier.size(22.dp),
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.login_button),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
+                isLoading = loadingSource == "login",
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
@@ -571,23 +552,10 @@ fun EmailVerificationContent(
             Spacer(modifier = Modifier.weight(1f))
 
             // ─── 인증 완료 확인 버튼 ───
-            Button(
+            MiyaPrimaryButton(
+                text = stringResource(R.string.email_verify_confirm),
                 onClick = onConfirmClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White,
-                ),
-            ) {
-                Text(
-                    text = stringResource(R.string.email_verify_confirm),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -602,44 +570,24 @@ private fun PasswordResetDialog(
     onSend: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val colors = MiyaTheme.colors
     var email by remember { mutableStateOf("") }
     val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surfaceA,
-        title = { Text("비밀번호 재설정", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text(
-                    "가입한 이메일 주소를 입력하면\n재설정 링크를 보내드려요.",
-                    color = colors.neutral,
-                    fontSize = 14.sp,
-                )
-                Spacer(Modifier.height(16.dp))
-                MiyaOutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = stringResource(R.string.login_email_hint),
-                    keyboardType = KeyboardType.Email,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSend(email) },
-                enabled = isEmailValid,
-            ) {
-                Text("메일 보내기", color = if (isEmailValid) colors.primary else colors.neutral)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소", color = colors.neutral)
-            }
-        },
-    )
+    MiyaAlertDialog(
+        title = "비밀번호 재설정",
+        message = "가입한 이메일 주소를 입력하면\n재설정 링크를 보내드려요.",
+        confirmText = "메일 보내기",
+        onConfirm = { onSend(email) },
+        onDismiss = onDismiss,
+        confirmEnabled = isEmailValid,
+    ) {
+        MiyaOutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            placeholder = stringResource(R.string.login_email_hint),
+            keyboardType = KeyboardType.Email,
+        )
+    }
 }
 
 // ──────────────────────────────────────────────────────
@@ -740,14 +688,7 @@ fun SignUpContent(
                 placeholder = stringResource(R.string.signup_name_hint),
                 isError = isNameError,
             )
-            Text(
-                text = "이름은 2자 이상 입력해 주세요.",
-                color = Color(0xFFFF5252).copy(alpha = if (isNameError) 1f else 0f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
-            )
+            FieldErrorText("이름은 2자 이상 입력해 주세요.", visible = isNameError)
             MiyaOutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -755,14 +696,7 @@ fun SignUpContent(
                 keyboardType = KeyboardType.Email,
                 isError = isEmailError,
             )
-            Text(
-                text = "올바른 이메일 형식이 아닙니다.",
-                color = Color(0xFFFF5252).copy(alpha = if (isEmailError) 1f else 0f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
-            )
+            FieldErrorText("올바른 이메일 형식이 아닙니다.", visible = isEmailError)
             MiyaOutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -773,14 +707,7 @@ fun SignUpContent(
                 onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
                 isError = isPasswordError,
             )
-            Text(
-                text = "비밀번호는 8자 이상, 영문/숫자/특수문자 포함이어야 합니다.",
-                color = Color(0xFFFF5252).copy(alpha = if (isPasswordError) 1f else 0f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 4.dp, bottom = 8.dp)
-            )
+            FieldErrorText("비밀번호는 8자 이상, 영문/숫자/특수문자 포함이어야 합니다.", visible = isPasswordError)
             MiyaOutlinedTextField(
                 value = passwordConfirm,
                 onValueChange = { passwordConfirm = it },
@@ -791,14 +718,8 @@ fun SignUpContent(
                 onPasswordVisibilityToggle = { passwordConfirmVisible = !passwordConfirmVisible },
                 isError = isPasswordConfirmError,
             )
-            Text(
-                text = "비밀번호가 일치하지 않습니다.",
-                color = Color(0xFFFF5252).copy(alpha = if (isPasswordConfirmError) 1f else 0f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 4.dp, bottom = 16.dp)
-            )
+            FieldErrorText("비밀번호가 일치하지 않습니다.", visible = isPasswordConfirmError)
+            Spacer(modifier = Modifier.height(8.dp))
 
             // ─── 필수 동의 (만 14세 / 이용약관 / 개인정보 수집·이용) ───
             Column(
@@ -833,43 +754,21 @@ fun SignUpContent(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
+            MiyaPrimaryButton(
+                text = stringResource(R.string.signup_button),
                 onClick = {
                     // 여기서 이미 만14세/약관/개인정보 동의를 받았으므로 로컬에 기록해,
                     // 같은 기기에서 나중에 구글 로그인을 시도해도 동의를 또 묻지 않게 한다.
                     prefs.edit().putBoolean(PREF_LEGAL_CONSENT, true).apply()
                     onSignUpSubmit(name, email, password)
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = colors.primary.copy(alpha = 0.6f),
-                    disabledContentColor = Color.White.copy(alpha = 0.7f),
-                ),
-                enabled = !isLoading && over14 && termsAgreed && privacyAgreed &&
+                enabled = over14 && termsAgreed && privacyAgreed &&
                     name.isNotBlank() && !isNameError &&
                     email.isNotBlank() && !isEmailError &&
                     password.isNotBlank() && !isPasswordError &&
                     passwordConfirm.isNotBlank() && !isPasswordConfirmError,
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.5.dp,
-                        modifier = Modifier.size(22.dp),
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.signup_button),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
+                isLoading = isLoading,
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -898,63 +797,16 @@ fun SignUpContent(
 // 공용 컴포넌트
 // ──────────────────────────────────────────────────────
 
+/** 입력창 아래 오류 문구. 안 보일 때도 자리를 차지해 레이아웃이 흔들리지 않게 한다. */
 @Composable
-fun MiyaOutlinedTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    isPassword: Boolean = false,
-    passwordVisible: Boolean = false,
-    onPasswordVisibilityToggle: (() -> Unit)? = null,
-    isError: Boolean = false,
-) {
-    val colors = MiyaTheme.colors
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        isError = isError,
-        placeholder = {
-            Text(
-                text = placeholder,
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.neutral.copy(alpha = 0.6f),
-            )
-        },
-        visualTransformation = if (isPassword && !passwordVisible) {
-            PasswordVisualTransformation()
-        } else {
-            VisualTransformation.None
-        },
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        trailingIcon = if (isPassword && onPasswordVisibilityToggle != null) {
-            {
-                IconButton(onClick = onPasswordVisibilityToggle) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = if (passwordVisible) "비밀번호 숨기기" else "비밀번호 보기",
-                        tint = colors.neutral,
-                    )
-                }
-            }
-        } else {
-            null
-        },
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = colors.primary,
-            unfocusedBorderColor = colors.surfaceB,
-            focusedContainerColor = colors.surfaceA,
-            unfocusedContainerColor = colors.surfaceA,
-            focusedTextColor = colors.onSurfaceA,
-            unfocusedTextColor = colors.onSurfaceA,
-            cursorColor = colors.primary,
-            errorBorderColor = Color(0xFFFF5252),
-            errorCursorColor = Color(0xFFFF5252),
-        ),
-        singleLine = true,
+private fun FieldErrorText(text: String, visible: Boolean) {
+    Text(
+        text = text,
+        color = DangerRed.copy(alpha = if (visible) 1f else 0f),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
     )
 }
 

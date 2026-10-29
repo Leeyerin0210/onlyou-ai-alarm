@@ -28,8 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.ui.shop.PersonaImage
 import com.onlyou.com.ui.shop.VoicePreviewState
+import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlin.math.absoluteValue
 
@@ -108,7 +107,7 @@ fun OnboardingIntroScreen(onStart: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.weight(1f))
-            PrimaryButton("시작하기", onClick = onStart)
+            MiyaPrimaryButton("시작하기", onClick = onStart)
         }
     }
 }
@@ -242,7 +241,7 @@ private fun PersonaCarousel(
 
         val current = personas.getOrNull(pagerState.currentPage)
         Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-            PrimaryButton(
+            MiyaPrimaryButton(
                 text = current?.let { "${withAnd(it.name)} 시작하기" } ?: "시작하기",
                 onClick = { current?.let { onConfirm(it.id) } },
             )
@@ -323,19 +322,6 @@ private fun CarouselCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun PrimaryButton(text: String, onClick: () -> Unit) {
-    val colors = MiyaTheme.colors
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = Color.White),
-    ) {
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
 }
 

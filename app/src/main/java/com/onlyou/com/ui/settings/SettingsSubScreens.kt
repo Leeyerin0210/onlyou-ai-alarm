@@ -25,17 +25,22 @@ import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.repository.BackupState
+import com.onlyou.com.ui.components.ButtonProgress
+import com.onlyou.com.ui.components.MiyaAlertDialog
+import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.components.MiyaSubScreen
+import com.onlyou.com.ui.components.MiyaSwitch
+import com.onlyou.com.ui.components.MiyaTimePickerDialog
+import com.onlyou.com.ui.components.MiyaToggleRow
+import com.onlyou.com.ui.theme.DangerRed
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
-
-// Removed SimpleTopBar in favor of MiyaTopAppBar
 
 // 1. 프로필 관리
 @Composable
 fun ProfileEditScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("프로필 관리", onBack)
+    MiyaSubScreen("프로필 관리", onBack) {
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(100.dp).clip(CircleShape).background(colors.surfaceA)) {
                 Icon(Icons.Default.Person, null, tint = colors.neutral, modifier = Modifier.align(Alignment.Center).size(48.dp))
@@ -61,8 +66,7 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 @Composable
 fun ToneAndPersonalityScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("말투 및 성격 설정", onBack)
+    MiyaSubScreen("말투 및 성격 설정", onBack) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
             item {
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
@@ -99,15 +103,19 @@ fun ToneAndPersonalityScreen(onBack: () -> Unit) {
             item {
                 var useEmoji by remember { mutableStateOf(true) }
                 var useHonorifics by remember { mutableStateOf(true) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column { Text("이모지 사용", fontSize = 16.sp, color = colors.onSurfaceA); Text("대화에 이모지를 사용해요", fontSize = 12.sp, color = colors.neutral) }
-                    Switch(checked = useEmoji, onCheckedChange = { useEmoji = it }, colors = SwitchDefaults.colors(checkedTrackColor = colors.primary))
-                }
+                MiyaToggleRow(
+                    title = "이모지 사용",
+                    description = "대화에 이모지를 사용해요",
+                    checked = useEmoji,
+                    onCheckedChange = { useEmoji = it },
+                )
                 Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column { Text("존댓말 사용", fontSize = 16.sp, color = colors.onSurfaceA); Text("항상 존댓말을 사용해요", fontSize = 12.sp, color = colors.neutral) }
-                    Switch(checked = useHonorifics, onCheckedChange = { useHonorifics = it }, colors = SwitchDefaults.colors(checkedTrackColor = colors.primary))
-                }
+                MiyaToggleRow(
+                    title = "존댓말 사용",
+                    description = "항상 존댓말을 사용해요",
+                    checked = useHonorifics,
+                    onCheckedChange = { useHonorifics = it },
+                )
                 Spacer(Modifier.height(24.dp))
             }
             item {
@@ -117,9 +125,7 @@ fun ToneAndPersonalityScreen(onBack: () -> Unit) {
                     Text("네! \uD83D\uDE0A 바로 정리해드릴게요.\n오늘의 일정을 확인해볼까요?", color = colors.onSurfaceA, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(32.dp))
-                Button(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = colors.primary)) {
-                    Text("저장하기", fontWeight = FontWeight.Bold)
-                }
+                MiyaPrimaryButton(text = "저장하기", onClick = {})
             }
         }
     }
@@ -168,8 +174,7 @@ fun AiMemoryScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("기억 초기화", onBack)
+    MiyaSubScreen("기억 초기화", onBack) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text(
                 "지금까지 나눈 대화와, 그 대화에서 기억한 정보를 모두 지웁니다.",
@@ -189,7 +194,7 @@ fun AiMemoryScreen(
                 onClick = { showResetDialog = true },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text("모든 기억 초기화", color = Color.Red.copy(alpha = 0.8f), fontWeight = FontWeight.Bold)
+                Text("모든 기억 초기화", color = DangerRed, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -201,37 +206,14 @@ private fun ResetMemoryDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val colors = MiyaTheme.colors
-    AlertDialog(
-        onDismissRequest = { if (!isLoading) onDismiss() },
-        containerColor = colors.surfaceA,
-        title = { Text("모든 기억 초기화", color = colors.onSurfaceA, fontWeight = FontWeight.Bold) },
-        text = {
-            Text(
-                "대화 기록과 지금까지 기억한 정보가 모두 삭제되며 복구할 수 없어요.\n\n" +
-                    "정말 초기화할까요?",
-                color = colors.neutral,
-                fontSize = 14.sp,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isLoading) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = colors.primary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("초기화하기", color = Color.Red.copy(alpha = 0.8f))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoading) {
-                Text("취소", color = colors.neutral)
-            }
-        },
+    MiyaAlertDialog(
+        title = "모든 기억 초기화",
+        message = "대화 기록과 지금까지 기억한 정보가 모두 삭제되며 복구할 수 없어요.\n\n정말 초기화할까요?",
+        confirmText = "초기화하기",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        destructive = true,
+        isLoading = isLoading,
     )
 }
 
@@ -239,8 +221,7 @@ private fun ResetMemoryDialog(
 @Composable
 fun PremiumPlanScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("프리미엄 플랜", onBack)
+    MiyaSubScreen("프리미엄 플랜", onBack) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.verticalGradient(listOf(colors.primary, colors.secondary))).padding(24.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -259,9 +240,7 @@ fun PremiumPlanScreen(onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            Button(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = colors.primary)) {
-                Text("프리미엄 구독하기", fontWeight = FontWeight.Bold)
-            }
+            MiyaPrimaryButton(text = "프리미엄 구독하기", onClick = {})
         }
     }
 }
@@ -307,8 +286,7 @@ fun BackupSyncScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("백업 및 동기화", onBack)
+        MiyaSubScreen("백업 및 동기화", onBack) {
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceA).padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -332,7 +310,7 @@ fun BackupSyncScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = colors.primary)
                     ) {
                         if (backupState == BackupState.Loading) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            ButtonProgress(color = Color.White, size = 16.dp)
                         } else {
                             Text("지금 백업하기", color = Color.White)
                         }
@@ -347,7 +325,7 @@ fun BackupSyncScreen(
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.primary)
                     ) {
                         if (restoreState == BackupState.Loading) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colors.primary, strokeWidth = 2.dp)
+                            ButtonProgress(color = colors.primary, size = 16.dp)
                         } else {
                             Text("불러오기")
                         }
@@ -375,8 +353,7 @@ fun DndTimeScreen(
     var showEndPicker by remember { mutableStateOf(false) }
     val active = dnd.enabled
 
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("방해 금지 시간", onBack)
+    MiyaSubScreen("방해 금지 시간", onBack) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             // 설명 + 우측 상단 적용 토글
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -386,11 +363,7 @@ fun DndTimeScreen(
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f),
                 )
-                Switch(
-                    checked = active,
-                    onCheckedChange = { viewModel.setDndEnabled(it) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = colors.primary),
-                )
+                MiyaSwitch(checked = active, onCheckedChange = { viewModel.setDndEnabled(it) })
             }
 
             Spacer(Modifier.height(32.dp))
@@ -398,27 +371,23 @@ fun DndTimeScreen(
             // 켜졌을 때만 설정 가능 (꺼지면 흐리게 + 비활성)
             Column(Modifier.alpha(if (active) 1f else 0.4f)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(Modifier.weight(1f)) {
-                        Text("시작 시간", fontSize = 12.sp, color = colors.neutral)
-                        Spacer(Modifier.height(8.dp))
-                        Box(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA)
-                                .clickable(enabled = active) { showStartPicker = true }.padding(16.dp),
-                        ) {
-                            Text(formatKoreanTime(dnd.startHour, dnd.startMinute), color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
+                    DndTimeField(
+                        label = "시작 시간",
+                        hour = dnd.startHour,
+                        minute = dnd.startMinute,
+                        enabled = active,
+                        onClick = { showStartPicker = true },
+                        modifier = Modifier.weight(1f),
+                    )
                     Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("종료 시간", fontSize = 12.sp, color = colors.neutral)
-                        Spacer(Modifier.height(8.dp))
-                        Box(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA)
-                                .clickable(enabled = active) { showEndPicker = true }.padding(16.dp),
-                        ) {
-                            Text(formatKoreanTime(dnd.endHour, dnd.endMinute), color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
+                    DndTimeField(
+                        label = "종료 시간",
+                        hour = dnd.endHour,
+                        minute = dnd.endMinute,
+                        enabled = active,
+                        onClick = { showEndPicker = true },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
                 Text("반복", fontSize = 12.sp, color = colors.neutral)
@@ -446,7 +415,8 @@ fun DndTimeScreen(
     }
 
     if (showStartPicker) {
-        EveningFeedbackTimePickerDialog(
+        MiyaTimePickerDialog(
+            title = "시작 시간",
             initialHour = dnd.startHour,
             initialMinute = dnd.startMinute,
             onConfirm = { h, m ->
@@ -457,7 +427,8 @@ fun DndTimeScreen(
         )
     }
     if (showEndPicker) {
-        EveningFeedbackTimePickerDialog(
+        MiyaTimePickerDialog(
+            title = "종료 시간",
             initialHour = dnd.endHour,
             initialMinute = dnd.endMinute,
             onConfirm = { h, m ->
@@ -466,6 +437,28 @@ fun DndTimeScreen(
             },
             onDismiss = { showEndPicker = false },
         )
+    }
+}
+
+@Composable
+private fun DndTimeField(
+    label: String,
+    hour: Int,
+    minute: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MiyaTheme.colors
+    Column(modifier) {
+        Text(label, fontSize = 12.sp, color = colors.neutral)
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceA)
+                .clickable(enabled = enabled, onClick = onClick).padding(16.dp),
+        ) {
+            Text(formatKoreanTime(hour, minute), color = colors.onSurfaceA, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 
@@ -479,8 +472,7 @@ private fun formatKoreanTime(hour: Int, minute: Int): String {
 @Composable
 fun BriefingPreviewScreen(onBack: () -> Unit) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("브리핑 미리 듣기", onBack)
+    MiyaSubScreen("브리핑 미리 듣기", onBack) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
             Text("AI가 이렇게 브리핑해요.", color = colors.onSurfaceA, fontSize = 14.sp)
             Spacer(Modifier.height(16.dp))
@@ -517,8 +509,7 @@ fun AppInfoScreen(
     onNavigateTo: (String) -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
-    Column(Modifier.fillMaxSize().background(colors.background)) {
-        com.onlyou.com.ui.components.MiyaTopAppBar("앱 정보", onBack)
+    MiyaSubScreen("앱 정보", onBack) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(48.dp))
             Icon(Icons.Default.SmartToy, null, tint = colors.primary, modifier = Modifier.size(80.dp))
@@ -527,20 +518,26 @@ fun AppInfoScreen(
             Text("버전 1.2.0", fontSize = 14.sp, color = colors.neutral)
             Spacer(Modifier.height(48.dp))
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                Row(Modifier.fillMaxWidth().clickable { onNavigateTo("legal_terms") }.padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("서비스 이용약관", color = colors.onSurfaceA, fontSize = 16.sp); Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
-                }
+                AppInfoLinkRow("서비스 이용약관", onClick = { onNavigateTo("legal_terms") })
                 HorizontalDivider(color = colors.surfaceB)
-                Row(Modifier.fillMaxWidth().clickable { onNavigateTo("legal_privacy") }.padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("개인정보 처리방침", color = colors.onSurfaceA, fontSize = 16.sp); Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
-                }
+                AppInfoLinkRow("개인정보 처리방침", onClick = { onNavigateTo("legal_privacy") })
                 HorizontalDivider(color = colors.surfaceB)
-                Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("오픈소스 라이선스", color = colors.onSurfaceA, fontSize = 16.sp); Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
-                }
+                AppInfoLinkRow("오픈소스 라이선스", onClick = null)
             }
             Spacer(Modifier.weight(1f))
             Text("© 2024 LUNA. All rights reserved.", fontSize = 12.sp, color = colors.neutral, modifier = Modifier.padding(bottom = 32.dp))
         }
+    }
+}
+
+@Composable
+private fun AppInfoLinkRow(title: String, onClick: (() -> Unit)?) {
+    val colors = MiyaTheme.colors
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = onClick != null) { onClick?.invoke() }.padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(title, color = colors.onSurfaceA, fontSize = 16.sp)
+        Icon(Icons.Default.ChevronRight, null, tint = colors.neutral)
     }
 }
