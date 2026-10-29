@@ -68,6 +68,11 @@ class AlarmScriptRequest(BaseModel):
 class AlarmScriptResponse(BaseModel):
     chunks: List[str]
 
+
+class PersonaReportIn(BaseModel):
+    reason: str = Field(default="", max_length=200)
+
+
 class PersonaIn(BaseModel):
     # 자유 프롬프트(prompt·voicePrompt)와 imageUrl은 받지 않는다.
     # 톤·속도(voiceTone·voiceSpeed)는 연결된 적이 없는 배관이라 제거했다.

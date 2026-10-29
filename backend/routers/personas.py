@@ -4,12 +4,14 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 
 from core import themes
+from core.config import settings
 from core.persona_fields import SYSTEM_CREATOR, PersonaFields, compose_legacy_prompt
 from core.presets import get_preset, is_valid_preset_id, legacy_fields
+from core.rate_limit import check_rate_limit
 from core.rdb import get_conn
 from core.tags import normalize_tags
 from core.security import get_uid
-from models.schemas import PersonaIn
+from models.schemas import PersonaIn, PersonaReportIn
 from services.moderation_service import ModerationResult, moderate_persona
 
 router = APIRouter(prefix="/personas", tags=["personas"])
@@ -171,6 +173,40 @@ def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
         if row[0] != uid:
             raise HTTPException(status_code=403, detail="not owner")
         cur.execute("DELETE FROM personas WHERE id = %s", (persona_id,))
+    return {"ok": True}
+
+
+@router.post("/{persona_id}/report")
+def report_persona(persona_id: str, body: PersonaReportIn, uid: str = Depends(get_uid)):
+    """공개 비서 신고. 서로 다른 유저 REPORT_LOCK_THRESHOLD명이 신고하면 비공개 + 잠금.
+
+    잠금 해제는 운영자 수동(docs/deployment.md). 재심사로 풀리지 않는 이유는
+    자동 심사를 이미 통과한 내용이라 재심사로는 새로 알 수 있는 것이 없기 때문이다.
+    """
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT creator_id, is_private FROM personas WHERE id = %s", (persona_id,))
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="persona not found")
+    creator_id, is_private = row
+    if creator_id == uid or creator_id == SYSTEM_CREATOR or is_private:
+        raise HTTPException(status_code=400, detail="not reportable")
+
+    check_rate_limit(uid, "persona-report", settings.REPORT_USER_DAILY_LIMIT)
+
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO persona_reports (persona_id, reporter_uid, reason) "
+            "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+            (persona_id, uid, body.reason.strip()),
+        )
+        # 한 문장으로 세고 잠근다 — 동시 신고에서도 임계값을 넘긴 순간 한 번만 잠긴다
+        cur.execute(
+            "UPDATE personas SET is_private = TRUE, report_locked_at = now() "
+            "WHERE id = %s AND report_locked_at IS NULL "
+            "AND (SELECT COUNT(*) FROM persona_reports WHERE persona_id = %s) >= %s",
+            (persona_id, persona_id, settings.REPORT_LOCK_THRESHOLD),
+        )
     return {"ok": True}
 
 
