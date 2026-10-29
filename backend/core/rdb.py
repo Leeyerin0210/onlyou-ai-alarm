@@ -12,7 +12,7 @@ import psycopg2
 from psycopg2 import pool as pg_pool
 
 from .config import settings
-from .presets import DEFAULT_PRESET_ID
+from .presets import DEFAULT_PRESET_ID, LEGACY_PRESET_FIELDS
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS personas (
@@ -99,6 +99,21 @@ ALTER TABLE personas ADD COLUMN IF NOT EXISTS preset_key TEXT;
 -- 해시태그 (core/tags.py가 정규화) — 상점 주간 테마·태그 칩이 이 값으로 매칭한다
 ALTER TABLE personas ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
 CREATE INDEX IF NOT EXISTS idx_personas_tags ON personas USING GIN (tags);
+
+-- 프리셋 폐지 (스펙: 2026-10-13-presets-removal-design.md). 성격은 세 칸으로 저장한다.
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS speech_style TEXT;
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS personality TEXT;
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS role TEXT;
+-- 신고 누적으로 잠긴 시각. 값이 있으면 공개로 되돌릴 수 없다(해제는 운영자 수동).
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS report_locked_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS persona_reports (
+    persona_id   TEXT NOT NULL,
+    reporter_uid TEXT NOT NULL,
+    reason       TEXT NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (persona_id, reporter_uid)
+);
 """
 
 _pool: pg_pool.ThreadedConnectionPool | None = None
@@ -179,6 +194,15 @@ def init_schema():
             "UPDATE personas SET preset_key = %s WHERE preset_key IS NULL",
             (DEFAULT_PRESET_ID,),
         )
+        # 프리셋 폐지 이전: 세 칸이 모두 빈 행을 그 preset_key의 매핑으로 채운다.
+        # 세 칸 중 하나라도 있는 행(신 앱이 저장한 행)은 건드리지 않으므로 멱등하다.
+        for key, f in LEGACY_PRESET_FIELDS.items():
+            cur.execute(
+                "UPDATE personas SET speech_style = %s, personality = %s, role = %s "
+                "WHERE preset_key = %s AND COALESCE(speech_style, '') = '' "
+                "AND COALESCE(personality, '') = '' AND COALESCE(role, '') = ''",
+                (f.speech_style, f.personality, f.role, key),
+            )
         # 지난 날짜의 레이트리밋 카운터는 재기동 시 정리 (무한 증식 방지)
         cur.execute("DELETE FROM rate_limits WHERE day < %s", (date.today().isoformat(),))
         # SSV 트랜잭션 원장은 재전송 방지용 — AdMob 재시도 창을 훨씬 넘긴 것만 정리

@@ -115,7 +115,7 @@ LEGACY_PRESET_FIELDS: dict[str, PersonaFields] = {
     ),
     "casual_blunt": PersonaFields(
         speech_style=(
-            "반말을 쓰고 문장이 짧으며, 살갑게 굴지 않는다. 억지로 상냥한 말을 지어내지 않는다."
+            "퉁명스러운 반말을 쓰고 문장이 짧으며, 살갑게 굴지 않는다. 억지로 상냥한 말을 지어내지 않는다."
         ),
         personality=(
             "칭찬을 잘 안 하고, 해야 할 일을 안 하고 있으면 잔소리하듯 짚는다. "

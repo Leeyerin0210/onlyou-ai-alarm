@@ -34,7 +34,7 @@ def client():
     # 각 테스트 전 관련 테이블 초기화 (closing으로 풀에 커넥션 반납)
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
-            "TRUNCATE personas, users, schedules, backups, rate_limits, "
+            "TRUNCATE personas, persona_reports, users, schedules, backups, rate_limits, "
             "reward_wallets, reward_transactions"
         )
         cur.execute("DROP TABLE IF EXISTS user_memories")
