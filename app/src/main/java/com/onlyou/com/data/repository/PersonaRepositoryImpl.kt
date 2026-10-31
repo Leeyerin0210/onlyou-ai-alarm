@@ -185,7 +185,7 @@ class PersonaRepositoryImpl
 
             // 2. 원격 저장 — 서버가 공개 요청을 비공개로 바꿨을 수 있으므로 응답으로 로컬을 맞춘다
             val result = try {
-                api.upsertPersona(
+                val res = api.upsertPersona(
                     updatedPersona.id,
                     com.onlyou.com.data.remote.PersonaDto(
                         id = updatedPersona.id,
@@ -204,14 +204,17 @@ class PersonaRepositoryImpl
                         role = updatedPersona.role,
                         applyVoiceDraft = applyVoiceDraft,
                     ),
-                ).body().toSaveResult()
+                )
+                saveResultOf(res.code(), res.body())
             } catch (e: Exception) {
                 e.printStackTrace()
                 com.onlyou.com.domain.model.PersonaSaveResult(com.onlyou.com.domain.model.ModerationStatus.OFFLINE)
             }.downgradedIfOffline(requestedPrivate = updatedPersona.isPrivate)
             val serverPrivate = result.isPrivate
-            // 목소리 칸은 서버가 단일 원천 — OFFLINE이면 저장 전 값을 그대로 둔다
-            val serverVoice = result.status != com.onlyou.com.domain.model.ModerationStatus.OFFLINE
+            // 목소리 칸은 서버가 단일 원천 — OFFLINE·FAILED면 서버 값이 없으니 저장 전 값을 그대로 둔다
+            // (FAILED는 isPrivate도 null이라 로컬 수정이 그대로 남는다)
+            val serverVoice = result.status != com.onlyou.com.domain.model.ModerationStatus.OFFLINE &&
+                result.status != com.onlyou.com.domain.model.ModerationStatus.FAILED
             val synced = entity.copy(
                 isPrivate = serverPrivate ?: entity.isPrivate,
                 voiceDescription = if (serverVoice) result.voiceDescription else entity.voiceDescription,

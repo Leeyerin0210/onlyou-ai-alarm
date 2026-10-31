@@ -11,7 +11,18 @@ import com.onlyou.com.domain.model.PersonaSaveResult
 internal fun PersonaSaveResult.downgradedIfOffline(requestedPrivate: Boolean): PersonaSaveResult =
     if (status == ModerationStatus.OFFLINE && !requestedPrivate) copy(isPrivate = true) else this
 
-/** 응답 본문이 없으면(네트워크 실패·비정상 응답) OFFLINE — 로컬 저장만 된 상태. */
+/**
+ * 받은 응답을 결과로 바꾼다. 2xx가 아니면 FAILED — 서버가 저장하지 않았으니
+ * OFFLINE처럼 로컬에만 저장된 것으로 다루면 다음 동기화가 이 수정을 덮어쓴다.
+ */
+internal fun saveResultOf(httpCode: Int, body: PersonaUpsertResponseDto?): PersonaSaveResult =
+    if (httpCode in 200..299) {
+        body.toSaveResult()
+    } else {
+        PersonaSaveResult(ModerationStatus.FAILED, httpCode = httpCode)
+    }
+
+/** 2xx인데 응답 본문이 없으면 OFFLINE — 로컬 저장만 된 상태로 본다. */
 internal fun PersonaUpsertResponseDto?.toSaveResult(): PersonaSaveResult {
     if (this == null) return PersonaSaveResult(ModerationStatus.OFFLINE)
     val status = when (moderation?.status) {

@@ -3,6 +3,7 @@ package com.onlyou.com.ui.shop
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.onlyou.com.domain.model.ModerationStatus
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.PersonaRepository
 import com.onlyou.com.domain.repository.VoiceRepository
@@ -112,7 +113,7 @@ class PersonaEditViewModel
                     updateSuccess { it.copy(isDesigning = false) }
                     _uiEvent.emit("목소리를 만들지 못했어요. 잠시 후 다시 해 주세요.")
                 } else {
-                                    updateSuccess {
+                    updateSuccess {
                         it.copy(
                             isDesigning = false,
                             draftAudio = audio,
@@ -157,7 +158,14 @@ class PersonaEditViewModel
                 viewModelScope.launch {
                     try {
                         val result = personaRepository.upsertPersona(currentState.persona, currentState.applyVoiceDraft)
-                        _uiState.value = PersonaEditUiState.Saved(saveNotice(result))
+                        if (result.status == ModerationStatus.FAILED) {
+                            // 서버가 저장하지 않았다 — 닫지 않고 안내해 다시 저장할 수 있게 한다
+                            if (result.httpCode == 400) voicePlayer.stop()
+                            updateSuccess { afterFailedSave(it, result) }
+                            saveNotice(result)?.let { _uiEvent.emit(it) }
+                        } else {
+                            _uiState.value = PersonaEditUiState.Saved(saveNotice(result))
+                        }
                     } catch (e: Exception) {
                         // 로컬 저장 실패 등 — 다시 시도할 수 있게 저장 중 상태를 푼다
                         e.printStackTrace()

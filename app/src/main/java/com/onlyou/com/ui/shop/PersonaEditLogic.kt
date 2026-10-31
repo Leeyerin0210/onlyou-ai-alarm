@@ -68,4 +68,21 @@ fun saveNotice(result: PersonaSaveResult): String? =
             }
         ModerationStatus.VOICE_REQUIRED -> "목소리가 없어 나만 보기로 저장했어요. 목소리를 만들면 공개할 수 있어요."
         ModerationStatus.SKIPPED -> null
+        // 서버가 저장하지 않았다 — 화면을 닫지 않고 이 안내만 띄운다
+        ModerationStatus.FAILED ->
+            if (result.httpCode == 400) "목소리를 다시 만들어 주세요." else "저장하지 못했어요. 잠시 후 다시 해 주세요."
+    }
+
+/** 저장 실패(FAILED) 뒤 편집 상태. 다시 저장할 수 있게 풀고, 400(후보 없음)이면 정한 후보도 버린다. */
+fun afterFailedSave(state: PersonaEditUiState.Success, result: PersonaSaveResult): PersonaEditUiState.Success =
+    if (result.httpCode == 400) {
+        state.copy(
+            isSaving = false,
+            applyVoiceDraft = false,
+            draftAudio = null,
+            draftDescription = "",
+            draftSample = "",
+        )
+    } else {
+        state.copy(isSaving = false)
     }

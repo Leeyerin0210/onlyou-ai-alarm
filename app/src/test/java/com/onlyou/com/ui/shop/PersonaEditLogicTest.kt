@@ -151,4 +151,40 @@ class PersonaEditLogicTest {
         assertFalse(canSaveWithVoice(pub, applyVoiceDraft = false, isDesigning = false))
         assertTrue(canSaveWithVoice(pub, applyVoiceDraft = true, isDesigning = false))
     }
+
+    @Test
+    fun `저장 실패 안내 - 400이면 목소리를 다시 만들라고, 그 밖엔 잠시 후 다시`() {
+        assertEquals(
+            "목소리를 다시 만들어 주세요.",
+            saveNotice(PersonaSaveResult(ModerationStatus.FAILED, httpCode = 400)),
+        )
+        assertEquals(
+            "저장하지 못했어요. 잠시 후 다시 해 주세요.",
+            saveNotice(PersonaSaveResult(ModerationStatus.FAILED, httpCode = 500)),
+        )
+    }
+
+    @Test
+    fun `저장 실패 뒤 상태 - 저장 중을 풀고 400이면 정한 후보도 버린다`() {
+        val st = PersonaEditUiState.Success(
+            persona = p(),
+            isSaving = true,
+            voiceDescriptionInput = "낮은 목소리",
+            voiceSampleInput = "일어나요",
+            draftAudio = byteArrayOf(1),
+            draftDescription = "낮은 목소리",
+            draftSample = "일어나요",
+            applyVoiceDraft = true,
+        )
+        val rejected = afterFailedSave(st, PersonaSaveResult(ModerationStatus.FAILED, httpCode = 400))
+        assertFalse(rejected.isSaving)
+        assertFalse(rejected.applyVoiceDraft)
+        assertNull(rejected.draftAudio)
+        assertEquals("", rejected.draftDescription)
+        assertEquals("", rejected.draftSample)
+        assertEquals("낮은 목소리", rejected.voiceDescriptionInput)
+
+        val serverError = afterFailedSave(st, PersonaSaveResult(ModerationStatus.FAILED, httpCode = 500))
+        assertEquals(st.copy(isSaving = false), serverError)
+    }
 }

@@ -75,4 +75,27 @@ class PersonaSaveMappingTest {
         assertEquals("일어날 시간이에요", r.voiceSampleText)
         assertEquals(null, res("approved").toSaveResult().voiceDescription)
     }
+
+    @Test
+    fun `서버가 2xx가 아닌 응답을 주면 FAILED와 HTTP 코드`() {
+        val noDraft = saveResultOf(httpCode = 400, body = null)
+        assertEquals(ModerationStatus.FAILED, noDraft.status)
+        assertEquals(400, noDraft.httpCode)
+        assertEquals(null, noDraft.isPrivate)
+        val promoteFailed = saveResultOf(httpCode = 500, body = null)
+        assertEquals(ModerationStatus.FAILED, promoteFailed.status)
+        assertEquals(500, promoteFailed.httpCode)
+    }
+
+    @Test
+    fun `2xx 응답은 본문으로 결과를 만든다`() {
+        assertEquals(ModerationStatus.APPROVED, saveResultOf(200, res("approved", isPrivate = false)).status)
+        assertEquals(null, saveResultOf(200, res("approved")).httpCode)
+    }
+
+    @Test
+    fun `FAILED는 공개 요청이어도 나만 보기로 내리지 않는다`() {
+        val failed = PersonaSaveResult(ModerationStatus.FAILED, httpCode = 500)
+        assertEquals(failed, failed.downgradedIfOffline(requestedPrivate = false))
+    }
 }
