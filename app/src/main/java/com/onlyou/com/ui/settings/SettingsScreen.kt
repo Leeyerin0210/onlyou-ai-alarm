@@ -244,7 +244,8 @@ fun BatteryOptimizationRow() {
         Column(modifier = Modifier.weight(1f)) {
             Text("배터리 최적화", fontSize = 16.sp, color = colors.onSurfaceA)
             Text(
-                text = if (isIgnoring) "알람이 안정적으로 울려요" else "켜져 있으면 알람이 안 울릴 수 있어요",
+                // 안드로이드 기본값이 '최적화'라 대부분 꺼야 하는 상태다 — 끄도록 유도하는 문구를 쓴다
+                text = if (isIgnoring) "알람이 안정적으로 울려요" else "아침 브리핑이 늦거나 빠질 수 있어요. 눌러서 꺼 주세요",
                 fontSize = 12.sp,
                 color = colors.neutral,
             )
@@ -252,7 +253,7 @@ fun BatteryOptimizationRow() {
         if (isIgnoring) {
             Text("제한 없음", fontSize = 14.sp, color = colors.primary)
         } else {
-            Text("최적화 중", fontSize = 14.sp, color = DangerRed)
+            Text("알람 불안정", fontSize = 14.sp, color = DangerRed)
             Spacer(modifier = Modifier.width(4.dp))
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.neutral, modifier = Modifier.size(20.dp))
         }
