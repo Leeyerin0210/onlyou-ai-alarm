@@ -414,3 +414,33 @@ def test_upsert_race_with_other_owner_returns_403_and_keeps_row(client, monkeypa
     with c2(get_conn()) as conn, conn.cursor() as cur:
         cur.execute("SELECT name, creator_id FROM personas WHERE id = 'p1'")
         assert cur.fetchone() == ("남의것", "other-uid")
+
+
+def _insert_with_voice(pid, creator, private=False, tags="{}"):
+    from contextlib import closing
+    from core.rdb import get_conn
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id, is_private, tags, "
+            "voice_description, voice_sample_text) "
+            "VALUES (%s, %s, %s, %s, %s, '낮고 느긋한 목소리', '일어나, 아침이야.')",
+            (pid, pid, creator, private, tags))
+
+
+def test_owner_sees_voice_texts(client, mod_calls):
+    _insert_with_voice("mine", "test-uid", private=True)
+    item = next(x for x in client.get("/personas").json() if x["id"] == "mine")
+    assert item["voiceDescription"] == "낮고 느긋한 목소리"
+    assert item["voiceSampleText"] == "일어나, 아침이야."
+
+
+def test_others_voice_texts_hidden(client, mod_calls, monkeypatch):
+    from core import themes
+    monkeypatch.setattr(themes, "WEEKLY_THEMES", (themes.Theme("a", "A 모음"),))
+    for i in range(3):
+        _insert_with_voice(f"t{i}", "other-uid", tags="{a}")
+    item = next(x for x in client.get("/personas").json() if x["id"] == "t0")
+    assert item["voiceDescription"] is None and item["voiceSampleText"] is None
+    feat = client.get("/personas/featured").json()["personas"]
+    assert len(feat) == 3
+    assert all(p["voiceDescription"] is None and p["voiceSampleText"] is None for p in feat)

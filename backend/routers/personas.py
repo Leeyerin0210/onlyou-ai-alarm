@@ -19,7 +19,8 @@ router = APIRouter(prefix="/personas", tags=["personas"])
 COLS = (
     "id, name, description, user_call_sign, primary_hex, secondary_hex, "
     "creator_id, usage_count, is_private, updated_at, preset_key, tags, image_url, "
-    "speech_style, personality, role, report_locked_at"
+    "speech_style, personality, role, report_locked_at, "
+    "voice_description, voice_sample_text"
 )
 
 
@@ -50,6 +51,9 @@ def _row_to_dict(r, viewer_uid: str):
         "reportLocked": r[16] is not None,
         # 공식 비서는 신고 대상이 아니다 — 앱이 신고 버튼을 숨기는 데 쓴다
         "isOfficial": r[6] == SYSTEM_CREATOR,
+        # 목소리 설명·샘플 문장도 만든 사람에게만 — 남에겐 None
+        "voiceDescription": r[17] if is_owner else None,
+        "voiceSampleText": r[18] if is_owner else None,
     }
 
 
