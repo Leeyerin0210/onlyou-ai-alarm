@@ -129,6 +129,108 @@ class RemoteVoiceEngine:
                 blob = bucket.blob(name)
                 if blob.exists():
                     blob.delete()
+        self.delete_draft(persona_id)
+
+    def stored_reference_ids(self) -> set:
+        """저장된 기준 음성 id 전체 — 로컬 + 버킷. 후보(drafts/)는 제외한다."""
+        ids = set()
+        if os.path.isdir(self.reference_dir):
+            for name in os.listdir(self.reference_dir):
+                if name.endswith(".wav") and os.path.isfile(os.path.join(self.reference_dir, name)):
+                    ids.add(name[:-4])
+        bucket = self._bucket()
+        if bucket:
+            prefix = "reference_voices/"
+            for blob in bucket.list_blobs(prefix=prefix):
+                rest = blob.name[len(prefix):]
+                if "/" not in rest and rest.endswith(".wav"):
+                    ids.add(rest[:-4])
+        return ids
+
+    # ---------- 목소리 후보 (VoiceDesign 결과, 비서에 적용하기 전) ----------
+
+    def _draft_paths(self, persona_id: str) -> Tuple[str, str]:
+        draft_dir = os.path.join(self.reference_dir, "drafts")
+        os.makedirs(draft_dir, exist_ok=True)
+        return (
+            os.path.join(draft_dir, f"{persona_id}.wav"),
+            os.path.join(draft_dir, f"{persona_id}.json"),
+        )
+
+    def save_draft(self, persona_id: str, audio: bytes, ref_text: str,
+                   voice_description: str, creator_uid: str) -> None:
+        """후보를 저장한다. 비서당 하나 — 다시 만들면 덮어쓴다."""
+        audio_path, meta_path = self._draft_paths(persona_id)
+        meta = json.dumps(
+            {"ref_text": ref_text, "voice_description": voice_description, "creator_uid": creator_uid},
+            ensure_ascii=False,
+        )
+        with open(audio_path, "wb") as f:
+            f.write(audio)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(meta)
+        bucket = self._bucket()
+        if bucket:
+            bucket.blob(f"reference_voices/drafts/{persona_id}.wav").upload_from_string(
+                audio, content_type="audio/wav"
+            )
+            bucket.blob(f"reference_voices/drafts/{persona_id}.json").upload_from_string(
+                meta, content_type="application/json"
+            )
+
+    def _load_draft(self, persona_id: str) -> Optional[Tuple[bytes, bytes]]:
+        """후보 (wav, json) 바이트. 로컬에 없으면 버킷에서 받아 둔다. 없으면 None."""
+        audio_path, meta_path = self._draft_paths(persona_id)
+        if not (os.path.exists(audio_path) and os.path.exists(meta_path)):
+            bucket = self._bucket()
+            if bucket:
+                audio_blob = bucket.blob(f"reference_voices/drafts/{persona_id}.wav")
+                meta_blob = bucket.blob(f"reference_voices/drafts/{persona_id}.json")
+                if audio_blob.exists() and meta_blob.exists():
+                    with open(audio_path, "wb") as f:
+                        f.write(audio_blob.download_as_bytes())
+                    with open(meta_path, "wb") as f:
+                        f.write(meta_blob.download_as_bytes())
+        if not (os.path.exists(audio_path) and os.path.exists(meta_path)):
+            return None
+        with open(audio_path, "rb") as f:
+            audio = f.read()
+        with open(meta_path, "rb") as f:
+            meta = f.read()
+        return audio, meta
+
+    def load_draft_meta(self, persona_id: str) -> Optional[dict]:
+        draft = self._load_draft(persona_id)
+        if draft is None:
+            return None
+        meta = json.loads(draft[1].decode("utf-8"))
+        return {
+            "ref_text": meta["ref_text"],
+            "voice_description": meta["voice_description"],
+            "creator_uid": meta["creator_uid"],
+        }
+
+    def promote_draft(self, persona_id: str) -> None:
+        """후보를 기준 음성으로 올리고 후보는 지운다. 후보가 없으면 FileNotFoundError."""
+        draft = self._load_draft(persona_id)
+        if draft is None:
+            raise FileNotFoundError(f"Voice draft not found for {persona_id}")
+        audio, meta_bytes = draft
+        ref_text = json.loads(meta_bytes.decode("utf-8"))["ref_text"]
+        self.save_master_wav(persona_id, audio, ref_text)
+        self.delete_draft(persona_id)
+
+    def delete_draft(self, persona_id: str) -> None:
+        audio_path, meta_path = self._draft_paths(persona_id)
+        for p in (audio_path, meta_path):
+            if os.path.exists(p):
+                os.remove(p)
+        bucket = self._bucket()
+        if bucket:
+            for ext in ("wav", "json"):
+                blob = bucket.blob(f"reference_voices/drafts/{persona_id}.{ext}")
+                if blob.exists():
+                    blob.delete()
 
 
 voice_engine = RemoteVoiceEngine()

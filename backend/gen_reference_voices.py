@@ -16,10 +16,9 @@ import argparse
 import json
 import os
 
+from core.voice_rules import ATTEMPTS, MAX_SEC, MIN_SEC, TARGET_SEC
+
 DEFAULT_MODEL = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
-MIN_SEC, MAX_SEC = 8.0, 13.0
-TARGET_SEC = 10.0
-ATTEMPTS = 4
 
 # (persona_id, 음성 지시, 기준 문장). 성별은 기존 공식 음성에 맞췄다.
 OFFICIAL_VOICES = [

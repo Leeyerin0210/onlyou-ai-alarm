@@ -107,6 +107,10 @@ ALTER TABLE personas ADD COLUMN IF NOT EXISTS role TEXT;
 -- 신고 누적으로 잠긴 시각. 값이 있으면 공개로 되돌릴 수 없다(해제는 운영자 수동).
 ALTER TABLE personas ADD COLUMN IF NOT EXISTS report_locked_at TIMESTAMPTZ;
 
+-- 유저가 만드는 비서 목소리 (스펙: 2026-10-31-user-voice-design-design.md). 목소리 설명과 샘플 문장.
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS voice_description TEXT;
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS voice_sample_text TEXT;
+
 CREATE TABLE IF NOT EXISTS persona_reports (
     persona_id   TEXT NOT NULL,
     reporter_uid TEXT NOT NULL,
