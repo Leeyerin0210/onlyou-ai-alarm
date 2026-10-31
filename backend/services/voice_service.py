@@ -261,3 +261,33 @@ class RemoteVoiceEngine:
 
 
 voice_engine = RemoteVoiceEngine()
+
+
+def cleanup_voiceless_user_personas() -> None:
+    """배포 정리: 목소리 칸이 없는 유저 비서의 옛 업로드 기준 음성을 지우고 공개 비서는 비공개로 돌린다.
+
+    공식·dev 비서(SYSTEM_CREATOR)와 목소리 칸이 있는 비서는 건드리지 않는다. 여러 번 돌려도 같다.
+    """
+    if not os.getenv("DATABASE_URL"):
+        return
+    from contextlib import closing
+    from core.persona_fields import SYSTEM_CREATOR
+    from core.rdb import get_conn
+
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM personas WHERE creator_id <> %s AND voice_sample_text IS NULL",
+            (SYSTEM_CREATOR,),
+        )
+        voiceless = {r[0] for r in cur.fetchall()}
+        cur.execute(
+            "UPDATE personas SET is_private = TRUE "
+            "WHERE creator_id <> %s AND voice_sample_text IS NULL AND is_private = FALSE",
+            (SYSTEM_CREATOR,),
+        )
+        conn.commit()
+    try:
+        for pid in voice_engine.stored_reference_ids() & voiceless:
+            voice_engine.delete_master(pid)
+    except Exception as e:  # 저장소 오류로 서버 기동이 막히면 안 된다
+        print(f"Voice cleanup storage error: {e}")

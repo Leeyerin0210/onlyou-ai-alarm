@@ -14,6 +14,7 @@ if current_dir not in sys.path:
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization, presets
 from core.rdb import init_schema, cleanup_removed_personas
+from services.voice_service import cleanup_voiceless_user_personas
 from core.database import collection
 from core.config import settings
 from services.reflection_service import run_nightly_reflection
@@ -60,6 +61,7 @@ async def startup():
     init_schema()
     collection.ensure_schema()
     cleanup_removed_personas()
+    cleanup_voiceless_user_personas()
     _register_reflection_job(scheduler)
     scheduler.start()
 

@@ -242,25 +242,26 @@ def seed_db():
 
     init_schema()
     with closing(get_conn()) as conn, conn.cursor() as cur:
-        for pid, name, preset, call, c1, c2, tags, usage, _, _ in PERSONAS:
+        for pid, name, preset, call, c1, c2, tags, usage, instruct, ref_text in PERSONAS:
             assert preset in PRESETS, f"미지의 preset_key: {preset}"
             f = legacy_fields(preset)
             cur.execute(
                 "INSERT INTO personas (id, name, description, prompt, user_call_sign, primary_hex, secondary_hex, "
                 "creator_id, preset_key, is_private, tags, usage_count, image_url, "
-                "speech_style, personality, role) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, FALSE, %s, %s, %s, %s, %s, %s) "
+                "speech_style, personality, role, voice_description, voice_sample_text) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, FALSE, %s, %s, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description, "
                 "prompt=EXCLUDED.prompt, "
                 "user_call_sign=EXCLUDED.user_call_sign, primary_hex=EXCLUDED.primary_hex, "
                 "secondary_hex=EXCLUDED.secondary_hex, preset_key=EXCLUDED.preset_key, "
                 "tags=EXCLUDED.tags, usage_count=EXCLUDED.usage_count, image_url=EXCLUDED.image_url, "
-                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role",
+                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role, "
+                "voice_description=EXCLUDED.voice_description, voice_sample_text=EXCLUDED.voice_sample_text",
                 (pid, name, *PROFILES[pid], call, c1, c2,
                  SYSTEM_CREATOR, preset, normalize_tags(tags), usage,
                  # 사진(--images)은 persona_images/{id}.jpg — main.py가 /persona-images로 서빙
                  f"persona-images/{pid}.jpg",
-                 f.speech_style, PROFILES[pid][1], f.role),
+                 f.speech_style, PROFILES[pid][1], f.role, instruct, ref_text),
             )
     print(f"seeded {len(PERSONAS)} dev personas")
 

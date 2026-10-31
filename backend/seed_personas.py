@@ -41,6 +41,8 @@ PERSONAS = [_with_fields(p) for p in [
 
 
 def seed():
+    from gen_reference_voices import OFFICIAL_VOICES
+    voices = {v[0]: v for v in OFFICIAL_VOICES}
     init_schema()
     cleanup_removed_personas()
     with closing(get_conn()) as conn, conn.cursor() as cur:
@@ -49,20 +51,22 @@ def seed():
             row = {**p, "creator_id": SYSTEM_CREATOR,
                    "description": PRESETS[p["preset_key"]].description,
                    # 사진 파일은 persona_images/{id}.jpg (main.py가 /persona-images로 서빙)
-                   "image_url": f"persona-images/{p['id']}.jpg"}
+                   "image_url": f"persona-images/{p['id']}.jpg",
+                   "voice_description": voices[p["id"]][1], "voice_sample_text": voices[p["id"]][2]}
             cur.execute(
                 "INSERT INTO personas (id, name, description, user_call_sign, "
                 "primary_hex, secondary_hex, creator_id, preset_key, is_private, tags, image_url, "
-                "speech_style, personality, role) "
+                "speech_style, personality, role, voice_description, voice_sample_text) "
                 "VALUES (%(id)s,%(name)s,%(description)s,%(user_call_sign)s,"
                 "%(primary_hex)s,%(secondary_hex)s,%(creator_id)s,%(preset_key)s, FALSE, %(tags)s, %(image_url)s, "
-                "%(speech_style)s,%(personality)s,%(role)s) "
+                "%(speech_style)s,%(personality)s,%(role)s,%(voice_description)s,%(voice_sample_text)s) "
                 "ON CONFLICT (id) DO UPDATE SET "
                 "name=EXCLUDED.name, description=EXCLUDED.description, "
                 "user_call_sign=EXCLUDED.user_call_sign, "
                 "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
                 "preset_key=EXCLUDED.preset_key, tags=EXCLUDED.tags, image_url=EXCLUDED.image_url, "
-                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role",
+                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, role=EXCLUDED.role, "
+                "voice_description=EXCLUDED.voice_description, voice_sample_text=EXCLUDED.voice_sample_text",
                 row,
             )
     print(f"seeded {len(PERSONAS)} personas")

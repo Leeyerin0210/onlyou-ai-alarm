@@ -33,3 +33,16 @@ def test_seed_avoids_banned_vocabulary():
         blob = " ".join(p[k] for k in ("name", "speech_style", "personality", "role"))
         for word in banned:
             assert word not in blob, f"{p['id']}에 금지 어휘 '{word}'"
+
+
+def test_official_seed_has_voice_texts(client):
+    import seed_personas
+    from gen_reference_voices import OFFICIAL_VOICES
+    seed_personas.seed()
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT id, voice_description, voice_sample_text FROM personas WHERE creator_id = %s",
+                    (SYSTEM_CREATOR,))
+        rows = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+    assert len(OFFICIAL_VOICES) == 3
+    for pid, instruct, ref_text in OFFICIAL_VOICES:
+        assert rows[pid] == (instruct, ref_text)
