@@ -32,6 +32,23 @@ fun canDesignVoice(description: String, sample: String, isDesigning: Boolean): B
 fun blocksPublishForVoice(persona: Persona, applyVoiceDraft: Boolean): Boolean =
     !persona.isPrivate && !persona.hasVoice && !applyVoiceDraft
 
+/**
+ * 후보를 정할 수 있는지. 서버는 후보에 기록된 텍스트로 적용하므로,
+ * 입력이 후보를 만든 텍스트와 달라졌으면(낡은 후보) 정할 수 없다.
+ */
+fun canChooseDraft(
+    hasDraft: Boolean,
+    draftDescription: String,
+    draftSample: String,
+    description: String,
+    sample: String,
+    isDesigning: Boolean,
+): Boolean = hasDraft && !isDesigning && draftDescription == description && draftSample == sample
+
+/** 저장 버튼 활성 조건(저장 중 여부 제외). 목소리를 만드는 중엔 서버 후보가 바뀌는 중이라 저장할 수 없다. */
+fun canSaveWithVoice(persona: Persona, applyVoiceDraft: Boolean, isDesigning: Boolean): Boolean =
+    isPersonaSavable(persona) && !blocksPublishForVoice(persona, applyVoiceDraft) && !isDesigning
+
 /** 저장 후 보여줄 안내. null이면 안내 없이 화면을 닫는다. */
 fun saveNotice(result: PersonaSaveResult): String? =
     when (result.status) {

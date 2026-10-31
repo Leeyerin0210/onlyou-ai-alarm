@@ -3,6 +3,7 @@ package com.onlyou.com.ui.shop
 import android.content.Context
 import android.media.MediaPlayer
 import com.onlyou.com.domain.repository.VoiceRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,6 +86,9 @@ class VoicePreviewPlayer(
                 setDataSource(file.absolutePath)
                 prepareAsync()
             }
+        } catch (e: CancellationException) {
+            // 취소는 새 재생이 상태를 쥐고 있으니 건드리지 않는다
+            throw e
         } catch (e: Exception) {
             _state.value = VoicePreviewState()
         }
@@ -104,6 +108,7 @@ class VoicePreviewPlayer(
         job?.cancel()
         mediaPlayer?.release()
         mediaPlayer = null
+        File(context.cacheDir, "voice_preview.wav").delete()
     }
 
     companion object {

@@ -125,7 +125,7 @@ fun PersonaEditContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val voiceBlocked = blocksPublishForVoice(uiState.persona, uiState.applyVoiceDraft)
-                    val isSavable = isPersonaSavable(uiState.persona) && !voiceBlocked
+                    val isSavable = canSaveWithVoice(uiState.persona, uiState.applyVoiceDraft, uiState.isDesigning)
                     if (voiceBlocked) {
                         Text("공개하려면 목소리를 만들어 주세요", fontSize = 12.sp, color = Color.Red)
                         Spacer(Modifier.height(8.dp))
@@ -269,6 +269,14 @@ fun PersonaEditContent(
                             enabled = canDesignVoice(uiState.voiceDescriptionInput, uiState.voiceSampleInput, uiState.isDesigning),
                         )
                         if (uiState.draftAudio != null) {
+                            val canChoose = canChooseDraft(
+                                true, uiState.draftDescription, uiState.draftSample,
+                                uiState.voiceDescriptionInput, uiState.voiceSampleInput, uiState.isDesigning,
+                            )
+                            if (!canChoose) {
+                                Spacer(Modifier.height(6.dp))
+                                Text("설명이나 문장을 바꿨어요. 다시 만들어야 정할 수 있어요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                            }
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 MiyaSecondaryButton(
@@ -279,7 +287,7 @@ fun PersonaEditContent(
                                 MiyaSecondaryButton(
                                     text = if (uiState.applyVoiceDraft) "정했어요" else "이 목소리로 정하기",
                                     onClick = onChooseDraft,
-                                    enabled = !uiState.applyVoiceDraft,
+                                    enabled = canChoose && !uiState.applyVoiceDraft,
                                     modifier = Modifier.weight(1f),
                                 )
                             }

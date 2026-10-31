@@ -121,4 +121,34 @@ class PersonaEditLogicTest {
             saveNotice(PersonaSaveResult(ModerationStatus.VOICE_REQUIRED)),
         )
     }
+
+    @Test
+    fun `후보가 있고 입력이 후보 텍스트와 같으면 정하기 가능`() {
+        assertTrue(canChooseDraft(true, "차분", "일어나", "차분", "일어나", false))
+    }
+
+    @Test
+    fun `후보가 없거나 생성 중이면 정하기 불가`() {
+        assertFalse(canChooseDraft(false, "", "", "차분", "일어나", false))
+        assertFalse(canChooseDraft(true, "차분", "일어나", "차분", "일어나", true))
+    }
+
+    @Test
+    fun `입력을 바꿔 후보 텍스트와 달라지면 정하기 불가`() {
+        assertFalse(canChooseDraft(true, "차분", "일어나", "차분함", "일어나", false))
+        assertFalse(canChooseDraft(true, "차분", "일어나", "차분", "일어나!", false))
+    }
+
+    @Test
+    fun `목소리 생성 중에는 저장 불가`() {
+        assertTrue(canSaveWithVoice(p().copy(isPrivate = true), applyVoiceDraft = false, isDesigning = false))
+        assertFalse(canSaveWithVoice(p().copy(isPrivate = true), applyVoiceDraft = false, isDesigning = true))
+    }
+
+    @Test
+    fun `공개인데 목소리 없으면 저장 불가, 후보를 정했으면 가능`() {
+        val pub = p().copy(isPrivate = false)
+        assertFalse(canSaveWithVoice(pub, applyVoiceDraft = false, isDesigning = false))
+        assertTrue(canSaveWithVoice(pub, applyVoiceDraft = true, isDesigning = false))
+    }
 }

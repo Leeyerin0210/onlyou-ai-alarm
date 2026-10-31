@@ -77,9 +77,12 @@ class PersonaEditViewModel
             }
         }
 
-        fun updateVoiceDescription(text: String) = updateSuccess { it.copy(voiceDescriptionInput = text) }
+        // 입력을 바꾸면 이미 정한 선택은 풀린다 — 서버는 후보를 만든 텍스트로 적용하기 때문
+        fun updateVoiceDescription(text: String) =
+            updateSuccess { it.copy(voiceDescriptionInput = text, applyVoiceDraft = false) }
 
-        fun updateVoiceSample(text: String) = updateSuccess { it.copy(voiceSampleInput = text) }
+        fun updateVoiceSample(text: String) =
+            updateSuccess { it.copy(voiceSampleInput = text, applyVoiceDraft = false) }
 
         private fun updateSuccess(transform: (PersonaEditUiState.Success) -> PersonaEditUiState.Success) {
             _uiState.update { if (it is PersonaEditUiState.Success) transform(it) else it }
@@ -90,7 +93,14 @@ class PersonaEditViewModel
             val st = _uiState.value as? PersonaEditUiState.Success ?: return
             if (!canDesignVoice(st.voiceDescriptionInput, st.voiceSampleInput, st.isDesigning)) return
             voicePlayer.stop()
-            _uiState.value = st.copy(isDesigning = true)
+            // 서버가 후보를 갈아 끼우는 중이라 이전 후보와 선택은 모두 버린다(실패해도 무엇이 남았는지 모른다)
+            _uiState.value = st.copy(
+                isDesigning = true,
+                applyVoiceDraft = false,
+                draftAudio = null,
+                draftDescription = "",
+                draftSample = "",
+            )
             viewModelScope.launch {
                 val audio = try {
                     voiceRepository.designVoice(st.persona.id, st.voiceDescriptionInput, st.voiceSampleInput)
@@ -102,14 +112,27 @@ class PersonaEditViewModel
                     updateSuccess { it.copy(isDesigning = false) }
                     _uiEvent.emit("목소리를 만들지 못했어요. 잠시 후 다시 해 주세요.")
                 } else {
-                    // 새 후보가 오면 이전에 정한 선택은 풀린다 — 다시 들어 보고 정하게 한다
-                    updateSuccess { it.copy(isDesigning = false, draftAudio = audio, applyVoiceDraft = false) }
+                                    updateSuccess {
+                        it.copy(
+                            isDesigning = false,
+                            draftAudio = audio,
+                            draftDescription = st.voiceDescriptionInput,
+                            draftSample = st.voiceSampleInput,
+                            applyVoiceDraft = false,
+                        )
+                    }
                 }
             }
         }
 
         /** 지금 들은 후보를 이 비서의 목소리로 정한다. 저장할 때 서버가 적용한다. */
-        fun chooseDraftVoice() = updateSuccess { if (it.draftAudio != null) it.copy(applyVoiceDraft = true) else it }
+        fun chooseDraftVoice() = updateSuccess {
+            val ok = canChooseDraft(
+                it.draftAudio != null, it.draftDescription, it.draftSample,
+                it.voiceDescriptionInput, it.voiceSampleInput, it.isDesigning,
+            )
+            if (ok) it.copy(applyVoiceDraft = true) else it
+        }
 
         fun playDraft() {
             val audio = (_uiState.value as? PersonaEditUiState.Success)?.draftAudio ?: return
@@ -170,6 +193,9 @@ sealed class PersonaEditUiState {
         val voiceSampleInput: String = "",
         /** 가장 최근에 만든 후보 음성(WAV). 서버에도 하나만 있다. */
         val draftAudio: ByteArray? = null,
+        /** 현재 후보를 만든 텍스트. 입력이 이와 다르면 낡은 후보다. */
+        val draftDescription: String = "",
+        val draftSample: String = "",
         val isDesigning: Boolean = false,
         /** 후보를 이 비서의 목소리로 정했는지. 저장 때 서버에 적용을 요청한다. */
         val applyVoiceDraft: Boolean = false,
