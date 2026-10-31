@@ -62,3 +62,35 @@ def test_cleanup_keeps_report_lock(client, monkeypatch, tmp_path):
     is_private, after = _row("u1")
     assert is_private is True
     assert after == before and after is not None
+
+
+def test_cleanup_deletes_orphan_master_without_row(client, monkeypatch, tmp_path):
+    """옛 save_reference는 DB 행 없이도 올릴 수 있었다 — 그 파일도 지운다."""
+    _setup(client, monkeypatch, tmp_path)
+    voice_engine.save_master_wav("orphan", b"RIFF", "안녕")
+    cleanup_voiceless_user_personas()
+    assert "orphan" not in voice_engine.stored_reference_ids()
+
+
+def test_cleanup_keeps_official_and_dev_ids_without_row(client, monkeypatch, tmp_path):
+    _setup(client, monkeypatch, tmp_path)
+    for pid in ("official_miya", "dev_test"):
+        voice_engine.save_master_wav(pid, b"RIFF", "문장")
+    cleanup_voiceless_user_personas()
+    assert {"official_miya", "dev_test"} <= voice_engine.stored_reference_ids()
+
+
+def test_cleanup_skips_id_promoted_meanwhile(client, monkeypatch, tmp_path):
+    """지우기 직전에 다시 확인한다 — 그사이 목소리가 정해진 비서는 남긴다."""
+    _setup(client, monkeypatch, tmp_path)
+    voice_engine.save_master_wav("racer", b"RIFF", "문장")
+    real_ids = voice_engine.stored_reference_ids
+
+    def ids_then_promote():
+        ids = real_ids()
+        _persona("racer", sample="문장")
+        return ids
+
+    monkeypatch.setattr(voice_engine, "stored_reference_ids", ids_then_promote)
+    cleanup_voiceless_user_personas()
+    assert "racer" in real_ids()

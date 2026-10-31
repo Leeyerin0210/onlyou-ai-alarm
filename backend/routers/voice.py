@@ -6,6 +6,7 @@ from models.schemas import VoiceDesignIn, VoiceCloneRequest
 from services.voice_design_service import design_voice_draft
 from services.monetization_service import use_voice_credit
 from core.config import settings
+from core.persona_fields import SYSTEM_CREATOR
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.rdb import get_conn
 from core.security import get_uid
@@ -31,13 +32,24 @@ def _require_persona_owner(persona_id: str, uid: str):
         raise HTTPException(status_code=403, detail="not persona owner")
 
 
-def _require_persona_usable(persona_id: str, uid: str):
-    """합성/조회는 공개 페르소나거나 본인 것만. (미저장 페르소나는 생성 중이므로 허용)"""
-    row = _persona_owner_info(persona_id)
-    if row is not None:
-        creator_id, is_private = row[0], row[1]
-        if is_private and creator_id != uid:
-            raise HTTPException(status_code=403, detail="private persona")
+def _require_reference_readable(persona_id: str, uid: str):
+    """기준 음성 합성/조회 — 목소리가 정해진 비서(또는 공식 비서)이고 공개거나 본인 것만.
+
+    옛 업로드 음성(행 없는 id, 목소리 칸 없는 유저 비서)은 남아 있어도 읽지 않는다.
+    """
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT creator_id, is_private, voice_sample_text FROM personas WHERE id = %s",
+            (persona_id,),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    creator_id, is_private, sample_text = row
+    if is_private and creator_id != uid:
+        raise HTTPException(status_code=403, detail="private persona")
+    if creator_id != SYSTEM_CREATOR and not (sample_text or "").strip():
+        raise HTTPException(status_code=404, detail="Not found")
 
 @router.post("/design/{persona_id}")
 async def design_voice(persona_id: str, request: VoiceDesignIn, uid: str = Depends(get_uid)):
@@ -47,7 +59,7 @@ async def design_voice(persona_id: str, request: VoiceDesignIn, uid: str = Depen
 
 @router.post("/clone")
 async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
-    await asyncio.to_thread(_require_persona_usable, request.persona_id, uid)
+    await asyncio.to_thread(_require_reference_readable, request.persona_id, uid)
     await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
     await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
     # AI 클론 보이스는 원가가 나가는 프리미엄 기능 — 게이팅 ON일 때 이용권 필요.
@@ -68,7 +80,7 @@ async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):
 
 @router.get("/reference/{persona_id}")
 async def get_voice_reference(persona_id: str, uid: str = Depends(get_uid)):
-    await asyncio.to_thread(_require_persona_usable, persona_id, uid)
+    await asyncio.to_thread(_require_reference_readable, persona_id, uid)
     audio = await asyncio.to_thread(voice_engine.get_reference_audio, persona_id)
     if audio is None:
         raise HTTPException(status_code=404, detail="Not found")

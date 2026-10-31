@@ -263,10 +263,28 @@ class RemoteVoiceEngine:
 voice_engine = RemoteVoiceEngine()
 
 
+# 공식·dev 비서 id — DB 행이 없어도 지우지 않는 안전망
+_PROTECTED_ID_PREFIXES = ("official_", "dev_")
+
+
+def _is_kept(cur, persona_id: str) -> bool:
+    """기준 음성을 남길 비서인가 — 목소리 칸이 있거나 공식 비서."""
+    if persona_id.startswith(_PROTECTED_ID_PREFIXES):
+        return True
+    from core.persona_fields import SYSTEM_CREATOR
+    cur.execute(
+        "SELECT 1 FROM personas WHERE id = %s AND (voice_sample_text IS NOT NULL OR creator_id = %s)",
+        (persona_id, SYSTEM_CREATOR),
+    )
+    return cur.fetchone() is not None
+
+
 def cleanup_voiceless_user_personas() -> None:
     """배포 정리: 목소리 칸이 없는 유저 비서의 옛 업로드 기준 음성을 지우고 공개 비서는 비공개로 돌린다.
 
-    공식·dev 비서(SYSTEM_CREATOR)와 목소리 칸이 있는 비서는 건드리지 않는다. 여러 번 돌려도 같다.
+    옛 save_reference는 DB 행 없이도 올릴 수 있었으므로 행이 없는 id의 기준 음성도 지운다.
+    공식·dev 비서(SYSTEM_CREATOR, official_·dev_ id)와 목소리 칸이 있는 비서는 건드리지 않는다.
+    여러 번 돌려도 같다.
     """
     if not os.getenv("DATABASE_URL"):
         return
@@ -276,18 +294,24 @@ def cleanup_voiceless_user_personas() -> None:
 
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT id FROM personas WHERE creator_id <> %s AND voice_sample_text IS NULL",
-            (SYSTEM_CREATOR,),
-        )
-        voiceless = {r[0] for r in cur.fetchall()}
-        cur.execute(
             "UPDATE personas SET is_private = TRUE "
             "WHERE creator_id <> %s AND voice_sample_text IS NULL AND is_private = FALSE",
             (SYSTEM_CREATOR,),
         )
         conn.commit()
     try:
-        for pid in voice_engine.stored_reference_ids() & voiceless:
-            voice_engine.delete_master(pid)
+        stored = voice_engine.stored_reference_ids()
+        with closing(get_conn()) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM personas WHERE id = ANY(%s) "
+                "AND (voice_sample_text IS NOT NULL OR creator_id = %s)",
+                (list(stored), SYSTEM_CREATOR),
+            )
+            keep = {r[0] for r in cur.fetchall()}
+            for pid in stored - keep:
+                # 지우기 직전에 다시 확인 — 그사이 목소리가 정해진 비서는 남긴다
+                if _is_kept(cur, pid):
+                    continue
+                voice_engine.delete_master(pid)
     except Exception as e:  # 저장소 오류로 서버 기동이 막히면 안 된다
         print(f"Voice cleanup storage error: {e}")
