@@ -202,28 +202,25 @@ class RemoteVoiceEngine:
             meta = f.read()
         return audio, meta
 
-    def load_draft_meta(self, persona_id: str) -> Optional[dict]:
-        draft = self._load_draft(persona_id)
-        if draft is None:
-            return None
-        meta = json.loads(draft[1].decode("utf-8"))
+    @staticmethod
+    def _draft_meta(meta_bytes: bytes) -> dict:
+        meta = json.loads(meta_bytes.decode("utf-8"))
         return {
             "ref_text": meta["ref_text"],
             "voice_description": meta["voice_description"],
             "creator_uid": meta["creator_uid"],
         }
 
+    def load_draft_meta(self, persona_id: str) -> Optional[dict]:
+        draft = self.load_draft(persona_id)
+        return None if draft is None else draft[1]
+
     def load_draft(self, persona_id: str) -> Optional[Tuple[bytes, dict]]:
         """후보 (wav 바이트, 메타)를 한 번에 읽는다 — 심사하고 승격할 때 같은 스냅샷을 쓰기 위해."""
         draft = self._load_draft(persona_id)
         if draft is None:
             return None
-        meta = json.loads(draft[1].decode("utf-8"))
-        return draft[0], {
-            "ref_text": meta["ref_text"],
-            "voice_description": meta["voice_description"],
-            "creator_uid": meta["creator_uid"],
-        }
+        return draft[0], self._draft_meta(draft[1])
 
     def delete_master(self, persona_id: str) -> None:
         """기준 음성만 지운다 (후보는 그대로). 저장 실패 시 승격을 되돌리는 데 쓴다."""
@@ -236,16 +233,6 @@ class RemoteVoiceEngine:
                 blob = bucket.blob(f"reference_voices/{persona_id}.{ext}")
                 if blob.exists():
                     blob.delete()
-
-    def promote_draft(self, persona_id: str) -> None:
-        """후보를 기준 음성으로 올리고 후보는 지운다. 후보가 없으면 FileNotFoundError."""
-        draft = self._load_draft(persona_id)
-        if draft is None:
-            raise FileNotFoundError(f"Voice draft not found for {persona_id}")
-        audio, meta_bytes = draft
-        ref_text = json.loads(meta_bytes.decode("utf-8"))["ref_text"]
-        self.save_master_wav(persona_id, audio, ref_text)
-        self.delete_draft(persona_id)
 
     def delete_draft(self, persona_id: str) -> None:
         audio_path, meta_path = self._draft_paths(persona_id)

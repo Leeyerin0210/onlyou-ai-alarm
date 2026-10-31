@@ -31,18 +31,6 @@ def test_save_draft_overwrites(engine):
     assert engine.load_draft_meta("p1")["voice_description"] == "설명2"
 
 
-def test_promote_draft_moves_to_reference(engine):
-    engine.save_draft("p1", b"audio", "문장", "설명", "u1")
-    engine.promote_draft("p1")
-    assert engine.load_reference("p1") == (b"audio", "문장")
-    assert engine.load_draft_meta("p1") is None
-
-
-def test_promote_without_draft_raises(engine):
-    with pytest.raises(FileNotFoundError):
-        engine.promote_draft("p1")
-
-
 def test_stored_reference_ids_excludes_drafts(engine):
     engine.save_master_wav("a", b"x", "t")
     engine.save_draft("b", b"y", "t", "d", "u")
