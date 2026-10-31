@@ -10,6 +10,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PersonaEditLogicTest {
+    // 샘플 문장 최소 길이(35자)를 넘는 문장
+    private val LONG_SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요."
+
+    @Test
+    fun `샘플 문장이 최소 길이보다 짧으면 만들기 불가 - 앞뒤 공백은 세지 않는다`() {
+        assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN - 1), false))
+        assertFalse(canDesignVoice("차분한 여자", "  " + "가".repeat(VOICE_SAMPLE_MIN_LEN - 1) + "  ", false))
+        assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN), false))
+    }
+
     private fun p(name: String = "미야", speech: String = "반말", personality: String = "다정", role: String = "") =
         Persona(id = "p1", name = name, description = "", speechStyle = speech, personality = personality, role = role)
 
@@ -78,9 +88,9 @@ class PersonaEditLogicTest {
 
     @Test
     fun `설명이나 샘플 문장이 비었거나 공백뿐이면 만들기 불가`() {
-        assertTrue(canDesignVoice("차분한 여자", "일어나", false))
-        assertFalse(canDesignVoice("", "일어나", false))
-        assertFalse(canDesignVoice("   ", "일어나", false))
+        assertTrue(canDesignVoice("차분한 여자", LONG_SAMPLE, false))
+        assertFalse(canDesignVoice("", LONG_SAMPLE, false))
+        assertFalse(canDesignVoice("   ", LONG_SAMPLE, false))
         assertFalse(canDesignVoice("차분한 여자", "", false))
         assertFalse(canDesignVoice("차분한 여자", " \n ", false))
     }
@@ -89,13 +99,13 @@ class PersonaEditLogicTest {
     fun `설명이나 샘플 문장이 상한을 넘으면 만들기 불가`() {
         assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN + 1), false))
         assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN), false))
-        assertFalse(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN + 1), "일어나", false))
-        assertTrue(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN), "일어나", false))
+        assertFalse(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN + 1), LONG_SAMPLE, false))
+        assertTrue(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN), LONG_SAMPLE, false))
     }
 
     @Test
     fun `생성 중이면 만들기 불가 - 중복 호출 무시의 기준`() {
-        assertFalse(canDesignVoice("차분한 여자", "일어나", true))
+        assertFalse(canDesignVoice("차분한 여자", LONG_SAMPLE, true))
     }
 
     @Test

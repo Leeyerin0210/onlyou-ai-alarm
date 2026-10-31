@@ -50,7 +50,11 @@ def _persona(pid, creator):
         conn.commit()
 
 
-def _post(client, pid="p1", description="낮고 차분한 목소리", sample="안녕하세요"):
+# 샘플 문장 최소 길이(35자)를 넘는 문장
+SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요."
+
+
+def _post(client, pid="p1", description="낮고 차분한 목소리", sample=SAMPLE):
     return client.post(f"/voice/design/{pid}", json={"description": description, "sampleText": sample})
 
 
@@ -61,24 +65,18 @@ def test_design_saves_draft_and_returns_wav(client, fake_engine):
     meta = voice_engine.load_draft_meta("p1")
     assert meta["creator_uid"] == TEST_UID
     assert meta["voice_description"] == "낮고 차분한 목소리"
-    assert meta["ref_text"] == "안녕하세요"
+    assert meta["ref_text"] == SAMPLE
     assert fake_engine["calls"][0][1] == "ZH:낮고 차분한 목소리"
     assert fake_engine["calls"][0][2] is True
 
 
-def test_design_retries_until_in_range(client, fake_engine):
+def test_design_synthesizes_once_whatever_the_length(client, fake_engine):
+    """다시 뽑지 않는다 — 기준 음성 길이는 샘플 문장 최소 길이로 맞춘다."""
     fake_engine["durations"] = [5.0, 9.5]
     r = _post(client)
     assert r.status_code == 200
-    assert len(fake_engine["calls"]) == 2
-    assert voice_design_service.wav_seconds(r.content) == pytest.approx(9.5, abs=0.01)
-
-
-def test_design_keeps_closest_when_all_out_of_range(client, fake_engine):
-    fake_engine["durations"] = [5.0, 14.0, 7.0, 16.0]
-    r = _post(client)
-    assert len(fake_engine["calls"]) == 4
-    assert voice_design_service.wav_seconds(r.content) == pytest.approx(7.0, abs=0.01)
+    assert len(fake_engine["calls"]) == 1
+    assert voice_design_service.wav_seconds(r.content) == pytest.approx(5.0, abs=0.01)
 
 
 def test_design_forbidden_for_others_persona(client, fake_engine):
@@ -92,7 +90,11 @@ def test_design_rate_limited(client, fake_engine, monkeypatch):
     assert _post(client).status_code == 429
 
 
-@pytest.mark.parametrize("description,sample", [("  ", "안녕"), ("목소리", ""), ("목소리", " "), ("목소리", "가" * 61)])
+@pytest.mark.parametrize("description,sample", [
+    ("  ", SAMPLE), ("목소리", ""), ("목소리", " "), ("목소리", "가" * 61),
+    # 35자 미만은 기준 음성이 8초에 못 미쳐 클로닝이 흔들린다
+    ("목소리", "가" * 34), ("목소리", "  " + "가" * 34 + "  "),
+])
 def test_design_rejects_blank_fields(client, fake_engine, description, sample):
     assert _post(client, description=description, sample=sample).status_code == 422
 
@@ -102,18 +104,7 @@ def test_old_voice_endpoints_removed(client):
     assert client.post("/voice/save_reference/x", json={}).status_code in (404, 405)
 
 
-def test_design_charges_global_budget_per_attempt(client, fake_engine, monkeypatch):
-    """전역 voice 예산은 합성 1회마다 쓴다 — 예산이 바닥나면 더 뽑지 않고 지금까지 중 가장 나은 것."""
-    monkeypatch.setattr(settings, "GLOBAL_VOICE_DAILY_LIMIT", 1)
-    fake_engine["durations"] = [5.0, 9.5]
-    r = _post(client)
-    assert r.status_code == 200
-    assert len(fake_engine["calls"]) == 1
-    assert voice_design_service.wav_seconds(r.content) == pytest.approx(5.0, abs=0.01)
-    assert voice_engine.load_draft_meta("p1") is not None
-
-
-def test_design_global_budget_exhausted_before_first_attempt_429(client, fake_engine, monkeypatch):
+def test_design_global_budget_exhausted_429(client, fake_engine, monkeypatch):
     monkeypatch.setattr(settings, "GLOBAL_VOICE_DAILY_LIMIT", 1)
     assert _post(client).status_code == 200
     assert _post(client).status_code == 429
@@ -127,3 +118,15 @@ def test_design_failure_hides_internal_error(client, fake_engine, monkeypatch):
     r = _post(client)
     assert r.status_code == 500
     assert r.json()["detail"] == "목소리를 만들지 못했어요."
+
+
+def test_design_accepts_minimum_sample_length(client, fake_engine):
+    assert _post(client, sample="가" * 35).status_code == 200
+
+
+def test_clean_translation_keeps_only_the_translation():
+    """번역 응답에 설명·선택지가 붙어 와도 번역문 한 줄만 쓴다."""
+    clean = voice_design_service.clean_translation
+    assert clean("纯真稚嫩的声音，音调极高。") == "纯真稚嫩的声音，音调极高。"
+    assert clean('"纯真稚嫩的声音"\n') == "纯真稚嫩的声音"
+    assert clean("", fallback="원문") == "원문"

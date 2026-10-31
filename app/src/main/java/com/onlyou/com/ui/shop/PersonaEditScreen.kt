@@ -258,11 +258,11 @@ fun PersonaEditContent(
                             value = uiState.voiceSampleInput,
                             onValueChange = onVoiceSampleChange,
                             maxLength = VOICE_SAMPLE_MAX_LEN,
-                            placeholder = "예) 일어나. 오늘 아침 회의 있잖아. 우산도 챙기고.",
+                            placeholder = "예) 일어나. 오늘 아침 회의 있잖아. 늦으면 큰일 나니까 얼른 준비하고 우산도 챙겨.",
                             minLines = 2,
                         )
                         Spacer(Modifier.height(6.dp))
-                        Text("숫자·영어 없이 한글로 써 주세요. 상점에서 이 문장으로 미리듣기가 나가요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                        Text("${VOICE_SAMPLE_MIN_LEN}자 이상, 숫자·영어 없이 한글로 써 주세요. 상점에서 이 문장으로 미리듣기가 나가요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
                         Spacer(Modifier.height(12.dp))
                         MiyaSecondaryButton(
                             text = when {

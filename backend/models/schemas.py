@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
 from core.persona_fields import MAX_FIELD_LEN
-from core.voice_rules import VOICE_DESCRIPTION_MAX_LEN, VOICE_SAMPLE_MAX_LEN
+from core.voice_rules import VOICE_DESCRIPTION_MAX_LEN, VOICE_SAMPLE_MAX_LEN, VOICE_SAMPLE_MIN_LEN
 
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
 # 정상 사용에는 전부 넉넉한 값이다.
@@ -51,6 +51,14 @@ class VoiceDesignIn(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
+        return v
+
+    @field_validator("sampleText")
+    @classmethod
+    def _long_enough(cls, v: str) -> str:
+        # 짧은 문장은 기준 음성이 8초에 못 미쳐 알람 클로닝 목소리가 흔들린다
+        if len(v) < VOICE_SAMPLE_MIN_LEN:
+            raise ValueError(f"sampleText must be at least {VOICE_SAMPLE_MIN_LEN} characters")
         return v
 
 class VoiceCloneRequest(BaseModel):
