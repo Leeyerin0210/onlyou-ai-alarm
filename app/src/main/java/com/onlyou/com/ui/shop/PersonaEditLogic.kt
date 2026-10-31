@@ -9,10 +9,10 @@ import com.onlyou.com.domain.model.hasVoice
 const val PERSONA_FIELD_MAX_LEN = 300
 
 // 서버 목소리 설명·샘플 문장 길이와 같은 값(core/voice_rules.py).
-// 목소리는 한 번만 만들므로 기준 음성이 8초 안팎이 되도록 샘플 문장을 35자 이상 받는다.
+// 목소리는 한 번만 만들므로 빠른 목소리도 기준 음성이 8초를 넘도록 샘플 문장을 50~80자로 받는다.
 const val VOICE_DESCRIPTION_MAX_LEN = 300
-const val VOICE_SAMPLE_MIN_LEN = 35
-const val VOICE_SAMPLE_MAX_LEN = 60
+const val VOICE_SAMPLE_MIN_LEN = 50
+const val VOICE_SAMPLE_MAX_LEN = 80
 
 /** 서버는 "<", ">"를 제거한 뒤 비었는지 보고 400으로 거부하므로 같은 기준으로 판정한다. */
 private fun isBlankForServer(s: String): Boolean = s.replace("<", "").replace(">", "").isBlank()

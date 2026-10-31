@@ -50,8 +50,8 @@ def _persona(pid, creator):
         conn.commit()
 
 
-# 샘플 문장 최소 길이(35자)를 넘는 문장
-SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요."
+# 샘플 문장 길이(50~80자) 안의 문장
+SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요. 우산도 꼭 챙겨 가세요."
 
 
 def _post(client, pid="p1", description="낮고 차분한 목소리", sample=SAMPLE):
@@ -91,9 +91,9 @@ def test_design_rate_limited(client, fake_engine, monkeypatch):
 
 
 @pytest.mark.parametrize("description,sample", [
-    ("  ", SAMPLE), ("목소리", ""), ("목소리", " "), ("목소리", "가" * 61),
-    # 35자 미만은 기준 음성이 8초에 못 미쳐 클로닝이 흔들린다
-    ("목소리", "가" * 34), ("목소리", "  " + "가" * 34 + "  "),
+    ("  ", SAMPLE), ("목소리", ""), ("목소리", " "), ("목소리", "가" * 81),
+    # 50자 미만은 기준 음성이 8초에 못 미쳐 클로닝이 흔들린다
+    ("목소리", "가" * 49), ("목소리", "  " + "가" * 49 + "  "),
 ])
 def test_design_rejects_blank_fields(client, fake_engine, description, sample):
     assert _post(client, description=description, sample=sample).status_code == 422
@@ -120,8 +120,9 @@ def test_design_failure_hides_internal_error(client, fake_engine, monkeypatch):
     assert r.json()["detail"] == "목소리를 만들지 못했어요."
 
 
-def test_design_accepts_minimum_sample_length(client, fake_engine):
-    assert _post(client, sample="가" * 35).status_code == 200
+def test_design_accepts_sample_length_bounds(client, fake_engine):
+    assert _post(client, sample="가" * 50).status_code == 200
+    assert _post(client, sample="가" * 80).status_code == 200
 
 
 def test_clean_translation_keeps_only_the_translation():

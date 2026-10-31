@@ -10,14 +10,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PersonaEditLogicTest {
-    // 샘플 문장 최소 길이(35자)를 넘는 문장
-    private val LONG_SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요."
+    // 샘플 문장 길이(50~80자) 안의 문장
+    private val LONG_SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요. 우산도 꼭 챙겨 가세요."
 
     @Test
     fun `샘플 문장이 최소 길이보다 짧으면 만들기 불가 - 앞뒤 공백은 세지 않는다`() {
         assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN - 1), false))
         assertFalse(canDesignVoice("차분한 여자", "  " + "가".repeat(VOICE_SAMPLE_MIN_LEN - 1) + "  ", false))
         assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN), false))
+    }
+
+    @Test
+    fun `샘플 문장 길이는 50자에서 80자`() {
+        assertEquals(50, VOICE_SAMPLE_MIN_LEN)
+        assertEquals(80, VOICE_SAMPLE_MAX_LEN)
     }
 
     private fun p(name: String = "미야", speech: String = "반말", personality: String = "다정", role: String = "") =
