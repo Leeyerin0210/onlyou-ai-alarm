@@ -52,6 +52,7 @@ modal deploy tts-server/modal_app.py
 | `GLOBAL_MODERATION_DAILY_LIMIT` | 전체 사용자 합산 하루 공개 심사 LLM 호출 상한. 기본 5000 |
 | `REPORT_LOCK_THRESHOLD` | 비서를 자동 비공개·잠금할 신고 수(서로 다른 유저). 기본 3 |
 | `REPORT_USER_DAILY_LIMIT` | 유저별 하루 신고 횟수 상한. 기본 10 |
+| `VOICE_DESIGN_USER_DAILY_LIMIT` | 유저별 하루 목소리 후보 만들기(`/voice/design`) 횟수. 전체 합산은 `GLOBAL_VOICE_DAILY_LIMIT`(합성 1회마다 차감)을 함께 쓴다. 기본 50 |
 
 ### 신고로 잠긴 비서 해제 (운영자)
 
@@ -104,3 +105,17 @@ DELETE FROM persona_reports WHERE persona_id = '<persona_id>';
   앱을 먼저 내보내면 구버전 서버가 필수 필드 `recent_memories`가 없다며 브리핑 요청을
   422로 거부하고, 알람이 기본 인사말로 떨어진다. 다음 릴리스에서 `/memory/extract`
   라우트와 `recent_memories` 폴백을 제거한다.
+- **유저 목소리 만들기(2026-10-31) 배포는 Modal TTS 서버 먼저, 상시 서버 나중.** 상시 서버가
+  `/synthesize`에 `wav: true`를 보내 압축 없는 WAV를 받아 길이를 잰다. 구버전 TTS 서버는 이
+  값을 무시하고 Ogg를 돌려주므로 `/voice/design`이 500으로 실패한다.
+  `modal deploy tts-server/modal_app.py`를 먼저 끝내고 상시 서버를 올린다.
+- **이 릴리스의 상시 서버는 기동할 때 되돌릴 수 없는 정리를 한 번 한다** (`cleanup_voiceless_user_personas`,
+  여러 번 돌아도 결과는 같다).
+  - 목소리(샘플 문장)가 없는 유저 공개 비서를 비공개로 바꾼다.
+  - 공식 비서가 아니면서 목소리가 없는 비서의 옛 업로드 기준 음성, 그리고 DB에 행이 없는 id의
+    기준 음성을 로컬 `backend/reference_voices/`와 버킷 `reference_voices/`에서 지운다.
+    공식 비서(`creator_id`가 시스템 계정이거나 id가 `official_`·`dev_`로 시작)와 목소리가 있는 비서는 남긴다.
+  - 첫 배포 전에 `reference_voices/`를 백업해 둔다.
+    ```bash
+    gsutil -m cp -r gs://<FIREBASE_STORAGE_BUCKET>/reference_voices ./reference_voices-backup
+    ```
