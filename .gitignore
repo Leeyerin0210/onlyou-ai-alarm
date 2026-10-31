@@ -27,4 +27,6 @@ skills-lock.json
 /.worktrees
 # 로컬 개발 DB 전용 비서(dev_*)의 생성 사진·목소리 — 공식 비서 것만 커밋한다
 /backend/persona_images/dev_*
-/backend/reference_voices/dev_*
+# 기준 음성은 공식 비서 것만 커밋한다 — dev_*·유저가 만든 목소리·후보(drafts/)는 로컬 산출물
+/backend/reference_voices/*
+!/backend/reference_voices/official_*
