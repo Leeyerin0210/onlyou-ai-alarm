@@ -13,6 +13,7 @@ from core.tags import normalize_tags
 from core.security import get_uid
 from models.schemas import PersonaIn, PersonaReportIn
 from services.moderation_service import ModerationResult, moderate_persona
+from services.voice_service import voice_engine
 
 router = APIRouter(prefix="/personas", tags=["personas"])
 
@@ -128,12 +129,30 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
     tags = normalize_tags(body.tags) if body.tags is not None else None
     effective_tags = tags if tags is not None else (list(existing[11] or []) if existing else [])
 
+    # 목소리 후보 적용 — 후보는 이 유저가 만든 것이어야 하고, 심사·저장에 쓰는 목소리
+    # 텍스트는 앱이 보낸 값이 아니라 후보 json에 기록된 값뿐이다 (심사 전에 검사)
+    draft = None
+    if body.applyVoiceDraft:
+        draft = voice_engine.load_draft_meta(persona_id)
+        if draft is None or draft.get("creator_uid") != uid:
+            raise HTTPException(status_code=400, detail="no voice draft")
+    if draft is not None:
+        voice_description, voice_sample_text = draft["voice_description"], draft["ref_text"]
+    else:
+        voice_description = (existing[17] if existing else None) or ""
+        voice_sample_text = (existing[18] if existing else None) or ""
+    has_voice = bool(voice_sample_text.strip())
+
     if body.isPrivate:
         is_private, moderation = True, ModerationResult("skipped")
     elif existing is not None and existing[16] is not None:
         is_private, moderation = True, ModerationResult("locked")
+    elif not has_voice:
+        # 공개 비서는 목소리 필수 — 심사 없이 비공개로 저장한다
+        is_private, moderation = True, ModerationResult("voice_required")
     elif (
-        existing is not None and not existing[8]
+        draft is None
+        and existing is not None and not existing[8]
         and (existing[1], existing[2] or "", list(existing[11] or []), _row_fields(existing))
         == (body.name, body.description, effective_tags, fields)
     ):
@@ -141,15 +160,30 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
         is_private, moderation = False, ModerationResult("skipped")
     else:
         # LLM 대기 중 DB 커넥션을 잡지 않도록 저장 트랜잭션 밖에서 먼저 심사한다
-        moderation = moderate_persona(uid, body.name, body.description, effective_tags, fields)
+        moderation = moderate_persona(
+            uid, body.name, body.description, effective_tags, fields,
+            voice_description, voice_sample_text,
+        )
         is_private = moderation.status != "approved"
+
+    if draft is not None:
+        # DB 쓰기 전에 승격한다 — 실패하면 아무것도 쓰지 않아 목소리 칸이 그대로다
+        try:
+            voice_engine.promote_draft(persona_id)
+        except Exception as e:
+            print(f"[personas] 목소리 후보 승격 실패 {persona_id}: {e}")
+            raise HTTPException(status_code=500, detail="voice promote failed")
+    voice_set = "voice_description=EXCLUDED.voice_description, voice_sample_text=EXCLUDED.voice_sample_text, " \
+        if draft is not None else ""
+    new_voice = (voice_description, voice_sample_text) if draft is not None else (None, None)
 
     with closing(get_conn()) as conn, conn.cursor() as cur:
         cur.execute(
             "INSERT INTO personas (id, name, description, user_call_sign, "
             "primary_hex, secondary_hex, creator_id, usage_count, is_private, "
-            "updated_at, preset_key, tags, speech_style, personality, role) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s::text[], '{}'), %s,%s,%s) "
+            "updated_at, preset_key, tags, speech_style, personality, role, "
+            "voice_description, voice_sample_text) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s::text[], '{}'), %s,%s,%s, %s,%s) "
             "ON CONFLICT (id) DO UPDATE SET "
             "name=EXCLUDED.name, description=EXCLUDED.description, "
             "user_call_sign=EXCLUDED.user_call_sign, "
@@ -160,24 +194,28 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
             "preset_key=COALESCE(EXCLUDED.preset_key, personas.preset_key), "
             "tags=COALESCE(%s::text[], personas.tags), "
             "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, "
+            + voice_set +
             "role=EXCLUDED.role "
             # 동시에 같은 새 id를 올린 다른 유저의 행을 덮어쓰지 않는다
             "WHERE personas.creator_id = EXCLUDED.creator_id "
-            "RETURNING is_private, report_locked_at IS NOT NULL",
+            "RETURNING is_private, report_locked_at IS NOT NULL, voice_description, voice_sample_text",
             # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
             # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
             (persona_id, body.name, body.description, body.userCallSign,
              body.primaryHex, body.secondaryHex, uid, 0,
              is_private, body.updatedAt, body.presetKey, tags,
-             fields.speech_style, fields.personality, fields.role, tags),
+             fields.speech_style, fields.personality, fields.role, *new_voice, tags),
         )
         saved = cur.fetchone()
     if saved is None:
         raise HTTPException(status_code=403, detail="not owner")
-    is_private, locked = saved
+    is_private, locked, saved_voice_description, saved_voice_sample_text = saved
     if locked:
         moderation = ModerationResult("locked")
-    return {"ok": True, "isPrivate": is_private, "moderation": _moderation_payload(moderation)}
+    return {
+        "ok": True, "isPrivate": is_private, "moderation": _moderation_payload(moderation),
+        "voiceDescription": saved_voice_description, "voiceSampleText": saved_voice_sample_text,
+    }
 
 
 @router.delete("/{persona_id}")
@@ -192,6 +230,11 @@ def delete_persona(persona_id: str, uid: str = Depends(get_uid)):
         cur.execute("DELETE FROM personas WHERE id = %s", (persona_id,))
         # 같은 id로 다시 만든 비서가 옛 신고를 물려받지 않도록 함께 지운다
         cur.execute("DELETE FROM persona_reports WHERE persona_id = %s", (persona_id,))
+    # 목소리 파일(후보 포함)도 지운다 — 저장소 오류가 삭제 성공을 뒤집지는 않는다
+    try:
+        voice_engine.delete_reference(persona_id)
+    except Exception as e:
+        print(f"[personas] 목소리 파일 삭제 실패 {persona_id}: {e}")
     return {"ok": True}
 
 

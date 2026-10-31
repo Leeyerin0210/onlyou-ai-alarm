@@ -102,6 +102,8 @@ class PersonaIn(BaseModel):
     updatedAt: int = 0
     # None = 구버전 앱(필드 없음) → 서버가 기존 태그를 보존한다. 리스트면 정규화 후 덮어쓴다.
     tags: Optional[List[str]] = Field(default=None, max_length=20)
+    # true면 이 비서의 목소리 후보(서버가 보관 중)를 기준 음성으로 확정한다
+    applyVoiceDraft: bool = False
 
 class UserProfileIn(BaseModel):
     displayName: Optional[str] = Field(default=None, max_length=200)

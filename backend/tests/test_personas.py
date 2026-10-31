@@ -219,7 +219,7 @@ def mod_calls(monkeypatch):
     calls = _Calls()
     calls.state = {"result": ModerationResult("approved")}
 
-    def fake(uid, name, description, tags, fields):
+    def fake(uid, name, description, tags, fields, voice_description="", voice_sample_text=""):
         calls.append({"uid": uid, "name": name, "fields": fields})
         return calls.state["result"]
 
@@ -238,14 +238,27 @@ def _row(pid):
         return cur.fetchone()
 
 
+def _seed_voiced(pid="p1"):
+    """목소리가 있는 비공개 비서를 미리 만든다 — 공개 저장은 목소리가 있어야 심사까지 간다."""
+    from contextlib import closing
+    from core.rdb import get_conn
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO personas (id, name, creator_id, is_private, voice_description, voice_sample_text) "
+            "VALUES (%s, 'x', 'test-uid', TRUE, '낮은 목소리', '일어나, 아침이야.')", (pid,))
+
+
 def test_public_save_approved_is_public(client, mod_calls):
+    _seed_voiced()
     res = client.put("/personas/p1", json=_persona_body())
     assert res.json() == {"ok": True, "isPrivate": False,
-                          "moderation": {"status": "approved", "reason": ""}}
+                          "moderation": {"status": "approved", "reason": ""},
+                          "voiceDescription": "낮은 목소리", "voiceSampleText": "일어나, 아침이야."}
     assert _row("p1")[:4] == (False, "반말", "툴툴댐", "룸메이트")
 
 
 def test_public_save_rejected_is_saved_private_with_reason(client, mod_calls):
+    _seed_voiced()
     mod_calls.state["result"] = ModerationResult("rejected", "실존 인물 사칭")
     res = client.put("/personas/p1", json=_persona_body())
     assert res.json()["isPrivate"] is True
@@ -254,6 +267,7 @@ def test_public_save_rejected_is_saved_private_with_reason(client, mod_calls):
 
 
 def test_public_save_unavailable_is_saved_private(client, mod_calls):
+    _seed_voiced()
     mod_calls.state["result"] = ModerationResult("unavailable")
     res = client.put("/personas/p1", json=_persona_body())
     assert res.json()["isPrivate"] is True
@@ -269,6 +283,7 @@ def test_private_save_skips_moderation(client, mod_calls):
 
 def test_unchanged_public_resave_skips_moderation(client, mod_calls):
     """색상만 바꾼 저장은 심사하지 않는다 — 비용과 장애 시 강등을 막는다."""
+    _seed_voiced()
     client.put("/personas/p1", json=_persona_body())
     mod_calls.state["result"] = ModerationResult("unavailable")  # 불렸다면 비공개로 떨어진다
     res = client.put("/personas/p1", json=_persona_body(primaryHex="#000000"))
@@ -278,12 +293,14 @@ def test_unchanged_public_resave_skips_moderation(client, mod_calls):
 
 
 def test_changed_public_resave_is_moderated(client, mod_calls):
+    _seed_voiced()
     client.put("/personas/p1", json=_persona_body())
     client.put("/personas/p1", json=_persona_body(personality="다른 성격"))
     assert len(mod_calls) == 2
 
 
 def test_private_to_public_with_same_text_is_moderated(client, mod_calls):
+    _seed_voiced()
     client.put("/personas/p1", json=_persona_body(private=True))
     client.put("/personas/p1", json=_persona_body())
     assert len(mod_calls) == 1
@@ -366,13 +383,14 @@ def test_list_hides_fields_of_others_personas(client, mod_calls):
 
 def test_upsert_does_not_unlock_persona_locked_during_moderation(client, monkeypatch):
     """심사 중 3번째 신고로 잠기면, 저장이 공개로 되돌려선 안 된다."""
+    _seed_voiced()
     from contextlib import closing
     from core.rdb import get_conn
     import routers.personas as pr
 
     client.put("/personas/p1", json=_persona_body(private=True))
 
-    def fake(uid, name, description, tags, fields):
+    def fake(uid, name, description, tags, fields, voice_description="", voice_sample_text=""):
         with closing(get_conn()) as conn, conn.cursor() as cur:
             cur.execute("UPDATE personas SET is_private=TRUE, report_locked_at=now() WHERE id='p1'")
         return ModerationResult("approved")
@@ -380,7 +398,8 @@ def test_upsert_does_not_unlock_persona_locked_during_moderation(client, monkeyp
     monkeypatch.setattr(pr, "moderate_persona", fake)
     res = client.put("/personas/p1", json=_persona_body(name="바뀐이름"))
     assert res.json() == {"ok": True, "isPrivate": True,
-                          "moderation": {"status": "locked", "reason": ""}}
+                          "moderation": {"status": "locked", "reason": ""},
+                          "voiceDescription": "낮은 목소리", "voiceSampleText": "일어나, 아침이야."}
     assert _row("p1")[0] is True
 
 
@@ -397,14 +416,15 @@ def test_delete_persona_removes_its_reports(client):
 
 
 def test_upsert_race_with_other_owner_returns_403_and_keeps_row(client, monkeypatch):
-    """사전 확인은 통과했지만(행 없음) 심사 중 다른 유저가 같은 id를 먼저 저장한 경합."""
+    """사전 확인은 통과했지만(내 행) 심사 중 다른 유저가 같은 id를 먼저 저장한 경합."""
+    _seed_voiced()
     from contextlib import closing
     from core.rdb import get_conn
     import routers.personas as pr
 
-    def fake(uid, name, description, tags, fields):
+    def fake(uid, name, description, tags, fields, voice_description="", voice_sample_text=""):
         with closing(get_conn()) as conn, conn.cursor() as cur:
-            cur.execute("INSERT INTO personas (id, name, creator_id) VALUES ('p1', '남의것', 'other-uid')")
+            cur.execute("UPDATE personas SET name='남의것', creator_id='other-uid' WHERE id='p1'")
         return ModerationResult("approved")
 
     monkeypatch.setattr(pr, "moderate_persona", fake)
