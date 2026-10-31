@@ -89,6 +89,7 @@ def check_api_key(x_api_key: str = Header(default="")):
 class SynthesizeRequest(BaseModel):
     text: str
     instruct: str = ""
+    wav: bool = False  # true면 압축하지 않고 WAV 그대로
 
 
 class CloneRequest(BaseModel):
@@ -111,6 +112,10 @@ def synthesize(req: SynthesizeRequest):
         wavs, sr = _generate(lambda: _model(DESIGN_MODEL).generate_voice_design(
             text=req.text, language="Korean", instruct=req.instruct
         ))
+    if req.wav:
+        buf = io.BytesIO()
+        sf.write(buf, wavs[0], sr, format="WAV")
+        return Response(content=buf.getvalue(), media_type="audio/wav")
     audio, media_type = _encode_audio(wavs, sr)
     return Response(content=audio, media_type=media_type)
 

@@ -57,14 +57,6 @@ def test_persona_update_cannot_inflate_usage_count(client):
     assert [p["usageCount"] for p in personas if p["id"] == "p1"] == [1]
 
 
-def test_voice_synthesize_rejects_oversized_text(client):
-    res = client.post(
-        "/voice/synthesize",
-        json={"text": "가" * 100_000, "instruct": ""},
-    )
-    assert res.status_code == 422
-
-
 def test_chat_rejects_oversized_message(client):
     res = client.post(
         "/chat/stream",
@@ -84,28 +76,3 @@ def test_backup_rejects_oversized_payload(client):
         },
     )
     assert res.status_code == 422
-
-
-def test_save_reference_rejects_oversized_audio(client, monkeypatch):
-    import base64
-    import routers.voice as voice_router
-
-    monkeypatch.setattr(voice_router, "MAX_REF_AUDIO_BYTES", 10)
-    res = client.post(
-        "/voice/save_reference/p-new",
-        json={"audio": base64.b64encode(b"x" * 20).decode(), "ref_text": "안녕"},
-    )
-    assert res.status_code == 413
-
-
-def test_save_reference_rate_limited(client, monkeypatch):
-    import base64
-    import routers.voice as voice_router
-
-    monkeypatch.setattr(voice_router, "REF_UPLOAD_DAILY_LIMIT", 2)
-    # 파일 저장까지 가지 않도록 스토리지 계층은 no-op으로 대체
-    monkeypatch.setattr(voice_router.voice_engine, "save_master_wav", lambda *a, **k: None)
-    body = {"audio": base64.b64encode(b"ok").decode(), "ref_text": "안녕"}
-    assert client.post("/voice/save_reference/p-new", json=body).status_code == 200
-    assert client.post("/voice/save_reference/p-new", json=body).status_code == 200
-    assert client.post("/voice/save_reference/p-new", json=body).status_code == 429

@@ -1,11 +1,10 @@
-import base64
 import asyncio
 from contextlib import closing
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from services.voice_service import voice_engine
-from models.schemas import VoiceSynthesizeRequest, VoiceCloneRequest
+from models.schemas import VoiceDesignIn, VoiceCloneRequest
+from services.voice_design_service import design_voice_draft
 from services.monetization_service import use_voice_credit
-from core.ai import client, model_id
 from core.config import settings
 from core.rate_limit import check_rate_limit, check_global_budget
 from core.rdb import get_conn
@@ -16,11 +15,6 @@ router = APIRouter(prefix="/voice", tags=["voice"], dependencies=[Depends(get_ui
 
 # 알람 선생성 1회당 청크 3~6개 합성 → 100회면 정상 사용엔 넉넉하고 남용만 걸린다
 VOICE_DAILY_LIMIT = 100
-
-# 참조 음성 업로드: 녹음 수십 초 분량 WAV면 충분 — 디스크/스토리지 폭식 방지
-REF_UPLOAD_DAILY_LIMIT = 20
-MAX_REF_AUDIO_BYTES = 15 * 1024 * 1024  # 디코딩 후 15MB
-MAX_REF_TEXT_LEN = 1_000
 
 
 def _persona_owner_info(persona_id: str):
@@ -45,41 +39,11 @@ def _require_persona_usable(persona_id: str, uid: str):
         if is_private and creator_id != uid:
             raise HTTPException(status_code=403, detail="private persona")
 
-@router.post("/synthesize")
-async def synthesize_voice(request: VoiceSynthesizeRequest, uid: str = Depends(get_uid)):
-    await asyncio.to_thread(check_rate_limit, uid, "voice", VOICE_DAILY_LIMIT)
-    await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
-    try:
-        translated = request.instruct
-        if request.instruct.strip():
-            res = await client.aio.models.generate_content(model=model_id, contents=f"Translate to Chinese: {request.instruct}")
-            translated = (res.text or "").strip() or request.instruct
-        audio, media_type = await voice_engine.synthesize_design(request.text, translated)
-        return Response(content=audio, media_type=media_type)
-    except Exception as e:
-        print(f"Voice Synthesize Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/save_reference/{persona_id}")
-async def save_voice_reference(persona_id: str, request: Request, uid: str = Depends(get_uid)):
+@router.post("/design/{persona_id}")
+async def design_voice(persona_id: str, request: VoiceDesignIn, uid: str = Depends(get_uid)):
     await asyncio.to_thread(_require_persona_owner, persona_id, uid)
-    await asyncio.to_thread(check_rate_limit, uid, "voice-ref", REF_UPLOAD_DAILY_LIMIT)
-    data = await request.json()
-    ref_text = data.get("ref_text", "")
-    if not isinstance(ref_text, str) or len(ref_text) > MAX_REF_TEXT_LEN:
-        raise HTTPException(status_code=422, detail="ref_text too long")
-    try:
-        audio = base64.b64decode(data.get("audio"))
-    except Exception:
-        raise HTTPException(status_code=422, detail="invalid audio payload")
-    if len(audio) > MAX_REF_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="audio too large")
-    try:
-        await asyncio.to_thread(voice_engine.save_master_wav, persona_id, audio, ref_text)
-        return {"status": "success"}
-    except Exception as e:
-        print(f"Save Voice Reference Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    wav = await design_voice_draft(uid, persona_id, request.description, request.sampleText)
+    return Response(content=wav, media_type="audio/wav")
 
 @router.post("/clone")
 async def clone_voice(request: VoiceCloneRequest, uid: str = Depends(get_uid)):

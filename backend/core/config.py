@@ -15,6 +15,8 @@ class Settings:
     GLOBAL_CHAT_DAILY_LIMIT = int(os.getenv("GLOBAL_CHAT_DAILY_LIMIT", "50000"))
     GLOBAL_ALARM_SCRIPT_DAILY_LIMIT = int(os.getenv("GLOBAL_ALARM_SCRIPT_DAILY_LIMIT", "10000"))
     GLOBAL_VOICE_DAILY_LIMIT = int(os.getenv("GLOBAL_VOICE_DAILY_LIMIT", "20000"))
+    # 비서 목소리 후보 생성(VoiceDesign) 유저별 일일 한도
+    VOICE_DESIGN_USER_DAILY_LIMIT = int(os.getenv("VOICE_DESIGN_USER_DAILY_LIMIT", "50"))
     # 기억 reflection/consolidation 야간 배치 (매일 KST REFLECTION_HOUR시)
     REFLECTION_HOUR = int(os.getenv("REFLECTION_HOUR", "3"))  # KST 새벽 3시
     REFLECTION_IMPORTANCE_THRESHOLD = int(os.getenv("REFLECTION_IMPORTANCE_THRESHOLD", "20"))

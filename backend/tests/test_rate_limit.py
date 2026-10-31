@@ -41,7 +41,7 @@ def test_sensitive_routes_require_auth():
 
     # get_uid 오버라이드 없는 순수 클라이언트 (conftest의 client 픽스처와 달리 인증 실제 동작)
     client = TestClient(app)
-    assert client.post("/voice/synthesize", json={"text": "hi", "instruct": ""}).status_code == 401
+    assert client.post("/voice/design/p1", json={"description": "d", "sampleText": "s"}).status_code == 401
     assert client.post("/voice/clone", json={"text": "hi", "persona_id": "p1"}).status_code == 401
     assert (
         client.post(
@@ -73,7 +73,6 @@ def test_voice_reference_rejects_non_owner(client):
         )
 
     # conftest의 client는 uid=test-uid로 인증됨 → 소유자(other-uid)가 아니므로 403
-    assert client.post("/voice/save_reference/p_other", json={"audio": "", "ref_text": ""}).status_code == 403
     assert client.delete("/voice/reference/p_other").status_code == 403
     # 비공개 페르소나 음성 도용(clone)도 403
     assert client.post("/voice/clone", json={"text": "hi", "persona_id": "p_other"}).status_code == 403

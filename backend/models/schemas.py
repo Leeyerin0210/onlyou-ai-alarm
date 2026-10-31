@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 
 from core.persona_fields import MAX_FIELD_LEN
+from core.voice_rules import VOICE_DESCRIPTION_MAX_LEN, VOICE_SAMPLE_MAX_LEN
 
 # 입력 크기 상한 — 초과분은 422로 거절해 LLM/GPU 비용 남용과 저장소 폭식을 막는다.
 # 정상 사용에는 전부 넉넉한 값이다.
@@ -40,9 +41,17 @@ class ChatRequest(BaseModel):
     schedules: Optional[List[ScheduleItem]] = Field(default=None, max_length=200)
     skip_side_effects: bool = False
 
-class VoiceSynthesizeRequest(BaseModel):
-    text: str = Field(max_length=MAX_TTS_TEXT_LEN)
-    instruct: str = Field(max_length=1_000)
+class VoiceDesignIn(BaseModel):
+    description: str = Field(max_length=VOICE_DESCRIPTION_MAX_LEN)
+    sampleText: str = Field(max_length=VOICE_SAMPLE_MAX_LEN)
+
+    @field_validator("description", "sampleText")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
 
 class VoiceCloneRequest(BaseModel):
     text: str = Field(max_length=MAX_TTS_TEXT_LEN)

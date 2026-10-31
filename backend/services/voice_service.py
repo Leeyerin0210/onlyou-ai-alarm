@@ -40,8 +40,11 @@ class RemoteVoiceEngine:
             media_type = res.headers.get("content-type", "audio/wav").split(";")[0]
             return res.content, media_type
 
-    async def synthesize_design(self, text: str, instruct: str) -> Tuple[bytes, str]:
-        return await self._post("/synthesize", {"text": text, "instruct": instruct})
+    async def synthesize_design(self, text: str, instruct: str, wav: bool = False) -> Tuple[bytes, str]:
+        payload = {"text": text, "instruct": instruct}
+        if wav:
+            payload["wav"] = True  # 압축 없이 WAV 그대로 (길이 측정·기준 음성용)
+        return await self._post("/synthesize", payload)
 
     async def synthesize_clone(self, text: str, persona_id: str) -> Tuple[bytes, str]:
         audio, ref_text = self.load_reference(persona_id)

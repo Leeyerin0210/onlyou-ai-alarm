@@ -90,10 +90,14 @@ class QwenTTS:
         return wav, "audio/wav"
 
     @modal.method()
-    def synthesize_design(self, text: str, instruct: str) -> tuple[bytes, str]:
+    def synthesize_design(self, text: str, instruct: str, wav: bool = False) -> tuple[bytes, str]:
         wavs, sr = self.design_model.generate_voice_design(
             text=text, language="Korean", instruct=instruct
         )
+        if wav:
+            buf = io.BytesIO()
+            sf.write(buf, wavs[0], sr, format="WAV")
+            return buf.getvalue(), "audio/wav"
         return self._encode_audio(wavs, sr)
 
     @modal.method()
@@ -134,6 +138,7 @@ class QwenTTS:
         class SynthesizeRequest(BaseModel):
             text: str
             instruct: str = ""
+            wav: bool = False  # true면 압축하지 않고 WAV 그대로
 
         class CloneRequest(BaseModel):
             text: str
@@ -148,7 +153,7 @@ class QwenTTS:
 
         @api.post("/synthesize", dependencies=[Depends(check_api_key)])
         def synthesize(req: SynthesizeRequest):
-            audio, media_type = self.synthesize_design.local(req.text, req.instruct)
+            audio, media_type = self.synthesize_design.local(req.text, req.instruct, req.wav)
             return Response(content=audio, media_type=media_type)
 
         @api.post("/clone", dependencies=[Depends(check_api_key)])
