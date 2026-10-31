@@ -223,21 +223,16 @@
 - Test: `app/src/test/java/com/onlyou/com/ui/shop/PersonaEditLogicTest.kt`
 
 **Interfaces:**
-- Consumes: Task 7 `VoiceRepository.designVoice`, `upsertPersona(persona, applyVoiceDraft)`, `Persona.hasVoice`, `isCasualSpeech`(`util/MorningGreeting.kt`)
+- Consumes: Task 7 `VoiceRepository.designVoice`, `upsertPersona(persona, applyVoiceDraft)`, `Persona.hasVoice`
 - Produces (Logic):
   - `VOICE_DESCRIPTION_MAX_LEN = 300`, `VOICE_SAMPLE_MAX_LEN = 60`
-  - `fun defaultVoiceSample(persona: Persona): String` — `isCasualSpeech(persona.presetKey, persona.speechStyle)`면 `"일어났어? 오늘도 같이 힘내 보자. 아침은 꼭 챙겨 먹고, 나가기 전에 일정 한 번만 더 봐."`, 아니면 `"좋은 아침이에요. 오늘도 같이 힘내 봐요. 아침은 꼭 챙겨 드시고, 나가기 전에 일정 한 번 봐 주세요."` (둘 다 60자 이하, 숫자·영어 없음)
-  - `fun voiceSampleToSend(persona: Persona, typed: String): String` — 공백뿐이면 기본 문장
-  - `fun canDesignVoice(description: String, isDesigning: Boolean): Boolean`
+  - `fun canDesignVoice(description: String, sample: String, isDesigning: Boolean): Boolean` — 둘 다 공백 아님 + 상한 이하 + 생성 중 아님. 기본 샘플 문장은 없다(사용자 결정)
   - `fun blocksPublishForVoice(persona: Persona, applyVoiceDraft: Boolean): Boolean` — `!persona.isPrivate && !persona.hasVoice && !applyVoiceDraft`
 - Produces (VM, `PersonaEditUiState.Success`에 추가): `voiceDescriptionInput: String`, `voiceSampleInput: String`, `draftAudio: ByteArray?`, `isDesigning: Boolean`, `applyVoiceDraft: Boolean`. 함수 `updateVoiceDescription(String)`, `updateVoiceSample(String)`, `designVoice()`(생성 중이면 무시, 새 후보가 오면 `applyVoiceDraft = false`로 되돌림), `chooseDraftVoice()`, `playDraft()`, `playCurrentVoice()`. 수정 모드 진입 시 입력칸은 저장된 두 칸으로 채운다.
-- 화면: 스펙 "화면" 절 순서대로 "역할 (선택)"과 "태그" 사이. 샘플 문장 안내 `"숫자·영어 없이 한글로 써 주세요. 상점에서 이 문장으로 미리듣기가 나가요."`, 공개 차단 문구 `"공개하려면 목소리를 만들어 주세요"`, 생성 실패 토스트 `"목소리를 만들지 못했어요. 잠시 후 다시 해 주세요."`, `VOICE_REQUIRED` 저장 안내 `"목소리가 없어 나만 보기로 저장했어요. 목소리를 만들면 공개할 수 있어요."`. 바이트 재생은 `VoicePreviewPlayer`에 바이트 재생을 더하든 따로 두든 구현자 판단.
+- 화면: 스펙 "화면" 절 순서대로 "역할 (선택)"과 "태그" 사이. 샘플 문장 예시 `"예) 일어나. 오늘 아침 회의 있잖아. 우산도 챙기고."`, 안내 `"숫자·영어 없이 한글로 써 주세요. 상점에서 이 문장으로 미리듣기가 나가요."`, 공개 차단 문구 `"공개하려면 목소리를 만들어 주세요"`, 생성 실패 토스트 `"목소리를 만들지 못했어요. 잠시 후 다시 해 주세요."`, `VOICE_REQUIRED` 저장 안내 `"목소리가 없어 나만 보기로 저장했어요. 목소리를 만들면 공개할 수 있어요."`. 바이트 재생은 `VoicePreviewPlayer`에 바이트 재생을 더하든 따로 두든 구현자 판단.
 
 - [ ] **Step 1: 실패하는 테스트** (`PersonaEditLogicTest`)
-  - ``반말 말투면 기본 샘플은 반말 문장``, ``존댓말이면 존댓말 문장``
-  - ``기본 샘플 문장은 상한 이하이고 숫자·영어가 없다`` — `Regex("[0-9A-Za-z]")` 미포함, 길이 ≤ `VOICE_SAMPLE_MAX_LEN`
-  - ``샘플 칸이 공백뿐이면 기본 문장을 보낸다``
-  - ``설명이 비었거나 생성 중이면 만들기 불가``
+  - ``설명이나 샘플 문장이 비었거나 공백뿐이면 만들기 불가``, ``샘플 문장이 상한을 넘으면 만들기 불가``, ``생성 중이면 만들기 불가``
   - ``공개인데 목소리도 정한 후보도 없으면 저장 차단``, ``비공개면 목소리 없어도 저장 가능``, ``후보를 정했으면 공개 저장 가능``
   - ``VOICE_REQUIRED 저장 안내 문구`` (기존 `saveNotice` 테스트 방식)
   - ``designVoice 중복 호출은 무시`` — 가짜 `VoiceRepository`로 호출 1회 확인(기존 VM 테스트가 없으면 이 항목은 로직 함수 `canDesignVoice`로 대체)
