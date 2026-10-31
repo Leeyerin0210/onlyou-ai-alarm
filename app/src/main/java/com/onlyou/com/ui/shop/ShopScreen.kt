@@ -274,6 +274,7 @@ fun ShopScreen(
                 isBuffering = uiState.isBuffering,
                 onSetCurrent = { viewModel.setCurrentPersona(it); viewModel.selectPersona(null) },
                 onPlayPreview = viewModel::playPreview,
+                canPreview = canPreviewVoice(uiState.selectedPersona!!, uiState.currentUserId),
                 canReport = canReport(uiState.selectedPersona!!, uiState.currentUserId),
                 alreadyReported = uiState.selectedPersona!!.id in uiState.reportedIds,
                 onReport = { reason -> viewModel.reportPersona(uiState.selectedPersona!!, reason) },
@@ -531,6 +532,7 @@ fun PersonaDetailSheetContent(
     isBuffering: Boolean,
     onSetCurrent: (Persona) -> Unit,
     onPlayPreview: (String) -> Unit,
+    canPreview: Boolean,
     canReport: Boolean,
     alreadyReported: Boolean,
     onReport: (String) -> Unit,
@@ -554,11 +556,13 @@ fun PersonaDetailSheetContent(
             }
         }
         Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (canPreview) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // onClick을 Surface에 넘겨야 리플이 둥근 모양 안에서만 퍼진다(바깥 clickable은 사각형으로 번진다)
             Surface(
+                onClick = { onPlayPreview(persona.id) },
                 shape = RoundedCornerShape(50),
                 color = colors.secondary.copy(alpha = 0.1f),
-                modifier = Modifier.weight(1f).height(52.dp).clickable { onPlayPreview(persona.id) },
+                modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 Row(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterVertically) {
                     Icon(Icons.Default.PlayArrow, null, tint = colors.secondary)

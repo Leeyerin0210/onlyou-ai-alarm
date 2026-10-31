@@ -78,7 +78,6 @@ fun PersonaEditScreen(
         onVoiceDescriptionChange = viewModel::updateVoiceDescription,
         onVoiceSampleChange = viewModel::updateVoiceSample,
         onDesignVoice = viewModel::designVoice,
-        onChooseDraft = viewModel::chooseDraftVoice,
         onPlayDraft = viewModel::playDraft,
         onPlayCurrentVoice = viewModel::playCurrentVoice,
     )
@@ -97,7 +96,6 @@ fun PersonaEditContent(
     onVoiceDescriptionChange: (String) -> Unit = {},
     onVoiceSampleChange: (String) -> Unit = {},
     onDesignVoice: () -> Unit = {},
-    onChooseDraft: () -> Unit = {},
     onPlayDraft: () -> Unit = {},
     onPlayCurrentVoice: () -> Unit = {},
 ) {
@@ -124,10 +122,17 @@ fun PersonaEditContent(
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val voiceBlocked = blocksPublishForVoice(uiState.persona, uiState.applyVoiceDraft)
-                    val isSavable = canSaveWithVoice(uiState.persona, uiState.applyVoiceDraft, uiState.isDesigning)
-                    if (voiceBlocked) {
-                        Text("공개하려면 목소리를 만들어 주세요", fontSize = 12.sp, color = Color.Red)
+                    val savesDraft = uiState.savesDraft()
+                    val pendingVoiceEdit = uiState.hasPendingVoiceEdit()
+                    val voiceBlocked = blocksPublishForVoice(uiState.persona, savesDraft)
+                    val isSavable = canSaveWithVoice(uiState.persona, savesDraft, uiState.isDesigning, pendingVoiceEdit)
+                    val voiceNotice = when {
+                        pendingVoiceEdit -> "목소리 설명이나 문장을 바꿨어요. 다시 만들거나 원래대로 되돌려 주세요"
+                        voiceBlocked -> "공개하려면 목소리를 만들어 주세요"
+                        else -> null
+                    }
+                    if (voiceNotice != null) {
+                        Text(voiceNotice, fontSize = 12.sp, color = Color.Red, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         Spacer(Modifier.height(8.dp))
                     }
                     MiyaPrimaryButton(
@@ -269,33 +274,18 @@ fun PersonaEditContent(
                             enabled = canDesignVoice(uiState.voiceDescriptionInput, uiState.voiceSampleInput, uiState.isDesigning),
                         )
                         if (uiState.draftAudio != null) {
-                            val canChoose = canChooseDraft(
-                                true, uiState.draftDescription, uiState.draftSample,
-                                uiState.voiceDescriptionInput, uiState.voiceSampleInput, uiState.isDesigning,
-                            )
-                            if (!canChoose) {
-                                Spacer(Modifier.height(6.dp))
-                                Text("설명이나 문장을 바꿨어요. 다시 만들어야 정할 수 있어요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
-                            }
                             Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                MiyaSecondaryButton(
-                                    text = if (voicePlayback.personaId == VoicePreviewPlayer.DRAFT_ID && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "재생 중..." else "들어보기",
-                                    onClick = onPlayDraft,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                MiyaSecondaryButton(
-                                    text = if (uiState.applyVoiceDraft) "정했어요" else "이 목소리로 정하기",
-                                    onClick = onChooseDraft,
-                                    enabled = canChoose && !uiState.applyVoiceDraft,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
+                            MiyaSecondaryButton(
+                                text = if (voicePlayback.personaId == VoicePreviewPlayer.DRAFT_ID && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "재생 중..." else "새로 만든 목소리 듣기",
+                                onClick = onPlayDraft,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text("저장하면 이 목소리로 바뀌어요. 다시 만들면 이 목소리는 사라져요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
                         }
                         if (persona.hasVoice) {
                             Spacer(Modifier.height(8.dp))
                             MiyaSecondaryButton(
-                                text = if (voicePlayback.personaId == persona.id && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "정지" else "지금 목소리 듣기",
+                                text = if (voicePlayback.personaId == persona.id && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "정지" else "저장된 목소리 듣기",
                                 onClick = onPlayCurrentVoice,
                             )
                         }

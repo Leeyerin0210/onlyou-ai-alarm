@@ -28,15 +28,15 @@ fun canDesignVoice(description: String, sample: String, isDesigning: Boolean): B
         description.isNotBlank() && description.length <= VOICE_DESCRIPTION_MAX_LEN &&
         sample.isNotBlank() && sample.length <= VOICE_SAMPLE_MAX_LEN
 
-/** 공개 비서는 목소리가 필수다. 저장된 목소리도, 이번에 정한 후보도 없으면 공개 저장을 막는다. */
-fun blocksPublishForVoice(persona: Persona, applyVoiceDraft: Boolean): Boolean =
-    !persona.isPrivate && !persona.hasVoice && !applyVoiceDraft
+/** 공개 비서는 목소리가 필수다. 저장된 목소리도, 이번 저장에 적용될 새 후보도 없으면 공개 저장을 막는다. */
+fun blocksPublishForVoice(persona: Persona, savesDraft: Boolean): Boolean =
+    !persona.isPrivate && !persona.hasVoice && !savesDraft
 
 /**
- * 후보를 정할 수 있는지. 서버는 후보에 기록된 텍스트로 적용하므로,
- * 입력이 후보를 만든 텍스트와 달라졌으면(낡은 후보) 정할 수 없다.
+ * 후보가 지금 입력과 맞는지. 서버는 후보에 기록된 텍스트로 적용하므로,
+ * 입력이 후보를 만든 텍스트와 달라졌으면(낡은 후보) 적용하지 않는다.
  */
-fun canChooseDraft(
+fun isDraftFresh(
     hasDraft: Boolean,
     draftDescription: String,
     draftSample: String,
@@ -45,9 +45,24 @@ fun canChooseDraft(
     isDesigning: Boolean,
 ): Boolean = hasDraft && !isDesigning && draftDescription == description && draftSample == sample
 
+/** 저장하기가 이번에 만든 후보를 목소리로 함께 저장하는지. 따로 정하는 단계 없이 최신 후보가 저장된다. */
+fun PersonaEditUiState.Success.savesDraft(): Boolean =
+    isDraftFresh(draftAudio != null, draftDescription, draftSample, voiceDescriptionInput, voiceSampleInput, isDesigning)
+
+/**
+ * 목소리 글을 고쳐 놓고 다시 만들지 않았는지. 기준은 후보가 있으면 후보를 만든 글, 없으면 저장된 목소리 글.
+ * 이 상태로 저장하면 화면의 글과 실제 목소리가 어긋나므로 저장을 막는다.
+ */
+fun PersonaEditUiState.Success.hasPendingVoiceEdit(): Boolean {
+    val (baseDescription, baseSample) =
+        if (draftAudio != null) draftDescription to draftSample
+        else persona.voiceDescription.orEmpty() to persona.voiceSampleText.orEmpty()
+    return voiceDescriptionInput != baseDescription || voiceSampleInput != baseSample
+}
+
 /** 저장 버튼 활성 조건(저장 중 여부 제외). 목소리를 만드는 중엔 서버 후보가 바뀌는 중이라 저장할 수 없다. */
-fun canSaveWithVoice(persona: Persona, applyVoiceDraft: Boolean, isDesigning: Boolean): Boolean =
-    isPersonaSavable(persona) && !blocksPublishForVoice(persona, applyVoiceDraft) && !isDesigning
+fun canSaveWithVoice(persona: Persona, savesDraft: Boolean, isDesigning: Boolean, pendingVoiceEdit: Boolean): Boolean =
+    isPersonaSavable(persona) && !blocksPublishForVoice(persona, savesDraft) && !isDesigning && !pendingVoiceEdit
 
 /** 저장 후 보여줄 안내. null이면 안내 없이 화면을 닫는다. */
 fun saveNotice(result: PersonaSaveResult): String? =
@@ -73,12 +88,11 @@ fun saveNotice(result: PersonaSaveResult): String? =
             if (result.httpCode == 400) "목소리를 다시 만들어 주세요." else "저장하지 못했어요. 잠시 후 다시 해 주세요."
     }
 
-/** 저장 실패(FAILED) 뒤 편집 상태. 다시 저장할 수 있게 풀고, 400(후보 없음)이면 정한 후보도 버린다. */
+/** 저장 실패(FAILED) 뒤 편집 상태. 다시 저장할 수 있게 풀고, 400(후보 없음)이면 후보도 버린다. */
 fun afterFailedSave(state: PersonaEditUiState.Success, result: PersonaSaveResult): PersonaEditUiState.Success =
     if (result.httpCode == 400) {
         state.copy(
             isSaving = false,
-            applyVoiceDraft = false,
             draftAudio = null,
             draftDescription = "",
             draftSample = "",
