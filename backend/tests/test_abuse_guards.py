@@ -57,6 +57,14 @@ def test_persona_update_cannot_inflate_usage_count(client):
     assert [p["usageCount"] for p in personas if p["id"] == "p1"] == [1]
 
 
+def test_voice_clone_rejects_oversized_text(client):
+    res = client.post(
+        "/voice/clone",
+        json={"text": "가" * 100_000, "persona_id": "p1"},
+    )
+    assert res.status_code == 422
+
+
 def test_chat_rejects_oversized_message(client):
     res = client.post(
         "/chat/stream",
