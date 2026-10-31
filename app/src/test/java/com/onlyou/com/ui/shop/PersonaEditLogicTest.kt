@@ -75,4 +75,50 @@ class PersonaEditLogicTest {
             saveNotice(PersonaSaveResult(ModerationStatus.REJECTED, "실존 인물 사칭. ")),
         )
     }
+
+    @Test
+    fun `설명이나 샘플 문장이 비었거나 공백뿐이면 만들기 불가`() {
+        assertTrue(canDesignVoice("차분한 여자", "일어나", false))
+        assertFalse(canDesignVoice("", "일어나", false))
+        assertFalse(canDesignVoice("   ", "일어나", false))
+        assertFalse(canDesignVoice("차분한 여자", "", false))
+        assertFalse(canDesignVoice("차분한 여자", " \n ", false))
+    }
+
+    @Test
+    fun `설명이나 샘플 문장이 상한을 넘으면 만들기 불가`() {
+        assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN + 1), false))
+        assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN), false))
+        assertFalse(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN + 1), "일어나", false))
+        assertTrue(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN), "일어나", false))
+    }
+
+    @Test
+    fun `생성 중이면 만들기 불가 - 중복 호출 무시의 기준`() {
+        assertFalse(canDesignVoice("차분한 여자", "일어나", true))
+    }
+
+    @Test
+    fun `공개인데 목소리도 정한 후보도 없으면 저장 차단`() {
+        assertTrue(blocksPublishForVoice(p().copy(isPrivate = false), applyVoiceDraft = false))
+    }
+
+    @Test
+    fun `비공개면 목소리 없어도 저장 가능`() {
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = true), applyVoiceDraft = false))
+    }
+
+    @Test
+    fun `후보를 정했거나 이미 목소리가 있으면 공개 저장 가능`() {
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false), applyVoiceDraft = true))
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false, voiceSampleText = "일어나"), applyVoiceDraft = false))
+    }
+
+    @Test
+    fun `VOICE_REQUIRED 저장 안내 문구`() {
+        assertEquals(
+            "목소리가 없어 나만 보기로 저장했어요. 목소리를 만들면 공개할 수 있어요.",
+            saveNotice(PersonaSaveResult(ModerationStatus.VOICE_REQUIRED)),
+        )
+    }
 }

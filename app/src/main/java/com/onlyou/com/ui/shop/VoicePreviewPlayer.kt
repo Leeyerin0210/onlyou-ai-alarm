@@ -63,19 +63,30 @@ class VoicePreviewPlayer(
                 _state.value = VoicePreviewState()
                 return@launch
             }
-            try {
-                // MediaPlayer는 바이트 배열을 직접 못 받으므로 캐시 파일을 거친다
-                val file = withContext(Dispatchers.IO) {
-                    File(context.cacheDir, "voice_preview.wav").apply { writeBytes(audio) }
-                }
-                mediaPlayer?.apply {
-                    reset()
-                    setDataSource(file.absolutePath)
-                    prepareAsync()
-                }
-            } catch (e: Exception) {
-                _state.value = VoicePreviewState()
+            prepare(audio)
+        }
+    }
+
+    /** 아직 저장되지 않은 후보 음성(WAV 바이트) 재생. 상태의 personaId는 [DRAFT_ID]. */
+    fun playBytes(audio: ByteArray) {
+        stop()
+        _state.value = VoicePreviewState(personaId = DRAFT_ID, isBuffering = true)
+        job = scope.launch { prepare(audio) }
+    }
+
+    private suspend fun prepare(audio: ByteArray) {
+        try {
+            // MediaPlayer는 바이트 배열을 직접 못 받으므로 캐시 파일을 거친다
+            val file = withContext(Dispatchers.IO) {
+                File(context.cacheDir, "voice_preview.wav").apply { writeBytes(audio) }
             }
+            mediaPlayer?.apply {
+                reset()
+                setDataSource(file.absolutePath)
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            _state.value = VoicePreviewState()
         }
     }
 
@@ -93,5 +104,9 @@ class VoicePreviewPlayer(
         job?.cancel()
         mediaPlayer?.release()
         mediaPlayer = null
+    }
+
+    companion object {
+        const val DRAFT_ID = "__draft__"
     }
 }

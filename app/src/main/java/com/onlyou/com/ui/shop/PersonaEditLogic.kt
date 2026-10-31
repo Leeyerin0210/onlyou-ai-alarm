@@ -3,9 +3,14 @@ package com.onlyou.com.ui.shop
 import com.onlyou.com.domain.model.ModerationStatus
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.model.PersonaSaveResult
+import com.onlyou.com.domain.model.hasVoice
 
 // 서버 core/persona_fields.MAX_FIELD_LEN과 같은 값
 const val PERSONA_FIELD_MAX_LEN = 300
+
+// 서버 목소리 설명·샘플 문장 상한과 같은 값
+const val VOICE_DESCRIPTION_MAX_LEN = 300
+const val VOICE_SAMPLE_MAX_LEN = 60
 
 /** 서버는 "<", ">"를 제거한 뒤 비었는지 보고 400으로 거부하므로 같은 기준으로 판정한다. */
 private fun isBlankForServer(s: String): Boolean = s.replace("<", "").replace(">", "").isBlank()
@@ -16,6 +21,16 @@ fun isPersonaSavable(p: Persona): Boolean =
         !isBlankForServer(p.speechStyle) &&
         !isBlankForServer(p.personality) &&
         listOf(p.speechStyle, p.personality, p.role).all { it.length <= PERSONA_FIELD_MAX_LEN }
+
+/** 목소리 만들기 가능 여부. 기본 샘플 문장은 없어서 둘 다 직접 써야 하고, 생성 중엔 다시 누를 수 없다. */
+fun canDesignVoice(description: String, sample: String, isDesigning: Boolean): Boolean =
+    !isDesigning &&
+        description.isNotBlank() && description.length <= VOICE_DESCRIPTION_MAX_LEN &&
+        sample.isNotBlank() && sample.length <= VOICE_SAMPLE_MAX_LEN
+
+/** 공개 비서는 목소리가 필수다. 저장된 목소리도, 이번에 정한 후보도 없으면 공개 저장을 막는다. */
+fun blocksPublishForVoice(persona: Persona, applyVoiceDraft: Boolean): Boolean =
+    !persona.isPrivate && !persona.hasVoice && !applyVoiceDraft
 
 /** 저장 후 보여줄 안내. null이면 안내 없이 화면을 닫는다. */
 fun saveNotice(result: PersonaSaveResult): String? =
@@ -34,6 +49,6 @@ fun saveNotice(result: PersonaSaveResult): String? =
             } else {
                 null
             }
-        ModerationStatus.VOICE_REQUIRED -> "목소리를 만들어야 공개할 수 있어요. 나만 보기로 저장했어요."
+        ModerationStatus.VOICE_REQUIRED -> "목소리가 없어 나만 보기로 저장했어요. 목소리를 만들면 공개할 수 있어요."
         ModerationStatus.SKIPPED -> null
     }

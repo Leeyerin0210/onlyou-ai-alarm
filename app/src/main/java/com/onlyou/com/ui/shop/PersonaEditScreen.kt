@@ -28,7 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.onlyou.com.domain.model.Persona
+import com.onlyou.com.domain.model.hasVoice
 import com.onlyou.com.ui.components.MiyaPrimaryButton
+import com.onlyou.com.ui.components.MiyaSecondaryButton
 import com.onlyou.com.ui.components.MiyaSwitch
 import com.onlyou.com.ui.theme.MiyaTheme
 
@@ -40,6 +42,7 @@ fun PersonaEditScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val uiState by viewModel.uiState.collectAsState()
+    val voicePlayback by viewModel.voicePlayback.collectAsState()
 
     LaunchedEffect(personaId) {
         viewModel.loadPersona(personaId)
@@ -71,6 +74,13 @@ fun PersonaEditScreen(
         onBack = onBack,
         onUpdatePersona = { viewModel.updatePersona(it) },
         onSavePersona = { viewModel.savePersona() },
+        voicePlayback = voicePlayback,
+        onVoiceDescriptionChange = viewModel::updateVoiceDescription,
+        onVoiceSampleChange = viewModel::updateVoiceSample,
+        onDesignVoice = viewModel::designVoice,
+        onChooseDraft = viewModel::chooseDraftVoice,
+        onPlayDraft = viewModel::playDraft,
+        onPlayCurrentVoice = viewModel::playCurrentVoice,
     )
 }
 
@@ -83,6 +93,13 @@ fun PersonaEditContent(
     onBack: () -> Unit,
     onUpdatePersona: (Persona) -> Unit,
     onSavePersona: () -> Unit,
+    voicePlayback: VoicePreviewState = VoicePreviewState(),
+    onVoiceDescriptionChange: (String) -> Unit = {},
+    onVoiceSampleChange: (String) -> Unit = {},
+    onDesignVoice: () -> Unit = {},
+    onChooseDraft: () -> Unit = {},
+    onPlayDraft: () -> Unit = {},
+    onPlayCurrentVoice: () -> Unit = {},
 ) {
     val backgroundColor = MiyaTheme.colors.background
     val cardColor = MiyaTheme.colors.surfaceA
@@ -107,7 +124,12 @@ fun PersonaEditContent(
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val isSavable = isPersonaSavable(uiState.persona)
+                    val voiceBlocked = blocksPublishForVoice(uiState.persona, uiState.applyVoiceDraft)
+                    val isSavable = isPersonaSavable(uiState.persona) && !voiceBlocked
+                    if (voiceBlocked) {
+                        Text("공개하려면 목소리를 만들어 주세요", fontSize = 12.sp, color = Color.Red)
+                        Spacer(Modifier.height(8.dp))
+                    }
                     MiyaPrimaryButton(
                         text = "저장하기",
                         onClick = onSavePersona,
@@ -214,6 +236,61 @@ fun PersonaEditContent(
                             placeholder = "예) 아침에 깨워주고 일정 챙겨주는 룸메이트",
                             minLines = 2,
                         )
+                    }
+
+                    // 목소리 섹션 — 후보는 하나뿐이라 다시 만들면 이전 후보는 사라진다
+                    Column {
+                        SectionLabel("목소리")
+                        CustomCounterTextField(
+                            value = uiState.voiceDescriptionInput,
+                            onValueChange = onVoiceDescriptionChange,
+                            maxLength = VOICE_DESCRIPTION_MAX_LEN,
+                            placeholder = "예) 20대 여자, 차분하고 낮은 톤",
+                            minLines = 3,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        CustomCounterTextField(
+                            value = uiState.voiceSampleInput,
+                            onValueChange = onVoiceSampleChange,
+                            maxLength = VOICE_SAMPLE_MAX_LEN,
+                            placeholder = "예) 일어나. 오늘 아침 회의 있잖아. 우산도 챙기고.",
+                            minLines = 2,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text("숫자·영어 없이 한글로 써 주세요. 상점에서 이 문장으로 미리듣기가 나가요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                        Spacer(Modifier.height(12.dp))
+                        MiyaSecondaryButton(
+                            text = when {
+                                uiState.isDesigning -> "만드는 중..."
+                                uiState.draftAudio != null -> "다시 만들기"
+                                else -> "목소리 만들기"
+                            },
+                            onClick = onDesignVoice,
+                            enabled = canDesignVoice(uiState.voiceDescriptionInput, uiState.voiceSampleInput, uiState.isDesigning),
+                        )
+                        if (uiState.draftAudio != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                MiyaSecondaryButton(
+                                    text = if (voicePlayback.personaId == VoicePreviewPlayer.DRAFT_ID && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "재생 중..." else "들어보기",
+                                    onClick = onPlayDraft,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                MiyaSecondaryButton(
+                                    text = if (uiState.applyVoiceDraft) "정했어요" else "이 목소리로 정하기",
+                                    onClick = onChooseDraft,
+                                    enabled = !uiState.applyVoiceDraft,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                        if (persona.hasVoice) {
+                            Spacer(Modifier.height(8.dp))
+                            MiyaSecondaryButton(
+                                text = if (voicePlayback.personaId == persona.id && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "정지" else "지금 목소리 듣기",
+                                onClick = onPlayCurrentVoice,
+                            )
+                        }
                     }
 
                     // 해시태그 섹션 — 상점 주간 테마·태그 칩이 이 값으로 매칭한다
