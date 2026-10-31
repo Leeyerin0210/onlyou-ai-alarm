@@ -176,7 +176,7 @@ com.onlyou.com
 - PostgreSQL(psycopg2) + pgvector · firebase-admin · httpx · dateparser
 
 **TTS**
-- Modal 서버리스 GPU(L4) · Qwen3-TTS-12Hz-1.7B-VoiceDesign(합성) / 0.6B-Base(클로닝) · Opus(ogg) 인코딩
+- Modal 서버리스 GPU(L4) · Qwen3-TTS-12Hz-1.7B-VoiceDesign(합성) / 1.7B-Base(클로닝) · Opus(ogg) 인코딩
 
 ---
 

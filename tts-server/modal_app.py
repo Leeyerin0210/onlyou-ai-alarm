@@ -24,7 +24,7 @@ HF_CACHE_DIR = "/cache"
 hf_cache = modal.Volume.from_name("qwen-tts-hf-cache", create_if_missing=True)
 
 DESIGN_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
-CLONE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+CLONE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

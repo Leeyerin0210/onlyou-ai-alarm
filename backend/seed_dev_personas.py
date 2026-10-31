@@ -1,14 +1,13 @@
 """로컬 개발 DB 전용 공개 비서(dev_*) 20명 시드. 상점 테마·인기 TOP5를 채워 보기 위한 것.
 
     DATABASE_URL=... python seed_dev_personas.py             # DB만
-    python seed_dev_personas.py --voices <VoiceDesign 모델 폴더>  # 기준 음성 생성 (torch·qwen-tts 필요)
+    python seed_dev_personas.py --voices <VoiceDesign 모델 폴더>  # 기준 음성 생성 (= gen_reference_voices.py --dev)
     python seed_dev_personas.py --images                      # 사진 생성 (Gemini, GEMINI_API_KEY 필요)
     python seed_dev_personas.py --images-local                # 사진 생성 (Mac 로컬 Stable Diffusion, diffusers 필요)
 
 음성은 reference_voices/dev_*, 사진은 persona_images/dev_* 에 쓴다 — gitignore 대상이라 커밋되지 않는다.
-이미 있는 파일은 건너뛴다(다시 만들려면 파일을 지울 것).
+이미 있는 파일은 건너뛴다(음성을 다시 만들려면 gen_reference_voices.py --dev --force).
 """
-import json
 import os
 import sys
 from contextlib import closing
@@ -17,64 +16,64 @@ from contextlib import closing
 PERSONAS = [
     ("dev_seoa", "서아", "polite_brief", "{{user}}님", "#7FA7D9", "#EEF4FB", ["차분", "아침", "일정"], 812,
      "A calm, clear female voice, composed and gentle, moderate pace, like a trusted secretary.",
-     "좋은 아침이에요. 오늘은 오전 열 시 회의 하나만 있어요."),
+     "좋은 아침이에요. 오늘은 오전 열 시 회의 하나만 있어요. 점심 전까지는 여유가 있으니까 천천히 준비하셔도 괜찮아요."),
     ("dev_jiho", "지호", "polite_brief", "{{user}} 씨", "#4F6D7A", "#E6EEF1", ["차분", "직설"], 455,
      "A low, steady male voice, polite and concise, speaking evenly without much emotion.",
-     "확인했습니다. 오후 세 시 일정은 내일로 옮겨 두었습니다."),
+     "확인했습니다. 오후 세 시 일정은 내일 같은 시간으로 옮겨 두었습니다. 바뀐 내용은 참석자분들께도 따로 전달해 두겠습니다."),
     ("dev_yuna", "유나", "polite_brief", "{{user}}님", "#B5A1D8", "#F4F0FA", ["차분", "다정"], 390,
      "A soft, warm female voice, polite and reassuring, slightly slow and soothing.",
-     "오늘 하루 수고 많으셨어요. 내일 일정은 제가 정리해 둘게요."),
+     "오늘 하루 정말 수고 많으셨어요. 내일 일정은 제가 미리 정리해 둘게요. 오늘 밤은 아무 걱정 말고 푹 쉬세요."),
     ("dev_hyunwoo", "현우", "polite_brief", "{{user}}님", "#2E5E8C", "#E3ECF5", ["동기부여", "일정"], 640,
      "A confident, energetic male voice, polite and crisp, upbeat and motivating.",
-     "오늘 목표 세 가지 중 두 개 끝내셨어요. 하나만 더 하시면 됩니다."),
+     "오늘 목표 세 가지 중에 벌써 두 개나 끝내셨어요. 하나만 더 하시면 됩니다. 지금 흐름 그대로 끝까지 가 보시죠."),
     ("dev_nari", "나리", "polite_brief", "{{user}}님", "#E9A86B", "#FDF3E9", ["아침", "동기부여"], 527,
      "A bright, clear female voice, polite and cheerful, lively morning energy.",
-     "일어날 시간이에요! 오늘 날씨 맑대요. 산책하기 딱 좋아요."),
+     "일어날 시간이에요! 오늘 날씨가 정말 맑대요. 산책하기 딱 좋은 날이니까, 아침 드시고 잠깐이라도 바깥바람 쐬고 오세요."),
     ("dev_taemin", "태민", "polite_brief", "{{user}} 씨", "#6C8E5E", "#EDF3EA", ["차분", "아침"], 210,
      "A gentle, deep male voice, polite and calm, relaxed and unhurried.",
-     "천천히 일어나셔도 괜찮아요. 첫 일정까지 한 시간 남았어요."),
+     "천천히 일어나셔도 괜찮아요. 첫 일정까지 아직 한 시간 남았어요. 따뜻한 물 한 잔 드시고, 여유 있게 하루 시작하세요."),
     ("dev_sora", "소라", "casual_warm", "{{user}}야", "#FF9FB2", "#FFF0F3", ["다정", "아침"], 980,
      "A sweet, warm female voice, casual and affectionate, like a close friend.",
-     "일어났어? 어제 늦게 잤지. 오늘은 아침 꼭 챙겨 먹어."),
+     "일어났어? 어제 늦게 잤지. 피곤해도 오늘은 아침 꼭 챙겨 먹어. 빈속으로 나가면 오후에 또 힘들어한단 말이야."),
     ("dev_minjun", "민준", "casual_warm", "{{user}}야", "#F2B880", "#FFF5EC", ["다정", "유머"], 755,
      "A friendly, warm male voice, casual and playful, with a smile in the tone.",
-     "야, 오늘 발표 잘했다며? 내가 그럴 줄 알았어."),
+     "야, 오늘 발표 잘했다며? 내가 그럴 줄 알았어. 그동안 준비한다고 고생 많았잖아. 오늘 저녁은 맛있는 거 먹자."),
     ("dev_haeun", "하은", "casual_warm", "{{user}}야", "#F7C6D9", "#FEF4F8", ["다정", "차분"], 432,
      "A soft, gentle female voice, casual and caring, quiet and tender.",
-     "오늘 좀 힘들었지? 괜찮아, 일단 푹 자고 내일 얘기하자."),
+     "오늘 좀 힘들었지? 괜찮아, 다 잘하려고 그런 거잖아. 일단 오늘은 푹 자고, 내일 일어나서 천천히 얘기하자."),
     ("dev_seojun", "서준", "casual_warm", "{{user}}야", "#8FC1A9", "#EEF7F2", ["동기부여", "다정"], 610,
      "An upbeat, bright male voice, casual and encouraging, energetic and warm.",
-     "할 수 있어! 운동 딱 이십 분만 하자. 나도 같이 할게."),
+     "할 수 있어! 운동 딱 이십 분만 하자. 나도 지금 같이 할게. 끝나고 나면 분명히 하길 잘했다는 생각 들 거야."),
     ("dev_ara", "아라", "casual_warm", "{{user}}야", "#FFD166", "#FFF8E5", ["아침", "유머"], 870,
      "A lively, cheerful female voice, casual and bubbly, quick and playful.",
-     "굿모닝! 오늘 운세 봤는데 대박이래. 얼른 일어나 봐."),
+     "굿모닝! 오늘 운세 봤는데 완전 대박이래. 좋은 일 생긴다니까 얼른 일어나 봐. 늦으면 행운이 그냥 지나가 버릴지도 몰라."),
     ("dev_dohyun", "도현", "casual_warm", "{{user}}야", "#A3B18A", "#F2F5EE", ["유머", "아침"], 305,
      "A relaxed, warm male voice, casual and humorous, laid-back pace.",
-     "알람 세 번째야. 이번엔 진짜 일어나야 돼, 농담 아니고."),
+     "알람 벌써 세 번째야. 이번엔 진짜 일어나야 돼, 농담 아니고. 지금 안 일어나면 아침도 못 먹고 뛰어나가야 한다?"),
     ("dev_chaewon", "채원", "casual_warm", "{{user}}야", "#C9ADA7", "#F8F2F1", ["동기부여", "다정"], 268,
      "A clear, warm female voice, casual and supportive, steady and encouraging.",
-     "어제보다 일찍 일어났네? 오늘 하루 잘 풀릴 것 같아."),
+     "어제보다 일찍 일어났네? 오늘 하루 잘 풀릴 것 같아. 이렇게 조금씩 하다 보면 금방 습관 될 거야. 오늘도 같이 해 보자."),
     ("dev_gun", "건", "casual_blunt", "{{user}}", "#4A4E69", "#E9E9EF", ["직설", "유머"], 720,
      "A low, gruff male voice, casual and blunt, short sentences, dry tone.",
-     "또 늦잠이냐. 회의 삼십 분 남았다. 빨리 씻어."),
+     "또 늦잠이냐. 회의 삼십 분 남았다. 빨리 씻어. 셔츠는 어제 걸어 둔 거 입고, 아침은 가면서 먹어. 늦으면 나도 모른다."),
     ("dev_rina", "리나", "casual_blunt", "{{user}}", "#9A8C98", "#F3F0F3", ["직설", "동기부여"], 498,
      "A sharp, cool female voice, casual and blunt, brisk and matter-of-fact.",
-     "그거 오늘까지라며. 핑계 대지 말고 지금 시작해."),
+     "그거 오늘까지라며. 핑계 대지 말고 지금 시작해. 미루면 밤새는 건 너야. 한 시간만 집중하면 끝나는 거 알잖아."),
     ("dev_jaeyoung", "재영", "casual_blunt", "{{user}}", "#5C677D", "#E8EBF0", ["직설", "차분"], 186,
      "A flat, calm male voice, casual and terse, unimpressed but not unkind.",
-     "우산 챙겨. 오후에 비 온대. 말했다."),
+     "우산 챙겨. 오후에 비 온대. 말했다. 어제처럼 젖어서 들어오지 말고. 신발도 젖어도 되는 걸로 신고 가."),
     ("dev_bom", "봄", "casual_blunt", "잠꾸러기 {{user}}", "#E07A5F", "#FBEDE9", ["유머", "직설"], 560,
      "A husky, playful female voice, casual and teasing, a bit sarcastic.",
-     "알람 끄고 다시 자는 거 다 봤거든. 일어나라."),
+     "알람 끄고 다시 자는 거 다 봤거든. 일어나라. 이불 속에서 오 분만 하다가 한 시간 지난 거 벌써 몇 번째야?"),
     ("dev_kangmin", "강민", "casual_blunt", "{{user}} 선수", "#3D5A80", "#E5EBF2", ["동기부여", "직설"], 344,
      "A strong, firm male voice, casual and blunt, like a strict coach.",
-     "어제도 안 했잖아. 오늘은 무조건 한다. 일어나."),
+     "어제도 안 했잖아. 오늘은 무조건 한다. 일어나. 스트레칭 오 분, 달리기 이십 분. 변명은 다 끝나고 들어 줄게."),
     ("dev_yeonwoo", "연우", "casual_blunt", "{{user}} 씨", "#81B29A", "#EDF5F0", ["유머", "아침"], 233,
      "A dry, deadpan female voice, casual and blunt, with subtle humor.",
-     "아침이야. 해는 떴고 너만 안 일어났어."),
+     "아침이야. 해는 떴고 너만 안 일어났어. 고양이도 일어나서 밥 달라고 기다리고 있어. 슬슬 사람답게 일어나 보자."),
     ("dev_siwoo", "시우", "polite_brief", "{{user}}님", "#577590", "#E7EDF2", ["유머", "일정"], 152,
      "A smooth, light male voice, polite with a gentle humorous touch, moderate pace.",
-     "오늘 일정은 다섯 개예요. 커피 두 잔은 필요하실 것 같네요."),
+     "오늘 일정은 다섯 개예요. 커피 두 잔은 필요하실 것 같네요. 그래도 저녁 일정은 없으니까, 퇴근 후엔 푹 쉬실 수 있어요."),
 ]
 
 # 비서별 (상점 한 줄 소개, 성격 프롬프트). 성격은 personas.prompt에 저장한다 —
@@ -267,22 +266,8 @@ def seed_db():
 
 
 def generate_voices(model_dir: str):
-    import soundfile as sf
-    import torch
-    from qwen_tts import Qwen3TTSModel
-
-    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reference_voices")
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-    model = Qwen3TTSModel.from_pretrained(model_dir, device_map=device, dtype=torch.float32)
-    for pid, name, *_, instruct, ref_text in PERSONAS:
-        wav_path = os.path.join(out_dir, f"{pid}.wav")
-        if os.path.exists(wav_path):
-            continue
-        wavs, sr = model.generate_voice_design(text=ref_text, language="Korean", instruct=instruct)
-        sf.write(wav_path, wavs[0], sr)
-        with open(os.path.join(out_dir, f"{pid}.json"), "w", encoding="utf-8") as f:
-            json.dump({"ref_text": ref_text}, f, ensure_ascii=False)
-        print(f"voice: {pid} ({name})", flush=True)
+    from gen_reference_voices import generate
+    generate([(pid, instruct, ref_text) for pid, *_, instruct, ref_text in PERSONAS], model_dir)
 
 
 def generate_images():

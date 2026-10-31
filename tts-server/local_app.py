@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from qwen_tts import Qwen3TTSModel
 
 DESIGN_MODEL = os.getenv("DESIGN_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign")
-CLONE_MODEL = os.getenv("CLONE_MODEL", "Qwen/Qwen3-TTS-12Hz-0.6B-Base")
+CLONE_MODEL = os.getenv("CLONE_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 API_KEY = os.environ["TTS_API_KEY"]
 
