@@ -255,3 +255,44 @@ def test_locked_persona_apply_promotes_but_stays_private(client, calls):
     assert voice_engine.load_reference("p1") == (b"RIFFwav", DRAFT_TEXT)
     assert r.json()["voiceSampleText"] == DRAFT_TEXT
     assert calls["calls"] == []
+
+
+def _lock_free(pid="p1") -> bool:
+    """다른 세션에서 비서별 목소리 잠금을 잡아 볼 수 있으면 True (잡았으면 바로 놓는다)."""
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (pid,))
+        got = cur.fetchone()[0]
+        if got:
+            cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (pid,))
+        return got
+
+
+def test_promote_and_db_write_hold_persona_lock(client, calls, monkeypatch):
+    """같은 비서의 동시 PUT이 승격→DB 쓰기를 엇갈리지 않도록 잠근다. 심사는 잠금 밖."""
+    import routers.personas as pr
+    seen = {}
+    real_save = voice_engine.save_master_wav
+
+    def spy_save(pid, audio, ref_text):
+        seen["during_promote"] = _lock_free(pid)
+        return real_save(pid, audio, ref_text)
+
+    def spy_moderate(uid, *a, **kw):
+        seen["during_moderation"] = _lock_free("p1")
+        return ModerationResult("approved")
+
+    monkeypatch.setattr(voice_engine, "save_master_wav", spy_save)
+    monkeypatch.setattr(pr, "moderate_persona", spy_moderate)
+    _draft()
+    r = client.put("/personas/p1", json=_body(private=False, applyVoiceDraft=True))
+    assert r.status_code == 200
+    assert seen == {"during_moderation": True, "during_promote": False}
+    assert _lock_free()
+
+
+def test_persona_lock_released_after_db_failure(client, calls, monkeypatch):
+    _draft()
+    _fail_second_conn(monkeypatch)
+    with pytest.raises(RuntimeError):
+        client.put("/personas/p1", json=_body(applyVoiceDraft=True))
+    assert _lock_free()

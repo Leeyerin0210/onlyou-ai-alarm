@@ -1,4 +1,4 @@
-from contextlib import closing
+from contextlib import closing, contextmanager, nullcontext
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +8,7 @@ from core.config import settings
 from core.persona_fields import SYSTEM_CREATOR, PersonaFields, compose_legacy_prompt
 from core.presets import get_preset, is_valid_preset_id, legacy_fields
 from core.rate_limit import check_rate_limit
+from core import rdb
 from core.rdb import get_conn
 from core.tags import normalize_tags
 from core.security import get_uid
@@ -133,6 +134,31 @@ def _drop_draft_if_same(persona_id: str, audio: bytes, meta: dict) -> None:
         print(f"[personas] 후보 정리 실패 {persona_id}: {e}")
 
 
+@contextmanager
+def _persona_voice_lock(persona_id: str):
+    """같은 비서의 '승격 → DB 쓰기'를 한 줄로 세운다 — 동시 PUT 둘이 엇갈려
+    기준 음성과 DB 목소리 칸이 서로 다른 후보를 가리키지 않게.
+
+    전용 커넥션에 세션 잠금을 잡고 끝나면 반드시 놓는다. 놓지 못하면 커넥션째 끊어
+    풀에 잠금이 남지 않게 한다.
+    """
+    conn = rdb.get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(hashtext(%s))", (persona_id,))
+        try:
+            yield
+        finally:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT pg_advisory_unlock(hashtext(%s))", (persona_id,))
+            except Exception as e:
+                print(f"[personas] 목소리 잠금 해제 실패 {persona_id}: {e}")
+                conn._conn.close()
+    finally:
+        conn.close()
+
+
 def _moderation_payload(r: ModerationResult) -> dict:
     return {"status": r.status, "reason": r.reason}
 
@@ -190,60 +216,62 @@ def upsert_persona(persona_id: str, body: PersonaIn, uid: str = Depends(get_uid)
         )
         is_private = moderation.status != "approved"
 
-    backup = None
-    if draft is not None:
-        # DB 쓰기 전에 스냅샷 음성으로 승격한다. 이후 DB 쓰기가 실패하면 이전 기준 음성으로 되돌린다
-        try:
-            backup = voice_engine.load_reference(persona_id)
-        except FileNotFoundError:
-            backup = None
-        try:
-            voice_engine.save_master_wav(persona_id, draft_audio, draft["ref_text"])
-        except Exception as e:
-            print(f"[personas] 목소리 승격 실패 {persona_id}: {e}")
-            _restore_master(persona_id, backup)
-            raise HTTPException(status_code=500, detail="voice promote failed")
-    voice_set = "voice_description=EXCLUDED.voice_description, voice_sample_text=EXCLUDED.voice_sample_text, " \
-        if draft is not None else ""
-    new_voice = (voice_description, voice_sample_text) if draft is not None else (None, None)
-
-    try:
-        with closing(get_conn()) as conn, conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO personas (id, name, description, user_call_sign, "
-                "primary_hex, secondary_hex, creator_id, usage_count, is_private, "
-                "updated_at, preset_key, tags, speech_style, personality, role, "
-                "voice_description, voice_sample_text) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s::text[], '{}'), %s,%s,%s, %s,%s) "
-                "ON CONFLICT (id) DO UPDATE SET "
-                "name=EXCLUDED.name, description=EXCLUDED.description, "
-                "user_call_sign=EXCLUDED.user_call_sign, "
-                "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
-                # 심사 중 신고로 잠겼다면 공개로 되돌리지 않는다
-                "is_private=(EXCLUDED.is_private OR personas.report_locked_at IS NOT NULL), "
-                "updated_at=EXCLUDED.updated_at, "
-                "preset_key=COALESCE(EXCLUDED.preset_key, personas.preset_key), "
-                "tags=COALESCE(%s::text[], personas.tags), "
-                "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, "
-                + voice_set +
-                "role=EXCLUDED.role "
-                # 동시에 같은 새 id를 올린 다른 유저의 행을 덮어쓰지 않는다
-                "WHERE personas.creator_id = EXCLUDED.creator_id "
-                "RETURNING is_private, report_locked_at IS NOT NULL, voice_description, voice_sample_text",
-                # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
-                # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
-                (persona_id, body.name, body.description, body.userCallSign,
-                 body.primaryHex, body.secondaryHex, uid, 0,
-                 is_private, body.updatedAt, body.presetKey, tags,
-                 fields.speech_style, fields.personality, fields.role, *new_voice, tags),
-            )
-            saved = cur.fetchone()
-        if saved is None:
-            raise HTTPException(status_code=403, detail="not owner")
-    except BaseException:
+    # 심사는 잠금 밖에서 끝냈다 — 잠금은 승격부터 DB 쓰기(실패 시 복구)까지만 잡는다
+    with _persona_voice_lock(persona_id) if draft is not None else nullcontext():
+        backup = None
         if draft is not None:
-            _restore_master(persona_id, backup)
-        raise
+            # DB 쓰기 전에 스냅샷 음성으로 승격한다. 이후 DB 쓰기가 실패하면 이전 기준 음성으로 되돌린다
+            try:
+                backup = voice_engine.load_reference(persona_id)
+            except FileNotFoundError:
+                backup = None
+            try:
+                voice_engine.save_master_wav(persona_id, draft_audio, draft["ref_text"])
+            except Exception as e:
+                print(f"[personas] 목소리 승격 실패 {persona_id}: {e}")
+                _restore_master(persona_id, backup)
+                raise HTTPException(status_code=500, detail="voice promote failed")
+        voice_set = "voice_description=EXCLUDED.voice_description, voice_sample_text=EXCLUDED.voice_sample_text, " \
+            if draft is not None else ""
+        new_voice = (voice_description, voice_sample_text) if draft is not None else (None, None)
+
+        try:
+            with closing(get_conn()) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO personas (id, name, description, user_call_sign, "
+                    "primary_hex, secondary_hex, creator_id, usage_count, is_private, "
+                    "updated_at, preset_key, tags, speech_style, personality, role, "
+                    "voice_description, voice_sample_text) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s::text[], '{}'), %s,%s,%s, %s,%s) "
+                    "ON CONFLICT (id) DO UPDATE SET "
+                    "name=EXCLUDED.name, description=EXCLUDED.description, "
+                    "user_call_sign=EXCLUDED.user_call_sign, "
+                    "primary_hex=EXCLUDED.primary_hex, secondary_hex=EXCLUDED.secondary_hex, "
+                    # 심사 중 신고로 잠겼다면 공개로 되돌리지 않는다
+                    "is_private=(EXCLUDED.is_private OR personas.report_locked_at IS NOT NULL), "
+                    "updated_at=EXCLUDED.updated_at, "
+                    "preset_key=COALESCE(EXCLUDED.preset_key, personas.preset_key), "
+                    "tags=COALESCE(%s::text[], personas.tags), "
+                    "speech_style=EXCLUDED.speech_style, personality=EXCLUDED.personality, "
+                    + voice_set +
+                    "role=EXCLUDED.role "
+                    # 동시에 같은 새 id를 올린 다른 유저의 행을 덮어쓰지 않는다
+                    "WHERE personas.creator_id = EXCLUDED.creator_id "
+                    "RETURNING is_private, report_locked_at IS NOT NULL, voice_description, voice_sample_text",
+                    # usage_count는 서버가 관리(신규는 0, /select에서만 증가) —
+                    # 클라이언트 값을 믿으면 상점 인기순위를 조작할 수 있다
+                    (persona_id, body.name, body.description, body.userCallSign,
+                     body.primaryHex, body.secondaryHex, uid, 0,
+                     is_private, body.updatedAt, body.presetKey, tags,
+                     fields.speech_style, fields.personality, fields.role, *new_voice, tags),
+                )
+                saved = cur.fetchone()
+            if saved is None:
+                raise HTTPException(status_code=403, detail="not owner")
+        except BaseException:
+            if draft is not None:
+                _restore_master(persona_id, backup)
+            raise
     if draft is not None:
         _drop_draft_if_same(persona_id, draft_audio, draft)
     is_private, locked, saved_voice_description, saved_voice_sample_text = saved
