@@ -19,8 +19,15 @@ internal fun PersonaUpsertResponseDto?.toSaveResult(): PersonaSaveResult {
         "rejected" -> ModerationStatus.REJECTED
         "unavailable" -> ModerationStatus.UNAVAILABLE
         "locked" -> ModerationStatus.LOCKED
+        "voice_required" -> ModerationStatus.VOICE_REQUIRED
         // skipped와 모르는 값은 안내 없이 넘어간다
         else -> ModerationStatus.SKIPPED
     }
-    return PersonaSaveResult(status = status, reason = moderation?.reason.orEmpty(), isPrivate = isPrivate)
+    return PersonaSaveResult(
+        status = status,
+        reason = moderation?.reason.orEmpty(),
+        isPrivate = isPrivate,
+        voiceDescription = voiceDescription,
+        voiceSampleText = voiceSampleText,
+    )
 }

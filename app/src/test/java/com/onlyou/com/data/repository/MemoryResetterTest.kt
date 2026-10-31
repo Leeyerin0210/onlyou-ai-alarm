@@ -12,8 +12,7 @@ import com.onlyou.com.data.remote.ScheduleDto
 import com.onlyou.com.data.remote.UserProfileDto
 import com.onlyou.com.data.remote.UserProfilePutDto
 import com.onlyou.com.data.remote.VoiceCloneRequestDto
-import com.onlyou.com.data.remote.VoiceSaveReferenceRequestDto
-import com.onlyou.com.data.remote.VoiceSynthesizeRequestDto
+import com.onlyou.com.data.remote.VoiceDesignRequestDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -109,9 +108,7 @@ private class FakeApiService(
 
     override suspend fun generateAlarmScriptStream(request: AlarmScriptRequestDto): Response<ResponseBody> = unused()
 
-    override suspend fun synthesizeVoice(request: VoiceSynthesizeRequestDto): Response<ResponseBody> = unused()
-
-    override suspend fun saveVoiceReference(personaId: String, request: VoiceSaveReferenceRequestDto): Response<Unit> = unused()
+    override suspend fun designVoice(personaId: String, body: VoiceDesignRequestDto): Response<ResponseBody> = unused()
 
     override suspend fun cloneVoice(request: VoiceCloneRequestDto): Response<ResponseBody> = unused()
 

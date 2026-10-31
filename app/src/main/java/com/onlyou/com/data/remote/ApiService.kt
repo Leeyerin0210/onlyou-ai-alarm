@@ -25,16 +25,11 @@ interface MiyaApiService {
         @Body request: AlarmScriptRequestDto,
     ): Response<ResponseBody>
 
-    @POST("voice/synthesize")
-    suspend fun synthesizeVoice(
-        @Body request: VoiceSynthesizeRequestDto,
-    ): Response<ResponseBody>
-
-    @POST("voice/save_reference/{persona_id}")
-    suspend fun saveVoiceReference(
+    @POST("voice/design/{persona_id}")
+    suspend fun designVoice(
         @retrofit2.http.Path("persona_id") personaId: String,
-        @Body request: VoiceSaveReferenceRequestDto
-    ): Response<Unit>
+        @Body body: VoiceDesignRequestDto,
+    ): Response<ResponseBody>
 
     @POST("voice/clone")
     suspend fun cloneVoice(

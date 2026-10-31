@@ -64,6 +64,14 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
     }
 }
 
+// 유저 목소리 디자인 — 스펙: docs/superpowers/specs/2026-10-31-user-voice-design-design.md
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE personas ADD COLUMN voiceDescription TEXT")
+        db.execSQL("ALTER TABLE personas ADD COLUMN voiceSampleText TEXT")
+    }
+}
+
 // 성격 프리셋 폐지 — 스펙: docs/superpowers/specs/2026-10-13-presets-removal-design.md
 val MIGRATION_22_23 = object : Migration(22, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -92,7 +100,7 @@ object DatabaseModule {
             .addMigrations(
                 MIGRATION_13_14, MIGRATION_14_15, MIGRATION_17_18,
                 MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
-                MIGRATION_22_23,
+                MIGRATION_22_23, MIGRATION_23_24,
             )
             .fallbackToDestructiveMigration()
             .build()

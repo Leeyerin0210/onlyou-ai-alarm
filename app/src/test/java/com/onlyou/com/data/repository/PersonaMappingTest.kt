@@ -2,6 +2,7 @@ package com.onlyou.com.data.repository
 
 import com.onlyou.com.data.local.PersonaEntity
 import com.onlyou.com.domain.model.Persona
+import com.onlyou.com.domain.model.hasVoice
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -109,5 +110,24 @@ class PersonaMappingTest {
         assertEquals("", empty.role)
         assertEquals(false, empty.reportLocked)
         assertEquals(false, empty.isOfficial)
+    }
+
+    @Test
+    fun `엔티티의 목소리 칸이 도메인으로`() {
+        val e = entity("casual_warm").copy(voiceDescription = "낮은 목소리", voiceSampleText = "일어나세요")
+        val d = e.toDomain()
+        assertEquals("낮은 목소리", d.voiceDescription)
+        assertEquals("일어나세요", d.voiceSampleText)
+        assertEquals("일어나세요", d.toEntity().voiceSampleText)
+        val dto = com.onlyou.com.data.remote.PersonaDto(
+            id = "p1", name = "미야", voiceDescription = "낮은 목소리", voiceSampleText = "일어나세요",
+        )
+        assertEquals("일어나세요", dto.toEntity(isSelected = false).voiceSampleText)
+    }
+
+    @Test
+    fun `voiceSampleText가 null이면 hasVoice false`() {
+        assertEquals(false, entity("casual_warm").toDomain().hasVoice)
+        assertEquals(true, entity("casual_warm").copy(voiceSampleText = "안녕").toDomain().hasVoice)
     }
 }

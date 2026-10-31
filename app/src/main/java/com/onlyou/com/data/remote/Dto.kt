@@ -41,14 +41,9 @@ data class AlarmScriptResponseDto(
 )
 
 // Voice
-data class VoiceSynthesizeRequestDto(
-    val text: String,
-    val instruct: String,
-)
-
-data class VoiceSaveReferenceRequestDto(
-    val audio: String, // Base64 encoded WAV
-    val ref_text: String
+data class VoiceDesignRequestDto(
+    val description: String,
+    val sampleText: String,
 )
 
 data class VoiceCloneRequestDto(
@@ -83,6 +78,12 @@ data class PersonaDto(
     // 서버 관리 값 — 앱이 보내도 서버가 무시한다
     val reportLocked: Boolean? = null,
     val isOfficial: Boolean? = null,
+    // 목소리 칸. 수신 시 본인 비서에만 값이 있고 나머지는 null. 앱이 보내도 서버는 저장하지 않는다
+    // (후보를 적용하는 applyVoiceDraft만 반영).
+    val voiceDescription: String? = null,
+    val voiceSampleText: String? = null,
+    // true면 서버가 만들어 둔 후보를 기준 음성으로 승격한다
+    val applyVoiceDraft: Boolean? = null,
 )
 
 // PUT /personas/{id} 응답 — 서버 공개 심사 결과를 담는다
@@ -95,6 +96,8 @@ data class PersonaUpsertResponseDto(
     val ok: Boolean? = null,
     val isPrivate: Boolean? = null,
     val moderation: ModerationDto? = null,
+    val voiceDescription: String? = null,
+    val voiceSampleText: String? = null,
 )
 
 data class FeaturedThemeDto(

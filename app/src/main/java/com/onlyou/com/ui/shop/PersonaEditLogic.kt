@@ -34,5 +34,6 @@ fun saveNotice(result: PersonaSaveResult): String? =
             } else {
                 null
             }
+        ModerationStatus.VOICE_REQUIRED -> "목소리를 만들어야 공개할 수 있어요. 나만 보기로 저장했어요."
         ModerationStatus.SKIPPED -> null
     }

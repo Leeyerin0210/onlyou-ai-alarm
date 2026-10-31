@@ -1,14 +1,13 @@
 package com.onlyou.com.data.repository
 
 import android.content.Context
-import android.util.Base64
 import com.onlyou.com.data.local.AlarmVoiceChunkDao
 import com.onlyou.com.data.local.AlarmVoiceChunkEntity
 import com.onlyou.com.data.remote.AlarmScriptRequestDto
 import com.onlyou.com.data.remote.ContextItemDto
 import com.onlyou.com.data.remote.MiyaApiService
 import com.onlyou.com.data.remote.VoiceCloneRequestDto
-import com.onlyou.com.data.remote.VoiceSaveReferenceRequestDto
+import com.onlyou.com.data.remote.VoiceDesignRequestDto
 import com.onlyou.com.domain.model.AlarmVoiceChunk
 import com.onlyou.com.domain.model.Persona
 import com.onlyou.com.domain.repository.ScheduleRepository
@@ -61,23 +60,18 @@ class VoiceRepositoryImpl
                 }
             }
 
-        override suspend fun saveReferenceVoice(
+        override suspend fun designVoice(
             personaId: String,
-            audioData: ByteArray,
-            refText: String,
-        ): Boolean =
+            description: String,
+            sampleText: String,
+        ): ByteArray? =
             withContext(Dispatchers.IO) {
                 try {
-                    val audioBase64 = Base64.encodeToString(audioData, Base64.NO_WRAP)
-                    val request = VoiceSaveReferenceRequestDto(
-                        audio = audioBase64,
-                        ref_text = refText,
-                    )
-                    val response = apiService.saveVoiceReference(personaId, request)
-                    response.isSuccessful
+                    val response = apiService.designVoice(personaId, VoiceDesignRequestDto(description, sampleText))
+                    if (response.isSuccessful) response.body()?.bytes() else null
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    false
+                    null
                 }
             }
 

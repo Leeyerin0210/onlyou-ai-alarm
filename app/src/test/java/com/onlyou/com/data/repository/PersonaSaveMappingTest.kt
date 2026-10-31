@@ -58,4 +58,21 @@ class PersonaSaveMappingTest {
         assertEquals(ModerationStatus.OFFLINE, r.status)
         assertEquals(null, r.isPrivate)
     }
+
+    @Test
+    fun `voice_required는 VOICE_REQUIRED`() {
+        assertEquals(ModerationStatus.VOICE_REQUIRED, res("voice_required").toSaveResult().status)
+    }
+
+    @Test
+    fun `응답의 목소리 칸이 결과에 실린다`() {
+        val dto = PersonaUpsertResponseDto(
+            ok = true, isPrivate = true, moderation = ModerationDto("approved", null),
+            voiceDescription = "낮고 차분한 목소리", voiceSampleText = "일어날 시간이에요",
+        )
+        val r = dto.toSaveResult()
+        assertEquals("낮고 차분한 목소리", r.voiceDescription)
+        assertEquals("일어날 시간이에요", r.voiceSampleText)
+        assertEquals(null, res("approved").toSaveResult().voiceDescription)
+    }
 }

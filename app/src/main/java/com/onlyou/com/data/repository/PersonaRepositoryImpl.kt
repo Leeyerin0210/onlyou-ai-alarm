@@ -168,7 +168,10 @@ class PersonaRepositoryImpl
             personaDao.updatePersona(persona.toEntity())
         }
 
-        override suspend fun upsertPersona(persona: Persona): com.onlyou.com.domain.model.PersonaSaveResult {
+        override suspend fun upsertPersona(
+            persona: Persona,
+            applyVoiceDraft: Boolean,
+        ): com.onlyou.com.domain.model.PersonaSaveResult {
             val uid = auth.currentUser?.uid
             val updatedPersona = if (persona.creatorId == null && uid != null) {
                 persona.copy(creatorId = uid)
@@ -199,6 +202,7 @@ class PersonaRepositoryImpl
                         speechStyle = updatedPersona.speechStyle,
                         personality = updatedPersona.personality,
                         role = updatedPersona.role,
+                        applyVoiceDraft = applyVoiceDraft,
                     ),
                 ).body().toSaveResult()
             } catch (e: Exception) {
@@ -206,9 +210,14 @@ class PersonaRepositoryImpl
                 com.onlyou.com.domain.model.PersonaSaveResult(com.onlyou.com.domain.model.ModerationStatus.OFFLINE)
             }.downgradedIfOffline(requestedPrivate = updatedPersona.isPrivate)
             val serverPrivate = result.isPrivate
-            if (serverPrivate != null && serverPrivate != entity.isPrivate) {
-                personaDao.upsertPersona(entity.copy(isPrivate = serverPrivate))
-            }
+            // 목소리 칸은 서버가 단일 원천 — OFFLINE이면 저장 전 값을 그대로 둔다
+            val serverVoice = result.status != com.onlyou.com.domain.model.ModerationStatus.OFFLINE
+            val synced = entity.copy(
+                isPrivate = serverPrivate ?: entity.isPrivate,
+                voiceDescription = if (serverVoice) result.voiceDescription else entity.voiceDescription,
+                voiceSampleText = if (serverVoice) result.voiceSampleText else entity.voiceSampleText,
+            )
+            if (synced != entity) personaDao.upsertPersona(synced)
             return result
         }
 
@@ -232,6 +241,8 @@ internal fun PersonaEntity.toDomain() =
         role = role,
         reportLocked = reportLocked,
         isOfficial = isOfficial,
+        voiceDescription = voiceDescription,
+        voiceSampleText = voiceSampleText,
         themeColors = if (primaryHex != null && secondaryHex != null) {
             StreamerTheme(
                 primaryHex = primaryHex,
@@ -281,6 +292,8 @@ internal fun Persona.toEntity() =
         role = role,
         reportLocked = reportLocked,
         isOfficial = isOfficial,
+        voiceDescription = voiceDescription,
+        voiceSampleText = voiceSampleText,
     )
 
 private val gson = Gson()
@@ -324,4 +337,6 @@ internal fun PersonaDto.toEntity(isSelected: Boolean) =
         role = role ?: "",
         reportLocked = reportLocked ?: false,
         isOfficial = isOfficial ?: false,
+        voiceDescription = voiceDescription,
+        voiceSampleText = voiceSampleText,
     )

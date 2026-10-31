@@ -79,6 +79,9 @@ data class PersonaEntity(
     // 신고 누적으로 잠김(공개 불가) / 공식 비서 여부 — 서버가 내려주는 값
     val reportLocked: Boolean = false,
     val isOfficial: Boolean = false,
+    // 목소리 설명·샘플 문장 — v24에서 추가 (스펙: 2026-10-31-user-voice-design-design.md)
+    val voiceDescription: String? = null,
+    val voiceSampleText: String? = null,
 )
 
 @Entity(tableName = "chat_messages")

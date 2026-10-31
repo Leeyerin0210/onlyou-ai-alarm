@@ -85,16 +85,24 @@ data class Persona(
     val role: String = "",
     val reportLocked: Boolean = false,
     val isOfficial: Boolean = false,
+    // 목소리 설명·샘플 문장 — 서버가 만든 사람에게만 내려준다(남의 비서는 null)
+    val voiceDescription: String? = null,
+    val voiceSampleText: String? = null,
 )
 
+/** 샘플 문장이 있으면 서버에 기준 음성이 만들어져 있다. */
+val Persona.hasVoice: Boolean get() = voiceSampleText != null
+
 /** 비서 저장 시 서버 공개 심사 결과. OFFLINE은 서버에 닿지 못해 로컬에만 저장된 경우. */
-enum class ModerationStatus { APPROVED, REJECTED, UNAVAILABLE, LOCKED, SKIPPED, OFFLINE }
+enum class ModerationStatus { APPROVED, REJECTED, UNAVAILABLE, LOCKED, SKIPPED, OFFLINE, VOICE_REQUIRED }
 
 /** isPrivate는 서버가 최종 결정한 공개 여부 — 공개 요청이 비공개로 바뀌었을 수 있다. */
 data class PersonaSaveResult(
     val status: ModerationStatus,
     val reason: String = "",
     val isPrivate: Boolean? = null,
+    val voiceDescription: String? = null,
+    val voiceSampleText: String? = null,
 )
 
 /** 상점 '이번 주 테마' — 테마 결정은 서버(core/themes.py)가 한다. */

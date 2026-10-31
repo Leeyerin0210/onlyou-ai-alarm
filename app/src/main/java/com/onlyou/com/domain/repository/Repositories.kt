@@ -65,7 +65,10 @@ interface PersonaRepository {
 
     suspend fun updatePersona(persona: Persona)
 
-    suspend fun upsertPersona(persona: Persona): com.onlyou.com.domain.model.PersonaSaveResult
+    suspend fun upsertPersona(
+        persona: Persona,
+        applyVoiceDraft: Boolean = false,
+    ): com.onlyou.com.domain.model.PersonaSaveResult
 }
 
 /**
@@ -100,13 +103,13 @@ interface VoiceRepository {
     ): ByteArray?
 
     /**
-     * 디자인된 음성을 참조용으로 서버에 저장
+     * 목소리 후보 만들기 — 서버가 후보를 저장해 두고 미리듣기용 wav를 돌려준다. 실패면 null.
      */
-    suspend fun saveReferenceVoice(
+    suspend fun designVoice(
         personaId: String,
-        audioData: ByteArray,
-        refText: String,
-    ): Boolean
+        description: String,
+        sampleText: String,
+    ): ByteArray?
 
     /**
      * 서버에 저장된 마스터 참조 음성을 가져옴
