@@ -100,3 +100,30 @@ def test_design_rejects_blank_fields(client, fake_engine, description, sample):
 def test_old_voice_endpoints_removed(client):
     assert client.post("/voice/synthesize", json={"text": "a", "instruct": "b"}).status_code in (404, 405)
     assert client.post("/voice/save_reference/x", json={}).status_code in (404, 405)
+
+
+def test_design_charges_global_budget_per_attempt(client, fake_engine, monkeypatch):
+    """전역 voice 예산은 합성 1회마다 쓴다 — 예산이 바닥나면 더 뽑지 않고 지금까지 중 가장 나은 것."""
+    monkeypatch.setattr(settings, "GLOBAL_VOICE_DAILY_LIMIT", 1)
+    fake_engine["durations"] = [5.0, 9.5]
+    r = _post(client)
+    assert r.status_code == 200
+    assert len(fake_engine["calls"]) == 1
+    assert voice_design_service.wav_seconds(r.content) == pytest.approx(5.0, abs=0.01)
+    assert voice_engine.load_draft_meta("p1") is not None
+
+
+def test_design_global_budget_exhausted_before_first_attempt_429(client, fake_engine, monkeypatch):
+    monkeypatch.setattr(settings, "GLOBAL_VOICE_DAILY_LIMIT", 1)
+    assert _post(client).status_code == 200
+    assert _post(client).status_code == 429
+
+
+def test_design_failure_hides_internal_error(client, fake_engine, monkeypatch):
+    async def boom(text, instruct, wav=False):
+        raise RuntimeError("secret upstream detail")
+
+    monkeypatch.setattr(voice_engine, "synthesize_design", boom)
+    r = _post(client)
+    assert r.status_code == 500
+    assert r.json()["detail"] == "목소리를 만들지 못했어요."

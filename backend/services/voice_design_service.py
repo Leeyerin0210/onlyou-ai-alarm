@@ -31,12 +31,20 @@ async def design_voice_draft(uid: str, persona_id: str, description: str, sample
     보석 과금이 들어갈 유일한 지점이다 (GPU 합성이 나가는 곳은 여기뿐).
     길이가 8~13초 밖이면 최대 4회까지 다시 뽑고, 끝까지 밖이면 10초에 가장 가까운 것을 쓴다.
     """
+    # 유저 한도는 요청 1회, 전역 voice 예산은 실제 GPU 합성 1회마다 쓴다
     await asyncio.to_thread(check_rate_limit, uid, "voice-design", settings.VOICE_DESIGN_USER_DAILY_LIMIT)
-    await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
     try:
         instruct = await translate_description(description)
         best, best_gap = None, None
         for _ in range(ATTEMPTS):
+            try:
+                await asyncio.to_thread(check_global_budget, "voice", settings.GLOBAL_VOICE_DAILY_LIMIT)
+            except HTTPException:
+                # 재시도 중 전역 예산이 바닥나면 더 뽑지 않고 지금까지 중 가장 나은 것을 쓴다
+                # (이미 합성비가 나간 결과를 버리지 않는다). 첫 시도부터 막히면 429
+                if best is None:
+                    raise
+                break
             wav, _media = await voice_engine.synthesize_design(sample_text, instruct, wav=True)
             sec = wav_seconds(wav)
             gap = abs(sec - TARGET_SEC)
@@ -54,4 +62,5 @@ async def design_voice_draft(uid: str, persona_id: str, description: str, sample
         raise
     except Exception as e:
         print(f"Voice Design Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # 내부 오류 내용은 로그에만 — 앱에는 고정 문구
+        raise HTTPException(status_code=500, detail="목소리를 만들지 못했어요.")
