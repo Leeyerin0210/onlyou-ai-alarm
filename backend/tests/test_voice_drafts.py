@@ -62,3 +62,19 @@ def test_delete_draft(engine):
     engine.delete_draft("p1")
     assert engine.load_draft_meta("p1") is None
     assert not os.path.exists(os.path.join(engine.reference_dir, "drafts", "p1.wav"))
+
+
+def test_load_draft_returns_audio_and_meta(engine):
+    engine.save_draft("p1", b"wav", "문장", "설명", "u1")
+    audio, meta = engine.load_draft("p1")
+    assert audio == b"wav" and meta["ref_text"] == "문장" and meta["creator_uid"] == "u1"
+    assert engine.load_draft("nope") is None
+
+
+def test_delete_master_keeps_draft(engine):
+    engine.save_master_wav("p1", b"m", "t")
+    engine.save_draft("p1", b"d", "문장", "설명", "u1")
+    engine.delete_master("p1")
+    with pytest.raises(FileNotFoundError):
+        engine.load_reference("p1")
+    assert engine.load_draft_meta("p1") is not None

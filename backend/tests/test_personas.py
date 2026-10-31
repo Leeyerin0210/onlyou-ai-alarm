@@ -415,25 +415,32 @@ def test_delete_persona_removes_its_reports(client):
         assert cur.fetchone()[0] == 0
 
 
-def test_upsert_race_with_other_owner_returns_403_and_keeps_row(client, monkeypatch):
-    """사전 확인은 통과했지만(내 행) 심사 중 다른 유저가 같은 id를 먼저 저장한 경합."""
-    _seed_voiced()
+def test_upsert_race_with_other_owner_returns_403_and_keeps_row(client, monkeypatch, tmp_path):
+    """사전 확인은 통과했지만(행 없음) 심사 중 다른 유저가 같은 id를 먼저 저장한 경합.
+    새 공개 비서가 심사까지 가도록 목소리 후보를 적용해서 올린다."""
     from contextlib import closing
     from core.rdb import get_conn
+    from services.voice_service import voice_engine
     import routers.personas as pr
+
+    monkeypatch.setattr(voice_engine, "reference_dir", str(tmp_path))
+    monkeypatch.setattr(voice_engine, "_bucket", lambda: None)
+    voice_engine.save_draft("p1", b"MINE", "내 문장", "내 설명", "test-uid")
 
     def fake(uid, name, description, tags, fields, voice_description="", voice_sample_text=""):
         with closing(get_conn()) as conn, conn.cursor() as cur:
-            cur.execute("UPDATE personas SET name='남의것', creator_id='other-uid' WHERE id='p1'")
+            cur.execute("INSERT INTO personas (id, name, creator_id) VALUES ('p1', '남의것', 'other-uid')")
+        voice_engine.save_master_wav("p1", b"THEIRS", "남의 문장")
         return ModerationResult("approved")
 
     monkeypatch.setattr(pr, "moderate_persona", fake)
-    res = client.put("/personas/p1", json=_persona_body())
+    res = client.put("/personas/p1", json=_persona_body(applyVoiceDraft=True))
     assert res.status_code == 403
     from contextlib import closing as c2
     with c2(get_conn()) as conn, conn.cursor() as cur:
         cur.execute("SELECT name, creator_id FROM personas WHERE id = 'p1'")
         assert cur.fetchone() == ("남의것", "other-uid")
+    assert voice_engine.load_reference("p1") == (b"THEIRS", "남의 문장")
 
 
 def _insert_with_voice(pid, creator, private=False, tags="{}"):

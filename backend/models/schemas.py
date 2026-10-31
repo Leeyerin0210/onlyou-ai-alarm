@@ -99,7 +99,8 @@ class PersonaIn(BaseModel):
     primaryHex: Optional[str] = Field(default=None, max_length=16)
     secondaryHex: Optional[str] = Field(default=None, max_length=16)
     isPrivate: bool = False
-    updatedAt: int = 0
+    # DB 컬럼이 BIGINT — 범위 밖 값이 저장 단계에서 터지지 않도록 입구에서 막는다
+    updatedAt: int = Field(default=0, ge=0, le=2**63 - 1)
     # None = 구버전 앱(필드 없음) → 서버가 기존 태그를 보존한다. 리스트면 정규화 후 덮어쓴다.
     tags: Optional[List[str]] = Field(default=None, max_length=20)
     # true면 이 비서의 목소리 후보(서버가 보관 중)를 기준 음성으로 확정한다

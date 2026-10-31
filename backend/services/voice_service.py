@@ -213,6 +213,30 @@ class RemoteVoiceEngine:
             "creator_uid": meta["creator_uid"],
         }
 
+    def load_draft(self, persona_id: str) -> Optional[Tuple[bytes, dict]]:
+        """후보 (wav 바이트, 메타)를 한 번에 읽는다 — 심사하고 승격할 때 같은 스냅샷을 쓰기 위해."""
+        draft = self._load_draft(persona_id)
+        if draft is None:
+            return None
+        meta = json.loads(draft[1].decode("utf-8"))
+        return draft[0], {
+            "ref_text": meta["ref_text"],
+            "voice_description": meta["voice_description"],
+            "creator_uid": meta["creator_uid"],
+        }
+
+    def delete_master(self, persona_id: str) -> None:
+        """기준 음성만 지운다 (후보는 그대로). 저장 실패 시 승격을 되돌리는 데 쓴다."""
+        for p in self._local_paths(persona_id):
+            if os.path.exists(p):
+                os.remove(p)
+        bucket = self._bucket()
+        if bucket:
+            for ext in ("wav", "json"):
+                blob = bucket.blob(f"reference_voices/{persona_id}.{ext}")
+                if blob.exists():
+                    blob.delete()
+
     def promote_draft(self, persona_id: str) -> None:
         """후보를 기준 음성으로 올리고 후보는 지운다. 후보가 없으면 FileNotFoundError."""
         draft = self._load_draft(persona_id)
