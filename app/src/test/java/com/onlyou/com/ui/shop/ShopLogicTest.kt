@@ -77,4 +77,17 @@ class ShopLogicTest {
         assertEquals(listOf("b", "d", "c", "a"), filterPersonas(list, ShopFilter.All, "", null).map { it.id })
         assertEquals(listOf("d", "c"), filterPersonas(list, ShopFilter.Tag("아침"), "", null).map { it.id })
     }
+
+    @Test
+    fun `보이스 듣기 - 공식 비서와 남의 공개 비서는 항상 들을 수 있다`() {
+        assertEquals(true, canPreviewVoice(p("o", creator = "system", official = true), "me"))
+        // 공개 비서는 목소리가 필수라 남의 공개 비서엔 항상 목소리가 있다(목소리 칸은 남에게 안 내려온다)
+        assertEquals(true, canPreviewVoice(p("a", creator = "other"), "me"))
+    }
+
+    @Test
+    fun `보이스 듣기 - 내 비서는 목소리가 있을 때만`() {
+        assertEquals(false, canPreviewVoice(p("m", creator = "me", private = true), "me"))
+        assertEquals(true, canPreviewVoice(p("m", creator = "me", private = true).copy(voiceSampleText = "일어나"), "me"))
+    }
 }

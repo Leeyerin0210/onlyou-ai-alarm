@@ -1,6 +1,7 @@
 package com.onlyou.com.ui.shop
 
 import com.onlyou.com.domain.model.Persona
+import com.onlyou.com.domain.model.hasVoice
 
 /** 상점 인기 순위(세로 목록) 칩 필터 */
 sealed interface ShopFilter {
@@ -55,3 +56,14 @@ fun canReport(p: Persona, currentUserId: String?): Boolean =
         p.creatorId != currentUserId &&
         !p.isPrivate &&
         !p.isOfficial
+
+/**
+ * 상점 상세 '보이스 듣기' 노출 조건. 목소리 칸은 만든 사람에게만 내려오므로 남의 비서는 칸으로 판단할 수 없다 —
+ * 공개 비서는 목소리가 필수라 남의 공개 비서·공식 비서는 항상 들을 수 있고, 내 비서만 칸으로 판단한다.
+ */
+fun canPreviewVoice(p: Persona, currentUserId: String?): Boolean =
+    when {
+        p.isOfficial -> true
+        p.creatorId != null && p.creatorId == currentUserId -> p.hasVoice
+        else -> !p.isPrivate
+    }

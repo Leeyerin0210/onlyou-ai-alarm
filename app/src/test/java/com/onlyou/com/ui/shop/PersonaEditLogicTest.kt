@@ -10,6 +10,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PersonaEditLogicTest {
+    // 샘플 문장 길이(50~80자) 안의 문장
+    private val LONG_SAMPLE = "좋은 아침이에요. 오늘은 오전 회의가 있으니까 조금 서둘러서 준비해요. 우산도 꼭 챙겨 가세요."
+
+    @Test
+    fun `샘플 문장이 최소 길이보다 짧으면 만들기 불가 - 앞뒤 공백은 세지 않는다`() {
+        assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN - 1), false))
+        assertFalse(canDesignVoice("차분한 여자", "  " + "가".repeat(VOICE_SAMPLE_MIN_LEN - 1) + "  ", false))
+        assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MIN_LEN), false))
+    }
+
+    @Test
+    fun `샘플 문장 길이는 50자에서 80자`() {
+        assertEquals(50, VOICE_SAMPLE_MIN_LEN)
+        assertEquals(80, VOICE_SAMPLE_MAX_LEN)
+    }
+
     private fun p(name: String = "미야", speech: String = "반말", personality: String = "다정", role: String = "") =
         Persona(id = "p1", name = name, description = "", speechStyle = speech, personality = personality, role = role)
 
@@ -78,9 +94,9 @@ class PersonaEditLogicTest {
 
     @Test
     fun `설명이나 샘플 문장이 비었거나 공백뿐이면 만들기 불가`() {
-        assertTrue(canDesignVoice("차분한 여자", "일어나", false))
-        assertFalse(canDesignVoice("", "일어나", false))
-        assertFalse(canDesignVoice("   ", "일어나", false))
+        assertTrue(canDesignVoice("차분한 여자", LONG_SAMPLE, false))
+        assertFalse(canDesignVoice("", LONG_SAMPLE, false))
+        assertFalse(canDesignVoice("   ", LONG_SAMPLE, false))
         assertFalse(canDesignVoice("차분한 여자", "", false))
         assertFalse(canDesignVoice("차분한 여자", " \n ", false))
     }
@@ -89,29 +105,29 @@ class PersonaEditLogicTest {
     fun `설명이나 샘플 문장이 상한을 넘으면 만들기 불가`() {
         assertFalse(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN + 1), false))
         assertTrue(canDesignVoice("차분한 여자", "가".repeat(VOICE_SAMPLE_MAX_LEN), false))
-        assertFalse(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN + 1), "일어나", false))
-        assertTrue(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN), "일어나", false))
+        assertFalse(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN + 1), LONG_SAMPLE, false))
+        assertTrue(canDesignVoice("가".repeat(VOICE_DESCRIPTION_MAX_LEN), LONG_SAMPLE, false))
     }
 
     @Test
     fun `생성 중이면 만들기 불가 - 중복 호출 무시의 기준`() {
-        assertFalse(canDesignVoice("차분한 여자", "일어나", true))
+        assertFalse(canDesignVoice("차분한 여자", LONG_SAMPLE, true))
     }
 
     @Test
-    fun `공개인데 목소리도 정한 후보도 없으면 저장 차단`() {
-        assertTrue(blocksPublishForVoice(p().copy(isPrivate = false), applyVoiceDraft = false))
+    fun `공개인데 목소리도 새 후보도 없으면 저장 차단`() {
+        assertTrue(blocksPublishForVoice(p().copy(isPrivate = false), savesDraft = false))
     }
 
     @Test
     fun `비공개면 목소리 없어도 저장 가능`() {
-        assertFalse(blocksPublishForVoice(p().copy(isPrivate = true), applyVoiceDraft = false))
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = true), savesDraft = false))
     }
 
     @Test
-    fun `후보를 정했거나 이미 목소리가 있으면 공개 저장 가능`() {
-        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false), applyVoiceDraft = true))
-        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false, voiceSampleText = "일어나"), applyVoiceDraft = false))
+    fun `새 후보가 있거나 이미 목소리가 있으면 공개 저장 가능`() {
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false), savesDraft = true))
+        assertFalse(blocksPublishForVoice(p().copy(isPrivate = false, voiceSampleText = "일어나"), savesDraft = false))
     }
 
     @Test
@@ -122,34 +138,71 @@ class PersonaEditLogicTest {
         )
     }
 
+    private fun st(
+        persona: Persona = p(),
+        desc: String = "",
+        sample: String = "",
+        draft: Boolean = false,
+        draftDesc: String = "",
+        draftSample: String = "",
+        designing: Boolean = false,
+    ) = PersonaEditUiState.Success(
+        persona = persona,
+        voiceDescriptionInput = desc,
+        voiceSampleInput = sample,
+        draftAudio = if (draft) byteArrayOf(1) else null,
+        draftDescription = draftDesc,
+        draftSample = draftSample,
+        isDesigning = designing,
+    )
+
     @Test
-    fun `후보가 있고 입력이 후보 텍스트와 같으면 정하기 가능`() {
-        assertTrue(canChooseDraft(true, "차분", "일어나", "차분", "일어나", false))
+    fun `후보가 있고 입력이 후보 텍스트와 같으면 저장할 때 후보가 적용된다`() {
+        assertTrue(st(desc = "차분", sample = "일어나", draft = true, draftDesc = "차분", draftSample = "일어나").savesDraft())
     }
 
     @Test
-    fun `후보가 없거나 생성 중이면 정하기 불가`() {
-        assertFalse(canChooseDraft(false, "", "", "차분", "일어나", false))
-        assertFalse(canChooseDraft(true, "차분", "일어나", "차분", "일어나", true))
+    fun `후보가 없거나 생성 중이면 후보를 적용하지 않는다`() {
+        assertFalse(st(desc = "차분", sample = "일어나").savesDraft())
+        assertFalse(st(desc = "차분", sample = "일어나", draft = true, draftDesc = "차분", draftSample = "일어나", designing = true).savesDraft())
     }
 
     @Test
-    fun `입력을 바꿔 후보 텍스트와 달라지면 정하기 불가`() {
-        assertFalse(canChooseDraft(true, "차분", "일어나", "차분함", "일어나", false))
-        assertFalse(canChooseDraft(true, "차분", "일어나", "차분", "일어나!", false))
+    fun `후보를 만든 뒤 입력을 바꾸면 적용하지 않고 고친 목소리 글이 남았다고 본다`() {
+        val edited = st(desc = "차분함", sample = "일어나", draft = true, draftDesc = "차분", draftSample = "일어나")
+        assertFalse(edited.savesDraft())
+        assertTrue(edited.hasPendingVoiceEdit())
+    }
+
+    @Test
+    fun `저장된 목소리 글을 그대로 두면 고친 게 없고, 바꾸면 고친 게 있다`() {
+        val saved = p().copy(voiceDescription = "낮은 목소리", voiceSampleText = "일어나요")
+        assertFalse(st(persona = saved, desc = "낮은 목소리", sample = "일어나요").hasPendingVoiceEdit())
+        assertTrue(st(persona = saved, desc = "높은 목소리", sample = "일어나요").hasPendingVoiceEdit())
+    }
+
+    @Test
+    fun `목소리가 없는 비서에 설명만 쓰고 만들지 않았으면 고친 게 있다`() {
+        assertTrue(st(desc = "차분", sample = "").hasPendingVoiceEdit())
+        assertFalse(st().hasPendingVoiceEdit())
     }
 
     @Test
     fun `목소리 생성 중에는 저장 불가`() {
-        assertTrue(canSaveWithVoice(p().copy(isPrivate = true), applyVoiceDraft = false, isDesigning = false))
-        assertFalse(canSaveWithVoice(p().copy(isPrivate = true), applyVoiceDraft = false, isDesigning = true))
+        assertTrue(canSaveWithVoice(p().copy(isPrivate = true), savesDraft = false, isDesigning = false, pendingVoiceEdit = false))
+        assertFalse(canSaveWithVoice(p().copy(isPrivate = true), savesDraft = false, isDesigning = true, pendingVoiceEdit = false))
     }
 
     @Test
-    fun `공개인데 목소리 없으면 저장 불가, 후보를 정했으면 가능`() {
+    fun `목소리 글을 고치고 다시 만들지 않았으면 저장 불가`() {
+        assertFalse(canSaveWithVoice(p().copy(isPrivate = true), savesDraft = false, isDesigning = false, pendingVoiceEdit = true))
+    }
+
+    @Test
+    fun `공개인데 목소리 없으면 저장 불가, 새로 만든 후보가 있으면 가능`() {
         val pub = p().copy(isPrivate = false)
-        assertFalse(canSaveWithVoice(pub, applyVoiceDraft = false, isDesigning = false))
-        assertTrue(canSaveWithVoice(pub, applyVoiceDraft = true, isDesigning = false))
+        assertFalse(canSaveWithVoice(pub, savesDraft = false, isDesigning = false, pendingVoiceEdit = false))
+        assertTrue(canSaveWithVoice(pub, savesDraft = true, isDesigning = false, pendingVoiceEdit = false))
     }
 
     @Test
@@ -165,7 +218,7 @@ class PersonaEditLogicTest {
     }
 
     @Test
-    fun `저장 실패 뒤 상태 - 저장 중을 풀고 400이면 정한 후보도 버린다`() {
+    fun `저장 실패 뒤 상태 - 저장 중을 풀고 400이면 후보도 버린다`() {
         val st = PersonaEditUiState.Success(
             persona = p(),
             isSaving = true,
@@ -174,11 +227,9 @@ class PersonaEditLogicTest {
             draftAudio = byteArrayOf(1),
             draftDescription = "낮은 목소리",
             draftSample = "일어나요",
-            applyVoiceDraft = true,
         )
         val rejected = afterFailedSave(st, PersonaSaveResult(ModerationStatus.FAILED, httpCode = 400))
         assertFalse(rejected.isSaving)
-        assertFalse(rejected.applyVoiceDraft)
         assertNull(rejected.draftAudio)
         assertEquals("", rejected.draftDescription)
         assertEquals("", rejected.draftSample)
