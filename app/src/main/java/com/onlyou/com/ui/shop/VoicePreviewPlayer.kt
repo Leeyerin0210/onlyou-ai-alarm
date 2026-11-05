@@ -18,6 +18,9 @@ data class VoicePreviewState(
     val personaId: String? = null,
     val isBuffering: Boolean = false,
     val isPlaying: Boolean = false,
+    // 서버에 기준 음성이 없어 재생하지 못한 비서. personaId와 따로 둔다 —
+    // personaId를 남기면 "이미 재생 중"으로 보고 재시도를 막는 화면이 있다.
+    val unavailablePersonaId: String? = null,
 )
 
 /**
@@ -61,7 +64,7 @@ class VoicePreviewPlayer(
         job = scope.launch {
             val audio = voiceRepository.getReferenceVoice(personaId)
             if (audio == null) {
-                _state.value = VoicePreviewState()
+                _state.value = VoicePreviewState(unavailablePersonaId = personaId)
                 return@launch
             }
             prepare(audio)

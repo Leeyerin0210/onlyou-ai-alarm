@@ -221,6 +221,15 @@ class VoiceRepositoryImpl
 
         override suspend fun getCachedAlarmVoiceChunks(alarmId: Int): List<AlarmVoiceChunk> =
             withContext(Dispatchers.IO) {
+                // 이번 알람을 위해 방금 만든 캐시만 쓴다. 오래된 캐시는 지난 날짜의 브리핑이라 지운다.
+                // 쓰고 나면 생성 기록을 지워, 다음 알람에서 사전 생성이 실패해도 다시 재생되지 않게 한다.
+                val prefs = context.getSharedPreferences("voice_pregen_prefs", Context.MODE_PRIVATE)
+                val generatedAt = prefs.getLong("alarm_${alarmId}_generated_at", 0L)
+                prefs.edit().remove("alarm_${alarmId}_generated_at").apply()
+                if (!com.onlyou.com.util.isAlarmVoiceCacheUsable(generatedAt, System.currentTimeMillis())) {
+                    alarmVoiceChunkDao.deleteChunksForAlarm(alarmId)
+                    return@withContext emptyList()
+                }
                 alarmVoiceChunkDao.getChunksForAlarm(alarmId).map {
                     AlarmVoiceChunk(
                         alarmId = it.alarmId,

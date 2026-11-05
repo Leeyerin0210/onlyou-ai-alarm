@@ -3,6 +3,7 @@ package com.onlyou.com
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -149,6 +150,18 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+                // 시스템 뒤로가기: 드로어가 열려 있으면 닫고, 아니면 상단 뒤로 버튼과 같은 화면으로.
+                // 갈 곳이 없으면(채팅 탭·온보딩·로그인) 가로채지 않아 시스템이 앱을 닫는다.
+                // 화면 안쪽에서 BackHandler를 따로 두면 그쪽이 먼저 받는다.
+                val backTarget = com.onlyou.com.util.backDestination(currentScreen)
+                BackHandler(enabled = drawerState.isOpen || backTarget != null) {
+                    if (drawerState.isOpen) {
+                        scope.launch { drawerState.close() }
+                    } else if (backTarget != null) {
+                        currentScreen = backTarget
+                    }
+                }
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -447,6 +460,13 @@ class MainActivity : ComponentActivity() {
                                                         currentScreen = if (onboardingDone) "chat" else "onboarding"
                                                     }
                                                 },
+                                            )
+                                        }
+
+                                        screenState in com.onlyou.com.util.COMING_SOON_SCREENS -> {
+                                            com.onlyou.com.ui.components.ComingSoonScreen(
+                                                title = com.onlyou.com.util.COMING_SOON_SCREENS.getValue(screenState),
+                                                onBack = { currentScreen = "chat" },
                                             )
                                         }
 

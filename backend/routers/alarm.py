@@ -1,6 +1,8 @@
 import asyncio
 import os
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from core.ai import client, model_id
@@ -70,7 +72,17 @@ async def assemble_mem_str(uid: str, request: AlarmScriptRequest) -> str:
     return "\n".join(p for p in (memory_str, context_str) if p)
 
 
-def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: str) -> str:
+_WEEKDAYS_KO = "월화수목금토일"
+
+
+def today_kst_label(now: datetime | None = None) -> str:
+    """브리핑 기준 날짜. 서버가 UTC여도 사용자 기준(KST) 아침의 날짜여야 한다."""
+    now = (now or datetime.now(ZoneInfo("Asia/Seoul"))).astimezone(ZoneInfo("Asia/Seoul"))
+    return f"{now:%Y-%m-%d} ({_WEEKDAYS_KO[now.weekday()]})"
+
+
+def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: str, today: str | None = None) -> str:
+    today = today or today_kst_label()
     return f"""
     당신은 AI 비서 페르소나 '{persona.name}'입니다.
     다음 지침을 엄격히 따라 아침 기상 알람 스크립트를 작성하세요.
@@ -80,6 +92,11 @@ def build_prompt(persona: ActivePersona, request: AlarmScriptRequest, mem_str: s
 
     [사용자 호칭]
     {persona.user_call_sign}
+
+    [오늘 날짜: {today}]
+    기억에 적힌 날짜를 반드시 오늘 날짜와 비교하세요. 오늘이 아닌 날짜의 일은 '오늘'이라고 말하지 마세요.
+    내일 일이면 '내일', 이미 지난 일이면 지난 일로 말하고, 지난 마감·지난 일정은 오늘 할 일처럼 꺼내지 마세요.
+    날짜는 비교용입니다. 오늘 날짜(연·월·일·요일)를 브리핑에서 소리 내어 읽지 마세요.
 
     [작성 규칙]
     아래 규칙은 내용에 대한 제약일 뿐이며, 감정 톤과 말투(따뜻함, 무뚝뚝함, 존댓말/반말 등)는 전적으로 페르소나 성격을 따르세요.

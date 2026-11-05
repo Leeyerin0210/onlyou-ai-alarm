@@ -485,34 +485,74 @@ private fun formatKoreanTime(hour: Int, minute: Int): String {
     return String.format(java.util.Locale.US, "%s %d:%02d", ampm, h12, minute)
 }
 
-// 7. 브리핑 미리 듣기
+// 7. 브리핑 미리 듣기 — 지금 비서를 만들 때 만든 예제 음성을 그대로 들려준다.
+// 알람 브리핑은 이 목소리를 복제해 읽으므로 아침에 듣게 될 목소리와 같다.
 @Composable
-fun BriefingPreviewScreen(onBack: () -> Unit) {
+fun BriefingPreviewScreen(
+    onBack: () -> Unit,
+    viewModel: BriefingPreviewViewModel = hiltViewModel(),
+) {
     val colors = MiyaTheme.colors
+    val persona by viewModel.persona.collectAsState()
+    val playback by viewModel.playback.collectAsState()
+    val current = persona
+    val active = current != null && playback.personaId == current.id
+    val isBusy = active && (playback.isPlaying || playback.isBuffering)
+    val unavailable = current != null && playback.unavailablePersonaId == current.id
+
     MiyaSubScreen("브리핑 미리 듣기", onBack) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text("AI가 이렇게 브리핑해요.", color = colors.onSurfaceA, fontSize = 14.sp)
+            Text(
+                if (current != null) "${current.name}의 목소리로 아침 브리핑을 읽어줘요." else "선택한 비서가 없어요.",
+                color = colors.onSurfaceA,
+                fontSize = 14.sp,
+            )
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.primary).padding(20.dp)) {
-                Column {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("내일 오전 10시\n마케팅 회의가 있어요.\n자료도 꼭 챙겨가세요!", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, lineHeight = 24.sp)
-                        Icon(Icons.Default.Close, null, tint = Color.White.copy(0.7f))
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.PlayCircle, null, tint = Color.White, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.width(16.dp))
-                        // Mock waveform
-                        Row(Modifier.weight(1f).height(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            (1..20).forEach { 
-                                val h = (4..24).random().dp
-                                Box(Modifier.width(3.dp).height(h).clip(RoundedCornerShape(50)).background(Color.White.copy(0.8f)))
+            if (current != null) {
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.primary)
+                        .clickable { viewModel.toggle() }.padding(20.dp),
+                ) {
+                    Column {
+                        Text(
+                            current.voiceSampleText?.takeIf { it.isNotBlank() } ?: "${current.name}의 예제 음성",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 24.sp,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (active && playback.isBuffering) {
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+                            } else {
+                                Icon(
+                                    if (isBusy) Icons.Default.StopCircle else Icons.Default.PlayCircle,
+                                    contentDescription = if (isBusy) "정지" else "재생",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(36.dp),
+                                )
                             }
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                when {
+                                    active && playback.isBuffering -> "불러오는 중..."
+                                    isBusy -> "재생 중"
+                                    else -> "들어보기"
+                                },
+                                color = Color.White,
+                                fontSize = 14.sp,
+                            )
                         }
-                        Spacer(Modifier.width(16.dp))
-                        Text("00:08", color = Color.White, fontSize = 12.sp)
                     }
+                }
+                if (unavailable) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "이 비서는 아직 목소리가 없어요. 알람은 기본 음성으로 읽어줘요.",
+                        color = colors.neutral,
+                        fontSize = 13.sp,
+                    )
                 }
             }
         }

@@ -191,3 +191,20 @@ def test_build_prompt_reemphasis_covers_persona_definition():
     out = build_prompt(persona, AlarmScriptRequest(), "")
     tail = out.split("[보안 지시사항 재강조]")[1]
     assert "<persona_definition>" in tail
+
+
+def test_build_prompt_states_today_so_other_dates_are_not_called_today():
+    """기억에 '11월 6일 치과'가 있어도 오늘(11월 5일)과 구분하도록 날짜를 박는다."""
+    persona = ActivePersona(fields=legacy_fields(None), name="아라", user_call_sign="예린아")
+    out = build_prompt(persona, AlarmScriptRequest(), "[기억] 유저는 2026년 11월 6일 치과 예약", today="2026-11-05 (목)")
+    assert "오늘 날짜: 2026-11-05 (목)" in out
+    assert "오늘이 아닌 날짜" in out
+
+
+def test_today_kst_label_uses_korean_weekday():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from routers.alarm import today_kst_label
+    assert today_kst_label(datetime(2026, 11, 5, 7, 0, tzinfo=ZoneInfo("Asia/Seoul"))) == "2026-11-05 (목)"
+    # UTC 22시는 KST로 다음 날 아침이다
+    assert today_kst_label(datetime(2026, 11, 4, 22, 0, tzinfo=ZoneInfo("UTC"))) == "2026-11-05 (목)"
