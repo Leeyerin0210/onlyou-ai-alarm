@@ -221,6 +221,23 @@ def init_schema():
 REMOVED_PERSONA_IDS = ["miya_default", "luna_cool"]
 
 
+def migrate_legacy_official_creator():
+    """서버 기동 시 호출. 옛 공식 계정 uid 소유 비서를 지금 공식 계정으로 옮긴다(멱등).
+
+    공식 여부·신고 제외·기동 정리 제외가 전부 creator_id == SYSTEM_CREATOR로 판단되므로,
+    옛 uid로 남은 공식 비서는 운영자가 수정할 수 없고 정리 대상으로 잘못 잡힌다.
+    """
+    if not settings.DATABASE_URL:
+        return
+    from core.persona_fields import LEGACY_SYSTEM_CREATORS, SYSTEM_CREATOR
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE personas SET creator_id = %s WHERE creator_id = ANY(%s)",
+            (SYSTEM_CREATOR, list(LEGACY_SYSTEM_CREATORS)),
+        )
+        conn.commit()
+
+
 def cleanup_removed_personas():
     """서버 기동 시 호출. 제거 대상 페르소나를 삭제한다(멱등)."""
     if not settings.DATABASE_URL:

@@ -250,7 +250,11 @@ def seed_db():
                 "creator_id, preset_key, is_private, tags, usage_count, image_url, "
                 "speech_style, personality, role, voice_description, voice_sample_text) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, FALSE, %s, %s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description, "
+                # 작성자·공개 여부도 시드 값으로 되돌린다 — 작성자가 공식 계정과 다르게 남아 있으면
+                # 기동 정리(cleanup_voiceless_user_personas)가 '목소리 없는 유저 비서'로 보고 비공개로 돌려
+                # 상점 테마·인기 순위가 비어 버린다.
+                "ON CONFLICT (id) DO UPDATE SET creator_id=EXCLUDED.creator_id, is_private=FALSE, "
+                "name=EXCLUDED.name, description=EXCLUDED.description, "
                 "prompt=EXCLUDED.prompt, "
                 "user_call_sign=EXCLUDED.user_call_sign, primary_hex=EXCLUDED.primary_hex, "
                 "secondary_hex=EXCLUDED.secondary_hex, preset_key=EXCLUDED.preset_key, "

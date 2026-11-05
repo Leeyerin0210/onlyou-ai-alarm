@@ -10,9 +10,11 @@ from dataclasses import dataclass
 MAX_FIELD_LEN = 300
 DEFAULT_ROLE = "유저의 하루를 챙기는 비서"
 
-# 공식 비서의 creator_id. 공식 비서는 코드(seed_personas.py)로 관리되어
-# 자동 심사·신고 대상이 아니다.
-SYSTEM_CREATOR = "QK876dED1mZPwXqApiePEchoObv2"
+# 공식 비서의 creator_id = 운영자 계정. 공식 비서는 코드(seed_personas.py)로 관리되고
+# 신고·기동 정리 대상이 아니다. 운영자가 앱에서 직접 고칠 수 있다(저장할 때 심사는 받는다).
+SYSTEM_CREATOR = "D5Dno2ABGxUNyKqdZO7jHydkLxy2"
+# 예전에 공식 비서 작성자로 쓰던 uid. 서버 기동 때 이 uid 소유 비서를 SYSTEM_CREATOR로 옮긴다.
+LEGACY_SYSTEM_CREATORS = ("QK876dED1mZPwXqApiePEchoObv2",)
 
 
 @dataclass(frozen=True)

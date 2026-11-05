@@ -13,7 +13,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization, presets
-from core.rdb import init_schema, cleanup_removed_personas
+from core.rdb import init_schema, cleanup_removed_personas, migrate_legacy_official_creator
 from services.voice_service import cleanup_voiceless_user_personas
 from core.database import collection
 from core.config import settings
@@ -61,6 +61,8 @@ async def startup():
     init_schema()
     collection.ensure_schema()
     cleanup_removed_personas()
+    # 공식 비서 소유권 이전은 기동 정리보다 먼저 — 옛 uid 소유 비서가 유저 비서로 잡혀 비공개되지 않게
+    migrate_legacy_official_creator()
     cleanup_voiceless_user_personas()
     _register_reflection_job(scheduler)
     scheduler.start()
