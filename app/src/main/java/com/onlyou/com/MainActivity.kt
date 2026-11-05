@@ -154,7 +154,15 @@ class MainActivity : ComponentActivity() {
                 // 시스템 뒤로가기: 드로어가 열려 있으면 닫고, 아니면 상단 뒤로 버튼과 같은 화면으로.
                 // 갈 곳이 없으면(채팅 탭·온보딩·로그인) 가로채지 않아 시스템이 앱을 닫는다.
                 // 화면 안쪽에서 BackHandler를 따로 두면 그쪽이 먼저 받는다.
-                val backTarget = com.onlyou.com.util.backDestination(currentScreen)
+                // 드로어로 연 화면은 드로어를 연 화면으로 돌아간다. 메인 탭으로 돌아오면 잊는다.
+                var drawerReturn by remember { mutableStateOf<com.onlyou.com.util.DrawerReturn?>(null) }
+                LaunchedEffect(currentScreen) {
+                    if (currentScreen in listOf("chat", "schedule", "shop", "alarm")) drawerReturn = null
+                }
+                val goBack: () -> Unit = {
+                    currentScreen = com.onlyou.com.util.backDestination(currentScreen, drawerReturn) ?: "chat"
+                }
+                val backTarget = com.onlyou.com.util.backDestination(currentScreen, drawerReturn)
                 BackHandler(enabled = drawerState.isOpen || backTarget != null) {
                     if (drawerState.isOpen) {
                         scope.launch { drawerState.close() }
@@ -171,6 +179,9 @@ class MainActivity : ComponentActivity() {
                             selectedPersona = selectedPersona,
                             currentRoute = currentScreen,
                             onNavigate = { route ->
+                                if (route !in listOf("chat", "schedule", "shop", "alarm") && route != currentScreen) {
+                                    drawerReturn = com.onlyou.com.util.DrawerReturn(target = route, origin = currentScreen)
+                                }
                                 currentScreen = route
                                 scope.launch { drawerState.close() }
                             },
@@ -368,7 +379,7 @@ class MainActivity : ComponentActivity() {
 
                                         screenState == "settings" -> {
                                             SettingsScreen(
-                                                onBack = { currentScreen = "chat" },
+                                                onBack = goBack,
                                                 onNavigateTo = { route -> currentScreen = route },
                                                 onAccountDeleted = {
                                                     // 다음 사용자를 위해 온보딩/동의 상태 초기화
@@ -397,9 +408,7 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         screenState == "drawer_premium" -> {
-                                            PremiumPlanScreen(onBack = {
-                                                currentScreen = "settings"
-                                            })
+                                            PremiumPlanScreen(onBack = goBack)
                                         }
 
                                         screenState == "settings_backup" -> {
@@ -466,7 +475,7 @@ class MainActivity : ComponentActivity() {
                                         screenState in com.onlyou.com.util.COMING_SOON_SCREENS -> {
                                             com.onlyou.com.ui.components.ComingSoonScreen(
                                                 title = com.onlyou.com.util.COMING_SOON_SCREENS.getValue(screenState),
-                                                onBack = { currentScreen = "chat" },
+                                                onBack = goBack,
                                             )
                                         }
 

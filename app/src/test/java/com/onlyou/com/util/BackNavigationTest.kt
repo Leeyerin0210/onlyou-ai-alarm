@@ -20,7 +20,7 @@ class BackNavigationTest {
     @Test
     fun settingsSubScreensReturnToSettings() {
         listOf(
-            "drawer_profile", "settings_tone", "settings_ai_memory", "drawer_premium",
+            "drawer_profile", "settings_tone", "settings_ai_memory",
             "settings_backup", "settings_dnd", "settings_briefing", "settings_app_info",
         ).forEach { assertEquals(it, "settings", backDestination(it)) }
         assertEquals("chat", backDestination("settings"))
@@ -49,5 +49,24 @@ class BackNavigationTest {
         listOf("splash_check", "onboarding_intro", "onboarding", "login").forEach {
             assertNull(it, backDestination(it))
         }
+    }
+
+    @Test
+    fun premiumPlanOpenedOnlyFromDrawerDefaultsToChat() {
+        assertEquals("chat", backDestination("drawer_premium"))
+    }
+
+    @Test
+    fun drawerOpenedScreenReturnsWhereDrawerWasOpened() {
+        val fromSchedule = DrawerReturn(target = "drawer_premium", origin = "schedule")
+        assertEquals("schedule", backDestination("drawer_premium", fromSchedule))
+        assertEquals("alarm", backDestination("settings", DrawerReturn("settings", "alarm")))
+    }
+
+    @Test
+    fun drawerReturnOnlyAppliesToItsOwnScreen() {
+        val fromSchedule = DrawerReturn(target = "settings", origin = "schedule")
+        // 설정에서 들어간 하위 화면은 여전히 설정으로
+        assertEquals("settings", backDestination("settings_dnd", fromSchedule))
     }
 }
