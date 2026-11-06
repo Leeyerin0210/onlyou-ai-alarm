@@ -245,8 +245,9 @@ fun BatteryOptimizationRow() {
             Text("배터리 최적화", fontSize = 16.sp, color = colors.onSurfaceA)
             Text(
                 // 안드로이드 기본값이 '최적화'라 대부분 꺼야 하는 상태다 — 끄도록 유도하는 문구를 쓴다
-                text = if (isIgnoring) "알람이 안정적으로 울려요" else "아침 브리핑이 늦거나 빠질 수 있어요. 눌러서 꺼 주세요",
+                text = if (isIgnoring) "알람이 안정적으로 울려요" else "아침 브리핑이 늦거나 빠질 수 있어요.\n눌러서 꺼 주세요",
                 fontSize = 12.sp,
+                lineHeight = 17.sp,
                 color = colors.neutral,
             )
         }
