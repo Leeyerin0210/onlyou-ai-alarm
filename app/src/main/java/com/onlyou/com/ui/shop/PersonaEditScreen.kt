@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
@@ -183,7 +182,8 @@ fun PersonaEditContent(
                                     .background(Color(0xFFEFE8FF)),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = brandPurple)
+                                // 사진은 서버가 정한다(앱에서 올리기 없음) — 없으면 사람 아이콘
+                                PersonaImage(persona.imageUrl, iconSize = 36.dp, iconTint = brandPurple)
                             }
 
                             Spacer(Modifier.width(16.dp))
