@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,8 +50,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -512,47 +512,55 @@ fun ChatInputSection(
         color = colors.surfaceA,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
             // 키보드 높이는 MainActivity가 화면 전체에 한 번만 반영한다 — 여기서 또 더하면 두 배로 뜬다
             .navigationBarsPadding(),
-        shape = RoundedCornerShape(28.dp),
-        tonalElevation = 4.dp,
-        shadowElevation = 1.dp,
+        shape = RoundedCornerShape(24.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(start = 20.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextField(
+            // TextField는 최소 높이 56dp가 강제돼서, 얇은 입력칸을 위해 BasicTextField를 쓴다
+            BasicTextField(
                 value = text,
                 onValueChange = onTextChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("메시지를 입력하세요...") },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = colors.onSurfaceA,
-                    unfocusedTextColor = colors.onSurfaceA,
-                ),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurfaceA),
+                cursorBrush = SolidColor(colors.primary),
                 // 입력창 높이는 한 줄로 고정 — 줄바꿈하면 윗줄이 위로 밀려 안에서 스크롤된다
                 singleLine = false,
                 maxLines = 1,
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (text.isEmpty()) {
+                            Text(
+                                "메시지를 입력하세요...",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = colors.onSurfaceA.copy(alpha = 0.45f),
+                            )
+                        }
+                        inner()
+                    }
+                },
             )
 
-            IconButton(
-                onClick = onSend,
-                enabled = text.isNotBlank(),
+            Spacer(Modifier.width(8.dp))
+
+            // IconButton은 최소 터치 영역 48dp로 커져 입력칸 밖으로 삐져나와서 Box로 직접 만든다
+            Box(
                 modifier = Modifier
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(if (text.isNotBlank()) colors.primary else colors.neutral),
+                    .background(if (text.isNotBlank()) colors.primary else colors.neutral.copy(alpha = 0.5f))
+                    .clickable(enabled = text.isNotBlank(), onClick = onSend),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
+                    contentDescription = "보내기",
                     tint = colors.background,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
