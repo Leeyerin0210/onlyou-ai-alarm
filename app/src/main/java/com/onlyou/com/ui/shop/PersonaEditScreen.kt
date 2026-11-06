@@ -283,11 +283,17 @@ fun PersonaEditContent(
                             Text("저장하면 이 목소리로 바뀌어요. 다시 만들면 이 목소리는 사라져요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
                         }
                         if (persona.hasVoice) {
+                            val saved = savedVoiceButton(voicePlayback, persona.id)
                             Spacer(Modifier.height(8.dp))
                             MiyaSecondaryButton(
-                                text = if (voicePlayback.personaId == persona.id && (voicePlayback.isPlaying || voicePlayback.isBuffering)) "정지" else "저장된 목소리 듣기",
+                                text = saved.text,
                                 onClick = onPlayCurrentVoice,
+                                enabled = saved.enabled,
                             )
+                            if (!saved.enabled) {
+                                Spacer(Modifier.height(6.dp))
+                                Text("목소리를 새로 만들어 저장하면 다시 들을 수 있어요.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+                            }
                         }
                     }
 

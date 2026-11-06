@@ -103,3 +103,15 @@ fun afterFailedSave(state: PersonaEditUiState.Success, result: PersonaSaveResult
     } else {
         state.copy(isSaving = false)
     }
+
+data class SavedVoiceButton(val text: String, val enabled: Boolean)
+
+/**
+ * 편집 화면 "저장된 목소리 듣기" 버튼. 샘플 문장은 있어도 서버에 기준 음성이 없을 수 있어(404),
+ * 그때는 눌러도 깜빡이기만 하지 않도록 안내 문구로 바꾸고 끈다.
+ */
+fun savedVoiceButton(playback: VoicePreviewState, personaId: String): SavedVoiceButton = when {
+    playback.unavailablePersonaId == personaId -> SavedVoiceButton("저장된 목소리를 찾지 못했어요", enabled = false)
+    playback.personaId == personaId && (playback.isPlaying || playback.isBuffering) -> SavedVoiceButton("정지", enabled = true)
+    else -> SavedVoiceButton("저장된 목소리 듣기", enabled = true)
+}
