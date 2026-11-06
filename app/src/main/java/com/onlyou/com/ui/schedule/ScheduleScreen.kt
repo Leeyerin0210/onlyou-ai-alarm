@@ -40,6 +40,7 @@ import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.components.MiyaSecondaryButton
 import com.onlyou.com.ui.components.MiyaSwitch
 import com.onlyou.com.ui.components.MiyaTimePickerDialog
+import com.onlyou.com.ui.components.MiyaInfoBanner
 import com.onlyou.com.ui.theme.MiyaTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -679,60 +680,15 @@ private fun AiBriefingCard(
     weekCount: Int,
     todayCount: Int,
 ) {
-    val colors = MiyaTheme.colors
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        colors.primary.copy(alpha = 0.9f),
-                        colors.secondary.copy(alpha = 0.65f),
-                    ),
-                ),
-            ).padding(16.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.SmartToy,
-                    null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Column {
-                Text(
-                    "이번 주 일정 브리핑",
-                    fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    if (todayCount > 0) {
-                        "이번 주 ${weekCount}개의 일정,\n오늘 ${todayCount}개 일정이 있어요."
-                    } else {
-                        "이번 주 ${weekCount}개의 일정이 있고,\n오늘은 일정이 없어요."
-                    },
-                    fontSize = 13.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 19.sp,
-                )
-            }
-        }
-    }
+    MiyaInfoBanner(
+        label = "이번 주 일정 브리핑",
+        message = if (todayCount > 0) {
+            "이번 주 ${weekCount}개 일정, 오늘은 ${todayCount}개 있어요."
+        } else {
+            "이번 주 ${weekCount}개 일정, 오늘은 일정이 없어요."
+        },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
 }
 
 @Composable

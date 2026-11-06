@@ -56,6 +56,7 @@ import com.onlyou.com.domain.model.MiyaAlarm
 import com.onlyou.com.ui.components.MiyaAlertDialog
 import com.onlyou.com.ui.components.MiyaPrimaryButton
 import com.onlyou.com.ui.components.MiyaSwitch
+import com.onlyou.com.ui.components.MiyaInfoBanner
 import com.onlyou.com.ui.theme.MiyaTheme
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -328,48 +329,11 @@ fun AlarmScreenContent(
 
 @Composable
 private fun AiBriefingHeroCard() {
-    val colors = MiyaTheme.colors
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        colors.primary.copy(alpha = 0.9f),
-                        colors.secondary.copy(alpha = 0.65f),
-                    ),
-                ),
-            ),
-    ) {
-        Row(
-            Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(0.2f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.SmartToy, null, tint = Color.White, modifier = Modifier.size(36.dp))
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("오늘 중요한 일정", fontSize = 13.sp, color = Color.White.copy(0.85f))
-                Text("놓치지 않게 알려드릴게요!", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "AI가 당신의 일정을 분석해\n꼭 필요한 알림을 브리핑해드려요.",
-                    fontSize = 11.sp,
-                    color = Color.White.copy(0.7f),
-                    lineHeight = 16.sp,
-                )
-            }
-        }
-    }
+    MiyaInfoBanner(
+        label = "아침 브리핑",
+        message = "알람이 울리면 비서가 오늘 일정을 읽어줘요.",
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
 }
 
 @Composable
