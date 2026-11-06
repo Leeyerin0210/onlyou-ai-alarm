@@ -92,6 +92,18 @@ def test_verbalize_triple_produces_natural_sentence():
     assert verbalize_triple("유저", "좋아함", "민초") == "유저는 민초를 좋아함"
 
 
+def test_verbalize_triple_picks_particles_by_final_consonant():
+    # 받침 있는 말엔 은/을 — 예전엔 '유저는 운동를', '동생는'처럼 깨졌다
+    assert verbalize_triple("동생", "시작함", "운동") == "동생은 운동을 시작함"
+    assert verbalize_triple("유저", "준비함", "시험") == "유저는 시험을 준비함"
+    assert verbalize_triple("유저", "마심", "커피") == "유저는 커피를 마심"
+
+
+def test_verbalize_triple_handles_digits_and_latin():
+    assert verbalize_triple("유저", "탐", "버스 3") == "유저는 버스 3을 탐"
+    assert verbalize_triple("유저", "씀", "iPhone") == "유저는 iPhone를 씀"
+
+
 def _fake_gemini(text):
     async def generate_content(**kwargs):
         return types.SimpleNamespace(text=text)

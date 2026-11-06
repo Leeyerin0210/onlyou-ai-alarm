@@ -87,11 +87,64 @@ def parse_memory_extract(raw_text: str) -> tuple[str | None, list[dict], int]:
     return fact, triples, importance
 
 
+# 숫자로 끝나는 말의 받침 유무 (영: 영, 일: 일, 이: 이 ...) — 0·1·3·6·7·8은 받침 있음
+_DIGIT_HAS_FINAL = {"0": True, "1": True, "2": False, "3": True, "4": False,
+                    "5": False, "6": True, "7": True, "8": True, "9": False}
+
+
+def _has_final_consonant(word: str) -> bool:
+    """마지막 글자에 받침이 있는가. 한글·숫자가 아니면(영어 등) 받침 없음으로 본다."""
+    word = word.rstrip(" )]\"'")
+    if not word:
+        return False
+    last = word[-1]
+    if "가" <= last <= "힣":
+        return (ord(last) - ord("가")) % 28 != 0
+    return _DIGIT_HAS_FINAL.get(last, False)
+
+
+def josa(word: str, with_final: str, without_final: str) -> str:
+    """받침에 맞는 조사를 붙인다. josa('민초', '을', '를') → '민초를'."""
+    return word + (with_final if _has_final_consonant(word) else without_final)
+
+
 def verbalize_triple(subject: str, predicate: str, obj: str) -> str:
-    """트리플을 벡터 검색·표시용 자연어 문장으로 변환."""
-    return f"{subject}는 {obj}를 {predicate}"
+    """트리플을 벡터 검색·표시용 자연어 문장으로 변환. 조사는 받침에 맞춘다 ('운동을', '민초를')."""
+    return f"{josa(subject, '은', '는')} {josa(obj, '을', '를')} {predicate}"
 
 
+
+
+def repair_triple_documents() -> int:
+    """서버 기동 시 호출. 예전 verbalize_triple이 만든 '헬스장를'·'수진를' 같은 문장을
+    저장된 subject/predicate/object로 다시 만들어 고친다(멱등). 바뀐 행 수를 돌려준다.
+
+    임베딩은 다시 만들지 않는다 — 조사 한 글자 차이라 검색 거리에 의미 있는 영향이 없고,
+    재임베딩은 행마다 Gemini 호출 비용이 든다.
+    """
+    from contextlib import closing
+    from core.config import settings
+    from core.rdb import get_conn
+
+    if not settings.DATABASE_URL:
+        return 0
+    with closing(get_conn()) as conn, conn.cursor() as cur:
+        cur.execute("SELECT to_regclass('user_memories')")
+        if cur.fetchone()[0] is None:
+            return 0
+        cur.execute(
+            "SELECT id, document, subject, predicate, object FROM user_memories "
+            "WHERE type = 'triple' AND subject IS NOT NULL AND predicate IS NOT NULL AND object IS NOT NULL"
+        )
+        fixes = [
+            (fixed, row_id)
+            for row_id, doc, subj, pred, obj in cur.fetchall()
+            if (fixed := verbalize_triple(subj, pred, obj)) != doc
+        ]
+        if fixes:
+            cur.executemany("UPDATE user_memories SET document = %s WHERE id = %s", fixes)
+        conn.commit()
+    return len(fixes)
 
 
 async def process_and_save_memory(uid: str, message: str, current_date: str, timestamp: str):

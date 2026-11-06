@@ -15,6 +15,7 @@ if current_dir not in sys.path:
 from routers import auth, chat, voice, memory, alarm, personas, users, schedules, backups, monetization, presets
 from core.rdb import init_schema, cleanup_removed_personas, migrate_legacy_official_creator
 from services.voice_service import cleanup_voiceless_user_personas
+from services.memory_service import repair_triple_documents
 from core.database import collection
 from core.config import settings
 from services.reflection_service import run_nightly_reflection
@@ -64,6 +65,7 @@ async def startup():
     # 공식 비서 소유권 이전은 기동 정리보다 먼저 — 옛 uid 소유 비서가 유저 비서로 잡혀 비공개되지 않게
     migrate_legacy_official_creator()
     cleanup_voiceless_user_personas()
+    repair_triple_documents()
     _register_reflection_job(scheduler)
     scheduler.start()
 
