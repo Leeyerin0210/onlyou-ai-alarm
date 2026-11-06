@@ -64,8 +64,8 @@ fun MiyaBottomNavigationBar(
 
     Surface(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        tonalElevation = 8.dp,
-        shadowElevation = 16.dp,
+        tonalElevation = 0.dp,
+        shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth(),
         color = colors.surfaceA.copy(alpha = 0.97f),
     ) {

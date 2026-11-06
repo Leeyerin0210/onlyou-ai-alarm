@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -71,94 +70,88 @@ fun MiyaTimePicker(
     val minuteItems = (0..59).map { it.toString().padStart(2, '0') }
 
     AlarmEditSectionCard(modifier = modifier) {
-        Text(
-            text = "브리핑 시간",
-            fontWeight = FontWeight.Bold,
-            color = colors.primary,
-        )
+        AlarmSectionTitle("브리핑 시간")
 
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+                .height(WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_COUNT),
+            contentAlignment = Alignment.Center,
         ) {
-            // 오전/오후
-            CustomWheelPicker(
-                items = amPmItems,
-                initialIndex = if (isPm) 1 else 0,
-                onItemSelected = { idx ->
-                    val newHour = if (idx == 1) { // 오후
-                        if (displayHour == 12) 12 else displayHour + 12
-                    } else { // 오전
-                        if (displayHour == 12) 0 else displayHour
-                    }
-                    onTimeChange(LocalTime.of(newHour, time.minute))
-                },
-                modifier = Modifier.weight(1.2f),
+            // 선택 줄 하이라이트 — 오전/시/분을 한 띠로 묶는다
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(WHEEL_ITEM_HEIGHT)
+                    .background(color = colors.background, shape = RoundedCornerShape(12.dp)),
             )
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 오전/오후
+                CustomWheelPicker(
+                    items = amPmItems,
+                    initialIndex = if (isPm) 1 else 0,
+                    onItemSelected = { idx ->
+                        val newHour = if (idx == 1) { // 오후
+                            if (displayHour == 12) 12 else displayHour + 12
+                        } else { // 오전
+                            if (displayHour == 12) 0 else displayHour
+                        }
+                        onTimeChange(LocalTime.of(newHour, time.minute))
+                    },
+                    modifier = Modifier.weight(1.2f),
+                )
 
-            Text(
-                ":",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.onSurfaceA,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
+                Spacer(Modifier.width(8.dp))
 
-            // 시
-            CustomWheelPicker(
-                items = hourItems,
-                initialIndex = displayHour - 1,
-                onItemSelected = { idx ->
-                    val selectedHour = idx + 1 // 1..12
-                    val newHour = if (isPm) {
-                        if (selectedHour == 12) 12 else selectedHour + 12
-                    } else {
-                        if (selectedHour == 12) 0 else selectedHour
-                    }
-                    onTimeChange(LocalTime.of(newHour, time.minute))
-                },
-                modifier = Modifier.weight(1f),
-            )
+                // 시
+                CustomWheelPicker(
+                    items = hourItems,
+                    initialIndex = displayHour - 1,
+                    onItemSelected = { idx ->
+                        val selectedHour = idx + 1 // 1..12
+                        val newHour = if (isPm) {
+                            if (selectedHour == 12) 12 else selectedHour + 12
+                        } else {
+                            if (selectedHour == 12) 0 else selectedHour
+                        }
+                        onTimeChange(LocalTime.of(newHour, time.minute))
+                    },
+                    modifier = Modifier.weight(1f),
+                )
 
-            Text(
-                ":",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.onSurfaceA,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
+                Text(
+                    ":",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurfaceA.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
 
-            // 분
-            CustomWheelPicker(
-                items = minuteItems,
-                initialIndex = time.minute,
-                onItemSelected = { idx ->
-                    onTimeChange(LocalTime.of(time.hour, idx))
-                },
-                modifier = Modifier.weight(1f),
-            )
+                // 분
+                CustomWheelPicker(
+                    items = minuteItems,
+                    initialIndex = time.minute,
+                    onItemSelected = { idx ->
+                        onTimeChange(LocalTime.of(time.hour, idx))
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
         }
-
-        // 현재 선택 시간 표시
-        val amPmLabel = if (time.hour < 12) "오전" else "오후"
-        val h = if (displayHour < 10) "0$displayHour" else "$displayHour"
-        val m = if (time.minute < 10) "0${time.minute}" else "${time.minute}"
-        Text(
-            text = "$amPmLabel $h:$m",
-            fontSize = 14.sp,
-            color = colors.primary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
 // ─────────────────────────────────────────────
 // 휠 피커 (스냅 스크롤)
 // ─────────────────────────────────────────────
+
+private val WHEEL_ITEM_HEIGHT = 44.dp
+private const val WHEEL_VISIBLE_COUNT = 3
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -169,8 +162,8 @@ fun CustomWheelPicker(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiyaTheme.colors
-    val itemHeightDp = 44.dp
-    val visibleCount = 3
+    val itemHeightDp = WHEEL_ITEM_HEIGHT
+    val visibleCount = WHEEL_VISIBLE_COUNT
 
     // 초기 인덱스 보정: 0번 아이템이 중앙에 오려면 스크롤 0이 되어야 함 (contentPadding이 1아이템 높이이므로)
     val listState = rememberLazyListState(
@@ -219,17 +212,6 @@ fun CustomWheelPicker(
             .height(itemHeightDp * visibleCount),
         contentAlignment = Alignment.Center,
     ) {
-        // 선택된 아이템 하이라이트 배경
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(itemHeightDp)
-                .background(
-                    color = colors.primary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp),
-                ),
-        )
-
         LazyColumn(
             state = listState,
             flingBehavior = snapBehavior,
@@ -279,7 +261,7 @@ fun AlarmScheduleSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = "반복 요일 설정", fontWeight = FontWeight.Bold, color = colors.primary)
+            AlarmSectionTitle("반복 요일")
         }
 
         // 요일 반복 칩
@@ -344,13 +326,22 @@ fun AlarmEditSectionCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 4.dp, shape = RoundedCornerShape(20.dp))
             .background(color = colors.surfaceA, shape = RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         content()
     }
+}
+
+@Composable
+fun AlarmSectionTitle(text: String) {
+    Text(
+        text = text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MiyaTheme.colors.onSurfaceA,
+    )
 }
 
 @Composable
@@ -363,13 +354,18 @@ private fun RepeatDayChip(
     Box(
         modifier = Modifier
             .size(40.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(CircleShape)
             .background(
-                color = if (selected) colors.primary else colors.neutral.copy(0.2f),
+                color = if (selected) colors.primary else colors.background,
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, color = if (selected) colors.background else colors.onSurfaceA)
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Color.White else colors.onSurfaceA,
+        )
     }
 }
