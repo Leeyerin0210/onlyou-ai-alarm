@@ -37,6 +37,7 @@ class VoiceRepositoryImpl
         private val alarmVoiceChunkDao: AlarmVoiceChunkDao,
         private val weatherRepository: WeatherRepository,
         private val userProfileRepository: com.onlyou.com.domain.repository.UserProfileRepository,
+        private val alarmRepository: com.onlyou.com.domain.repository.AlarmRepository,
     ) : VoiceRepository {
         override suspend fun synthesizeVoiceCloned(
             text: String,
@@ -241,36 +242,25 @@ class VoiceRepositoryImpl
             }
 
         /**
-         * 브리핑에 실을 기기 전용 컨텍스트(오늘 일정 + 그 장소의 날씨).
+         * 브리핑에 실을 기기 전용 컨텍스트(오늘·내일·다가오는 일정 + 일정 장소의 날씨).
          *
          * 기억은 보내지 않는다 — 서버가 pgvector에서 직접 조립한다
          * (스펙: docs/superpowers/specs/2026-09-28-memory-ownership-consolidation-design.md).
          */
         private suspend fun buildContextItems(): List<ContextItemDto> {
             val today = LocalDate.now()
-            val todaySchedules = scheduleRepository
-                .getAllSchedules()
-                .first()
-                // date == today로 거르면 반복 일정(헬스장 등)이 절대 안 잡힌다 —
-                // 저녁 선톡과 같은 판정(occursOn)을 쓴다.
-                .filter { occursOn(it, today) }
-                .sortedBy { it.startTime }
+            // 반복 일정은 date == today로 거르면 안 잡힌다 — occursOn으로 판정한다
+            val schedules = scheduleRepository.getAllSchedules().first()
 
-            val items = mutableListOf<ContextItemDto>()
-            val uniqueLocations = mutableSetOf<String>()
-
-            todaySchedules.forEach { s ->
-                val timeStr = s.startTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "시간 미정"
-                items.add(
-                    ContextItemDto(
-                        type = "SCHEDULE",
-                        content = "[오늘 일정] $timeStr - ${s.title}" +
-                            (if (s.location != null) " (장소: ${s.location})" else ""),
-                    ),
-                )
-                if (!s.location.isNullOrBlank()) {
-                    uniqueLocations.add(s.location)
-                }
+            val items = com.onlyou.com.util.briefingScheduleLines(schedules, today)
+                .map { ContextItemDto(type = "SCHEDULE", content = it) }
+                .toMutableList()
+            // 알람 화면의 '오늘의 날씨' 스위치를 따른다 (알람은 하나뿐)
+            val weatherEnabled = alarmRepository.getAllAlarms().first().firstOrNull()?.isWeatherEnabled ?: false
+            val uniqueLocations = if (weatherEnabled) {
+                com.onlyou.com.util.briefingWeatherPlaces(schedules, today)
+            } else {
+                emptyList()
             }
 
             for (loc in uniqueLocations) {

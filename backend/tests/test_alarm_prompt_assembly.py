@@ -208,3 +208,10 @@ def test_today_kst_label_uses_korean_weekday():
     assert today_kst_label(datetime(2026, 11, 5, 7, 0, tzinfo=ZoneInfo("Asia/Seoul"))) == "2026-11-05 (목)"
     # UTC 22시는 KST로 다음 날 아침이다
     assert today_kst_label(datetime(2026, 11, 4, 22, 0, tzinfo=ZoneInfo("UTC"))) == "2026-11-05 (목)"
+
+
+def test_prompt_tells_model_how_to_use_tomorrow_and_upcoming_schedules():
+    persona = ActivePersona(fields=legacy_fields(None), name="온리유", user_call_sign="주인님")
+    prompt = build_prompt(persona, AlarmScriptRequest(), "", today="2026-11-06 (금)")
+    assert "'내일 일정'" in prompt
+    assert "'다가오는 일정'" in prompt
