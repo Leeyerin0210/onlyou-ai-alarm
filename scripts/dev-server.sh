@@ -28,7 +28,16 @@ fi
 
 [ -f .env ] || echo "경고: backend/.env 없음 — GEMINI_API_KEY 등이 비어 채팅이 동작하지 않습니다."
 
-# 4. API 서버 — http://localhost:8080 (에뮬레이터에서는 10.0.2.2:8080)
+# 4. 연결된 기기(실기기·에뮬레이터)의 127.0.0.1:8080을 이 Mac의 8080으로 — debug 앱 BASE_URL
+ADB="$(command -v adb || echo "$HOME/Library/Android/sdk/platform-tools/adb")"
+if [ -x "$ADB" ]; then
+  for serial in $("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}'); do
+    "$ADB" -s "$serial" reverse tcp:8080 tcp:8080 >/dev/null && echo "adb reverse 연결됨: $serial"
+  done
+  echo "폰을 나중에 꽂았다면: $ADB reverse tcp:8080 tcp:8080"
+fi
+
+# 5. API 서버 — http://localhost:8080
 export DATABASE_URL="${DATABASE_URL:-postgresql://onlyou:onlyou@localhost:5433/onlyou}"
 export DEV_RELOAD=1
 exec .venv/bin/python main.py

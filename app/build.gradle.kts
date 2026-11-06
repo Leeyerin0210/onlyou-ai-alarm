@@ -47,7 +47,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/\"")
+            // 에뮬레이터·실기기 모두 `adb reverse tcp:8080 tcp:8080`으로 Mac의 8080에 닿는다 (scripts/dev-server.sh가 실행)
+            buildConfigField("String", "BASE_URL", "\"http://127.0.0.1:8080/\"")
         }
         release {
             if (keystorePropertiesFile.exists()) {

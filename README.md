@@ -185,7 +185,7 @@ com.onlyou.com
 ### 0. 한 줄로 서버 켜기 (권장)
 
 ```bash
-./scripts/dev-server.sh        # api: localhost:8080 (에뮬레이터는 10.0.2.2:8080), db: localhost:5433
+./scripts/dev-server.sh        # api: localhost:8080 (연결된 기기엔 adb reverse로 127.0.0.1:8080), db: localhost:5433
 ```
 
 Docker Desktop 실행 → 기존 DB 컨테이너(`onlyou-ai-alarm-db-1`) 시작 → `backend/.venv`(없으면 생성) → FastAPI 자동 리로드 순으로 진행합니다.
@@ -241,7 +241,7 @@ TEST_DATABASE_URL=postgresql://onlyou:onlyou@localhost:5433/onlyou_test pytest
 ### 4. Android
 
 ```bash
-./gradlew assembleDebug        # BASE_URL = http://10.0.2.2:8080/ (에뮬레이터 → 호스트 백엔드)
+./gradlew assembleDebug        # BASE_URL = http://127.0.0.1:8080/ (adb reverse → 호스트 백엔드, 실기기는 USB)
 ./gradlew assembleRelease      # keystore.properties가 없으면 미서명으로 빌드
 ```
 
