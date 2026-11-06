@@ -423,7 +423,7 @@ fun ScheduleScreenContent(
                         Icon(
                             Icons.Default.Schedule,
                             null,
-                            tint = colors.secondary,
+                            tint = colors.primary,
                             modifier = Modifier.size(14.dp),
                         )
                         Text(
@@ -567,7 +567,7 @@ private fun WeekStrip(
                         Modifier
                             .size(4.dp)
                             .clip(CircleShape)
-                            .background(if (hasSchedule) (if (isSelected) colors.background else colors.secondary) else Color.Transparent),
+                            .background(if (hasSchedule) (if (isSelected) colors.background else colors.primary) else Color.Transparent),
                     )
                 }
             }
@@ -665,7 +665,7 @@ private fun MonthCalendar(
                             Modifier
                                 .size(4.dp)
                                 .clip(CircleShape)
-                                .background(if (hasSchedule) (if (isSelected) colors.background else colors.secondary) else Color.Transparent),
+                                .background(if (hasSchedule) (if (isSelected) colors.background else colors.primary) else Color.Transparent),
                         )
                     }
                 }
@@ -708,12 +708,14 @@ private fun TimelineItem(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Box(Modifier.width(52.dp).padding(top = 14.dp)) {
+        // 시간은 짙은 본문색 — 하늘색(secondary)은 밝은 배경에서 흐리고 보라 타임라인과도 따로 놀았다
+        Box(Modifier.width(64.dp).padding(top = 12.dp)) {
             Text(
                 timeText,
-                fontSize = 11.sp,
-                color = if (isUntimed) colors.neutral else colors.secondary,
-                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = if (isUntimed) colors.neutral else colors.onSurfaceA,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
             )

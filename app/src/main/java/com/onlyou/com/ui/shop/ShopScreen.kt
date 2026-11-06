@@ -561,13 +561,14 @@ fun PersonaDetailSheetContent(
             Surface(
                 onClick = { onPlayPreview(persona.id) },
                 shape = RoundedCornerShape(50),
-                color = colors.secondary.copy(alpha = 0.1f),
+                // 하늘색(secondary)은 밝은 배경에서 안 읽혀 주 색(보라)으로 — 상점 '사용하기' 버튼과 같은 톤
+                color = colors.primary.copy(alpha = 0.12f),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 Row(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterVertically) {
-                    Icon(Icons.Default.PlayArrow, null, tint = colors.secondary)
+                    Icon(Icons.Default.PlayArrow, null, tint = colors.primary)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (isPlaying) "재생 중" else "보이스 듣기", color = colors.secondary, fontWeight = FontWeight.Bold)
+                    Text(if (isPlaying) "재생 중" else "보이스 듣기", color = colors.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
