@@ -39,6 +39,9 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         context.startForegroundService(serviceIntent)
 
+        // 다시 울림은 원래 알람이 울릴 때 이미 다음 회차를 잡았다 — 여기서 또 재스케줄·비활성화하지 않는다
+        if (intent.getBooleanExtra(AlarmService.EXTRA_IS_SNOOZE, false)) return
+
         // ② 하루 1회 보장: 알람이 울리면 다음날 같은 시간으로 자동 재스케줄
         // Room DB 읽기 + AlarmManager 설정은 빠른 작업이라 goAsync() 60초 안에 충분히 완료됨
         if (alarmId != -1) {

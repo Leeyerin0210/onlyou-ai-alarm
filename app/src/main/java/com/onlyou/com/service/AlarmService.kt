@@ -37,6 +37,11 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import android.speech.tts.UtteranceProgressListener
 import kotlinx.coroutines.flow.collect
 import android.os.PowerManager
 
@@ -47,6 +52,8 @@ class AlarmService :
     @Inject lateinit var voiceRepository: VoiceRepository
 
     @Inject lateinit var personaRepository: PersonaRepository
+
+    @Inject lateinit var alarmScheduler: com.onlyou.com.util.AlarmScheduler
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
@@ -69,6 +76,13 @@ class AlarmService :
     private var fsiFallbackJob: Job? = null
     private var autoStopJob: Job? = null
 
+    // 전화처럼: 받기 전엔 벨소리만 울리고, 받아야 브리핑 음성이 나온다
+    private var answered = CompletableDeferred<Unit>()
+    private var playedAnyVoice = false
+    private var currentAlarmId = -1
+    private var currentTitle = ""
+    private var currentPersonaId = ""
+
     companion object {
         const val CHANNEL_ID = "alarm_channel" // 헤드업/전체화면용 (IMPORTANCE_HIGH)
         const val SILENT_CHANNEL_ID = "alarm_ongoing_channel" // 상주 알림용 (배너 안 뜸)
@@ -77,6 +91,9 @@ class AlarmService :
         const val ACTION_STOP_ALARM = "com.onlyou.com.STOP_ALARM"
         const val ACTION_ALARM_UI_VISIBLE = "com.onlyou.com.ALARM_UI_VISIBLE"
         const val ACTION_UPDATE_SCRIPT = "com.onlyou.com.UPDATE_SCRIPT"
+        const val ACTION_ANSWER = "com.onlyou.com.ANSWER_ALARM"
+        const val ACTION_SNOOZE = "com.onlyou.com.SNOOZE_ALARM"
+        const val EXTRA_IS_SNOOZE = "IS_SNOOZE"
         const val EXTRA_ALARM_ID = "ALARM_ID"
         const val EXTRA_ALARM_TITLE = "ALARM_TITLE"
         const val EXTRA_PERSONA_ID = "PERSONA_ID"
@@ -84,6 +101,14 @@ class AlarmService :
 
         // 방치 시 자동 종료까지의 시간
         const val AUTO_STOP_AFTER_MS = 10 * 60 * 1000L
+
+        // 브리핑 생성이 끝났다는 표시 (음성 큐에 넣는 빈 조각)
+        private val END_OF_BRIEFING = ByteArray(0)
+
+        private val _callPhase = MutableStateFlow(AlarmCallPhase.ENDED)
+
+        /** 알람 화면이 그리는 통화 상태. 서비스와 화면이 같은 프로세스라 정적 흐름으로 충분하다. */
+        val callPhase: StateFlow<AlarmCallPhase> = _callPhase.asStateFlow()
     }
 
     override fun onCreate() {
@@ -98,17 +123,41 @@ class AlarmService :
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
         
-        // 오디오 재생 루프 시작
+        // 오디오 재생 루프 — 받기 전까지는 기다린다
         serviceScope.launch {
             for (audioBytes in audioQueue) {
+                answered.await()
+                if (audioBytes === END_OF_BRIEFING) {
+                    // TTS 폴백 중이면 TTS가 끝날 때(onDone) FINISHED로 바꾼다
+                    if (isTtsSpeaking) continue
+                    if (_callPhase.value == AlarmCallPhase.CONNECTING) {
+                        _callPhase.value = if (playedAnyVoice) AlarmCallPhase.FINISHED else AlarmCallPhase.FAILED
+                    } else if (_callPhase.value == AlarmCallPhase.SPEAKING && !isTtsSpeaking) {
+                        _callPhase.value = AlarmCallPhase.FINISHED
+                    }
+                    continue
+                }
+                _callPhase.value = AlarmCallPhase.SPEAKING
+                playedAnyVoice = true
                 playNextAudioChunk(audioBytes)
             }
         }
     }
 
+    private var isTtsSpeaking = false
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.KOREAN
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    isTtsSpeaking = false
+                    if (_callPhase.value == AlarmCallPhase.SPEAKING) _callPhase.value = AlarmCallPhase.FINISHED
+                }
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) = onDone(utteranceId)
+            })
             pendingScript?.let { speak(it) }
         }
     }
@@ -124,6 +173,28 @@ class AlarmService :
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "AlarmTTS")
     }
 
+    /** 받기: 벨소리·진동을 멈추고 브리핑 음성 재생을 허용한다. */
+    private fun answerCall() {
+        if (!isRinging || answered.isCompleted) return
+        releaseMediaPlayer()
+        vibrator?.cancel()
+        requestAudioFocus()
+        isAIVoicePlaying = true
+        _callPhase.value = AlarmCallPhase.CONNECTING
+        answered.complete(Unit)
+    }
+
+    /** 다시 울림: 몇 분 뒤 같은 알람을 다시 걸고, 꺼내 쓴 브리핑 음성은 그때 다시 쓰게 남긴다. */
+    private fun snooze() {
+        if (!isRinging) return
+        val alarmId = currentAlarmId
+        alarmScheduler.snooze(alarmId, currentPersonaId, currentTitle)
+        serviceScope.launch(Dispatchers.IO) {
+            runCatching { voiceRepository.keepAlarmVoiceCacheForSnooze(alarmId) }
+        }
+        stopAlarm()
+    }
+
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,
@@ -131,6 +202,16 @@ class AlarmService :
     ): Int {
         if (intent?.action == ACTION_STOP_ALARM) {
             stopAlarm()
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_ANSWER) {
+            answerCall()
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_SNOOZE) {
+            snooze()
             return START_NOT_STICKY
         }
 
@@ -152,6 +233,13 @@ class AlarmService :
 
         isRinging = true
         uiVisible = false
+        answered = CompletableDeferred()
+        playedAnyVoice = false
+        isTtsSpeaking = false
+        currentAlarmId = alarmId
+        currentTitle = alarmTitle
+        currentPersonaId = personaId
+        _callPhase.value = AlarmCallPhase.RINGING
 
         // ① Foreground Service를 먼저 시작 (Android 14+에서 백그라운드 Activity 실행 허용 전제조건)
         //    상주 알림은 조용한 채널 → 알람 화면 위에 헤드업 배너가 겹치지 않는다
@@ -237,6 +325,7 @@ class AlarmService :
                         }
                         audioQueue.send(chunk.audioBytes)
                     }
+                    audioQueue.send(END_OF_BRIEFING)
                     return@runCatching
                 }
 
@@ -264,6 +353,8 @@ class AlarmService :
             }.onFailure { e ->
                 android.util.Log.e("AlarmService", "AI script generation failed", e)
             }
+            // 성공·실패와 관계없이 끝을 알린다 — 받은 뒤 아무 소리도 없으면 '연결 실패'로 보여준다
+            audioQueue.send(END_OF_BRIEFING)
         }
     }
 
@@ -274,8 +365,13 @@ class AlarmService :
         if (voiceBytes != null) {
             audioQueue.send(voiceBytes)
         } else {
-            // TTS 폴백 (마지막 수단)
-            withContext(Dispatchers.Main) {
+            // TTS 폴백 (마지막 수단) — 받은 뒤에 읽는다
+            // 끝 표시보다 먼저 세워야 '연결 실패'로 잘못 바뀌지 않는다
+            isTtsSpeaking = true
+            serviceScope.launch {
+                answered.await()
+                playedAnyVoice = true
+                _callPhase.value = AlarmCallPhase.SPEAKING
                 speak(sentence)
             }
         }
@@ -372,6 +468,7 @@ class AlarmService :
 
     private fun stopAlarm() {
         isRinging = false
+        _callPhase.value = AlarmCallPhase.ENDED
         fsiFallbackJob?.cancel()
         autoStopJob?.cancel()
         releaseMediaPlayer()
@@ -405,6 +502,14 @@ class AlarmService :
         )
     }
 
+    private fun snoozePendingIntent(alarmId: Int): PendingIntent =
+        PendingIntent.getService(
+            this,
+            alarmId + 3000,
+            Intent(this, AlarmService::class.java).apply { action = ACTION_SNOOZE },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
     private fun alarmActivityPendingIntent(title: String, alarmId: Int): PendingIntent {
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
             putExtra(EXTRA_ALARM_ID, alarmId)
@@ -428,10 +533,11 @@ class AlarmService :
             .Builder(this, SILENT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_alarm_notification)
             .setContentTitle(title)
-            .setContentText("알람이 울리고 있습니다. 탭해서 끄세요.")
+            .setContentText("모닝콜이 왔어요. 탭해서 받으세요.")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(alarmActivityPendingIntent(title, alarmId))
+            .addAction(0, "${com.onlyou.com.util.SNOOZE_MINUTES}분 뒤", snoozePendingIntent(alarmId))
             .addAction(0, "알람 끄기", stopPendingIntent(alarmId))
             .setAutoCancel(false)
             .setOngoing(true)
@@ -447,12 +553,13 @@ class AlarmService :
             .Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_alarm_notification)
             .setContentTitle(title)
-            .setContentText("알람이 울리고 있습니다. 탭해서 끄세요.")
+            .setContentText("모닝콜이 왔어요. 탭해서 받으세요.")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(contentPendingIntent) // 탭 시 AlarmActivity
             .setFullScreenIntent(contentPendingIntent, true) // 잠금화면/백그라운드에서 강제 표시
+            .addAction(0, "${com.onlyou.com.util.SNOOZE_MINUTES}분 뒤", snoozePendingIntent(alarmId))
             .addAction(0, "알람 끄기", stopPendingIntent(alarmId))
             .setAutoCancel(false)
             .build()
@@ -494,4 +601,25 @@ class AlarmService :
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+}
+
+/** 알람 '통화' 단계. */
+enum class AlarmCallPhase {
+    /** 벨이 울리는 중 (받기 전) */
+    RINGING,
+
+    /** 받았지만 아직 브리핑 음성이 준비 안 됨 */
+    CONNECTING,
+
+    /** 브리핑을 읽는 중 */
+    SPEAKING,
+
+    /** 브리핑을 다 읽음 */
+    FINISHED,
+
+    /** 받았는데 브리핑을 만들지 못함 */
+    FAILED,
+
+    /** 알람이 꺼짐 */
+    ENDED,
 }

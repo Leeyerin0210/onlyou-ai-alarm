@@ -298,7 +298,7 @@ fun AlarmScreenContent(
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
                                             if (isCloseToNow) {
-                                                "알람이 저장되었습니다. 시간이 촉박해 AI 음성 준비가 늦으면 기본 알람음으로 울려요."
+                                                "알람이 저장되었습니다. 시간이 촉박해 받은 뒤 브리핑까지 조금 걸릴 수 있어요."
                                             } else {
                                                 "알람 설정이 저장되었습니다."
                                             },

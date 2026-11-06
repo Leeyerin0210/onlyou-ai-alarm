@@ -82,7 +82,6 @@ fun SettingsScreen(
             item { Spacer(Modifier.height(16.dp)) }
 
             item { SettingsSectionTitle("알림 설정") }
-            item { SettingsRowItem(Icons.Default.NotificationsNone, "푸시 알림", onClick = { /* TODO */ }) }
             item { SettingsRowItem(Icons.Default.Campaign, "브리핑 알림", onClick = { onNavigateTo("settings_briefing") }) }
             item { SettingsRowItem(Icons.Default.DoNotDisturb, "방해 금지 시간", onClick = { onNavigateTo("settings_dnd") }) }
             item { BatteryOptimizationRow() }

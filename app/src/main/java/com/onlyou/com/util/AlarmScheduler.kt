@@ -13,6 +13,12 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** 다시 울림 간격(분). */
+const val SNOOZE_MINUTES = 5L
+
+/** 다시 울림 PendingIntent 요청 코드 = 알람 id + 이 값 (사전 생성은 +2000, 화면은 +1000). */
+private const val SNOOZE_REQUEST_OFFSET = 4000
+
 @Singleton
 class AlarmScheduler
     @Inject
@@ -133,7 +139,48 @@ class AlarmScheduler
             }
         }
 
+        /**
+         * 다시 울림. [minutes]분 뒤 같은 알람을 한 번 더 울린다. 반복 일정 재스케줄과 무관한
+         * 별도 PendingIntent(요청 코드 +[SNOOZE_REQUEST_OFFSET])라 원래 다음 알람을 덮지 않는다.
+         */
+        fun snooze(alarmId: Int, personaId: String, title: String, minutes: Long = SNOOZE_MINUTES) {
+            val triggerAt = System.currentTimeMillis() + minutes * 60_000L
+            val pendingIntent = snoozePendingIntent(alarmId, personaId, title)
+            val showPendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, com.onlyou.com.MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            try {
+                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showPendingIntent), pendingIntent)
+            } catch (e: SecurityException) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+            }
+        }
+
+        fun cancelSnooze(alarmId: Int) {
+            alarmManager.cancel(snoozePendingIntent(alarmId, "", ""))
+        }
+
+        private fun snoozePendingIntent(alarmId: Int, personaId: String, title: String): PendingIntent {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra(AlarmService.EXTRA_ALARM_ID, alarmId)
+                putExtra(AlarmService.EXTRA_PERSONA_ID, personaId)
+                putExtra(AlarmService.EXTRA_ALARM_TITLE, title)
+                putExtra(AlarmService.EXTRA_IS_SNOOZE, true)
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                alarmId + SNOOZE_REQUEST_OFFSET,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
         fun cancel(alarm: MiyaAlarm) {
+            // 알람을 끄거나 바꾸면 걸려 있던 다시 울림도 취소
+            cancelSnooze(alarm.id)
             // ... 기존 알람 취소
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(

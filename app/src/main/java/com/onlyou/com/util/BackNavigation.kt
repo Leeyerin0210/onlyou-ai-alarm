@@ -2,6 +2,8 @@ package com.onlyou.com.util
 
 /** 아직 만들지 않은 드로어 메뉴 → "준비 중" 화면에 띄울 제목. */
 val COMING_SOON_SCREENS: Map<String, String> = mapOf(
+    // 결제 연동 전까지는 준비 중 (PremiumPlanScreen은 연동할 때 다시 연결)
+    "drawer_premium" to "프리미엄 플랜",
     "drawer_stats" to "사용 통계",
     "drawer_help" to "도움말 & 문의",
     "drawer_news" to "새 소식",
@@ -28,6 +30,6 @@ fun backDestination(screen: String, drawerReturn: DrawerReturn? = null): String?
     screen == "legal_terms" || screen == "legal_privacy" -> "settings_app_info"
     screen == "my_personas" || screen.startsWith("persona_edit") -> "shop"
     // 드로어에서만 들어가는 화면 — 드로어를 연 화면을 모르면 채팅으로
-    screen == "drawer_premium" || screen in COMING_SOON_SCREENS -> "chat"
+    screen in COMING_SOON_SCREENS -> "chat"
     else -> null
 }

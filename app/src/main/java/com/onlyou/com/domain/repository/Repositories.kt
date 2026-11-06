@@ -138,6 +138,9 @@ interface VoiceRepository {
      * 캐시된 알람 보이스 청크들을 가져옴
      */
     suspend fun getCachedAlarmVoiceChunks(alarmId: Int): List<AlarmVoiceChunk>
+
+    /** 다시 울림: 방금 꺼내 쓴 브리핑 음성을 몇 분 뒤 다시 울릴 때 한 번 더 쓸 수 있게 남긴다. */
+    suspend fun keepAlarmVoiceCacheForSnooze(alarmId: Int)
 }
 
 data class EveningFeedbackSettings(

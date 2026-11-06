@@ -80,7 +80,6 @@ import com.onlyou.com.ui.settings.DndTimeScreen
 import com.onlyou.com.ui.settings.ProfileEditScreen
 import com.onlyou.com.ui.settings.SettingsScreen
 import com.onlyou.com.ui.settings.ToneAndPersonalityScreen
-import com.onlyou.com.ui.settings.PremiumPlanScreen
 import com.onlyou.com.ui.shop.MyPersonasScreen
 import com.onlyou.com.ui.shop.PersonaEditScreen
 import com.onlyou.com.ui.shop.ShopScreen
@@ -407,9 +406,6 @@ class MainActivity : ComponentActivity() {
                                             })
                                         }
 
-                                        screenState == "drawer_premium" -> {
-                                            PremiumPlanScreen(onBack = goBack)
-                                        }
 
                                         screenState == "settings_backup" -> {
                                             BackupSyncScreen(onBack = {

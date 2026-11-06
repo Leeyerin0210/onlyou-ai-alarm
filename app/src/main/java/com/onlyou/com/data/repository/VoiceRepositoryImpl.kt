@@ -241,6 +241,13 @@ class VoiceRepositoryImpl
                 }
             }
 
+        override suspend fun keepAlarmVoiceCacheForSnooze(alarmId: Int) =
+            withContext(Dispatchers.IO) {
+                if (alarmVoiceChunkDao.getChunksForAlarm(alarmId).isEmpty()) return@withContext
+                context.getSharedPreferences("voice_pregen_prefs", Context.MODE_PRIVATE)
+                    .edit().putLong("alarm_${alarmId}_generated_at", System.currentTimeMillis()).apply()
+            }
+
         /**
          * 브리핑에 실을 기기 전용 컨텍스트(오늘·내일·다가오는 일정 + 일정 장소의 날씨).
          *
