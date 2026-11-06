@@ -38,6 +38,7 @@ class VoiceRepositoryImpl
         private val weatherRepository: WeatherRepository,
         private val userProfileRepository: com.onlyou.com.domain.repository.UserProfileRepository,
         private val alarmRepository: com.onlyou.com.domain.repository.AlarmRepository,
+        private val deviceLocationStore: com.onlyou.com.data.location.DeviceLocationStore,
     ) : VoiceRepository {
         override suspend fun synthesizeVoiceCloned(
             text: String,
@@ -270,6 +271,22 @@ class VoiceRepositoryImpl
                 emptyList()
             }
 
+            fun weatherLine(place: String, w: com.onlyou.com.domain.repository.WeatherInfo) =
+                ContextItemDto(
+                    type = "WEATHER",
+                    content = "[날씨] $place: 기온 ${w.temperature}도, " +
+                        "${if (w.weatherCode < 3) "맑음" else "흐림/비"}, 강수확률 ${w.precipitationProbability}%",
+                )
+
+            // 지금 있는 곳(앱을 마지막으로 켰을 때의 대략 위치) 날씨를 먼저
+            if (weatherEnabled) {
+                deviceLocationStore.saved()?.let { here ->
+                    weatherRepository.getCurrentWeather(here.lat, here.lon).getOrNull()?.let {
+                        items.add(weatherLine("현재 위치(${here.placeName})", it))
+                    }
+                }
+            }
+
             for (loc in uniqueLocations) {
                 val geoResult = weatherRepository.getCoordinatesFromName(loc)
                 if (geoResult.isFailure) continue
@@ -277,14 +294,7 @@ class VoiceRepositoryImpl
                 val weatherRes = weatherRepository.getCurrentWeather(coords.first, coords.second)
                 if (weatherRes.isFailure) continue
                 val w = weatherRes.getOrNull() ?: continue
-                val weatherStr = if (w.weatherCode < 3) "맑음" else "흐림/비"
-                items.add(
-                    ContextItemDto(
-                        type = "WEATHER",
-                        content = "[날씨] $loc: 기온 ${w.temperature}도, $weatherStr, " +
-                            "강수확률 ${w.precipitationProbability}%",
-                    ),
-                )
+                items.add(weatherLine(loc, w))
             }
 
             return items

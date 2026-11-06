@@ -26,7 +26,13 @@ class AlarmViewModel
         private val repository: AlarmRepository,
         private val personaRepository: PersonaRepository,
         private val scheduler: AlarmScheduler,
+        private val deviceLocationStore: com.onlyou.com.data.location.DeviceLocationStore,
     ) : ViewModel() {
+        /** 위치 권한을 막 받았을 때 — 바로 현재 위치를 저장해 다음 브리핑부터 쓰게 한다. */
+        fun onLocationPermissionGranted() {
+            viewModelScope.launch { runCatching { deviceLocationStore.refresh() } }
+        }
+
         private val _singleAlarm = MutableStateFlow<MiyaAlarm?>(null)
         val singleAlarm: StateFlow<MiyaAlarm?> = _singleAlarm.asStateFlow()
 

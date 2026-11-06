@@ -90,11 +90,19 @@ fun AlarmScreen(
         }
     }
 
+    // '오늘의 날씨'를 켜면 대략 위치 권한을 묻는다. 거절해도 일정 장소 날씨는 그대로 나온다.
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.onLocationPermissionGranted() }
+
     AlarmScreenContent(
         singleAlarm = singleAlarm,
         onToggleAlarm = viewModel::toggleAlarm,
         onSaveAlarm = viewModel::saveAlarm,
         onOpenDrawer = onOpenDrawer,
+        onWeatherEnabled = {
+            locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+        },
     )
 }
 
@@ -104,6 +112,7 @@ fun AlarmScreenContent(
     onToggleAlarm: (Boolean) -> Unit,
     onSaveAlarm: (LocalTime, String, String?, Set<DayOfWeek>, LocalDate?, Boolean) -> Unit,
     onOpenDrawer: () -> Unit = {},
+    onWeatherEnabled: () -> Unit = {},
 ) {
     val colors = MiyaTheme.colors
     val context = LocalContext.current
@@ -255,7 +264,10 @@ fun AlarmScreenContent(
 
                     BriefingCategorySectionCard(
                         isWeatherEnabled = isWeatherEnabled,
-                        onWeatherToggle = { isWeatherEnabled = it },
+                        onWeatherToggle = {
+                            isWeatherEnabled = it
+                            if (it) onWeatherEnabled()
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
 

@@ -64,6 +64,9 @@ class AlarmActivity : ComponentActivity() {
     lateinit var weatherRepository: WeatherRepository
 
     @Inject
+    lateinit var deviceLocationStore: com.onlyou.com.data.location.DeviceLocationStore
+
+    @Inject
     lateinit var userProfileRepository: com.onlyou.com.domain.repository.UserProfileRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -130,11 +133,15 @@ class AlarmActivity : ComponentActivity() {
                     ?: personaRepository.getSelectedPersona().first()
             }
 
-            // 일정에 적힌 장소의 날씨만 보여준다. 장소가 없으면 날씨 칸을 비운다
-            // (위치정보법상 기기 위치는 수집하지 않는다 — 예전엔 서울로 고정해 엉뚱한 날씨가 떴다)
+            // 지금 있는 곳 + 일정 장소 날씨 (최대 2곳). 예전엔 서울로 고정돼 엉뚱한 날씨가 떴다
             LaunchedEffect(schedules) {
-                val places = com.onlyou.com.util.briefingWeatherPlaces(schedules, today).take(2)
-                weathers = places.mapNotNull { place ->
+                val here = deviceLocationStore.saved()?.let { loc ->
+                    weatherRepository.getCurrentWeather(loc.lat, loc.lon).getOrNull()?.copy(locationName = loc.placeName)
+                }
+                val places = com.onlyou.com.util.briefingWeatherPlaces(schedules, today)
+                    .filter { it != here?.locationName }
+                    .take(if (here != null) 1 else 2)
+                weathers = listOfNotNull(here) + places.mapNotNull { place ->
                     val coords = weatherRepository.getCoordinatesFromName(place).getOrNull() ?: return@mapNotNull null
                     weatherRepository.getCurrentWeather(coords.first, coords.second).getOrNull()
                         ?.copy(locationName = place)

@@ -87,6 +87,7 @@ import com.onlyou.com.ui.theme.MiyaTheme
 import com.onlyou.com.ui.theme.ThemeManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
@@ -112,6 +113,15 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig
+
+    @Inject
+    lateinit var deviceLocationStore: com.onlyou.com.data.location.DeviceLocationStore
+
+    override fun onResume() {
+        super.onResume()
+        // 알람 브리핑은 백그라운드에서 만들어 위치를 못 읽는다 — 앱이 켜질 때 대략 위치를 저장해 둔다
+        lifecycleScope.launch { runCatching { deviceLocationStore.refresh() } }
+    }
 
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
